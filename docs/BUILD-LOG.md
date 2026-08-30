@@ -487,6 +487,75 @@ verified to fail against its own mutant before being kept.
 
 ---
 
+## 16. An integer check that admitted an uncountable integer
+
+**Believed.** `Number.isInteger` is the right test for "this arrived as integer paise", and the
+ingestion layer's 32 tests — an end-to-end acceptance run plus a hand-built rejection case for
+every documented rule — were adequate evidence that the guards work.
+
+**Broke.** Three things, none of which any test could see.
+
+- **`Number.isInteger(1e21)` is `true`.** So is `1e21 + 1 === 1e21`. Money past 2^53 passes
+  validation and then stops being countable: the tier-2 rollup sums it into a total that is
+  quietly wrong rather than obviously absurd. The check was asking "is this a whole number"
+  when the question is "can this be added up".
+- **The GSTIN shape check had no test at all.** Deleting it left the suite green. `gstin: ""`
+  was covered; `gstin: "NOTAGSTIN"` was not, and PRD §5 is explicit that an invalid GSTIN
+  reaching a judge is worse than a code bug.
+- **`rsn` could be stringified instead of validated.** Replacing the string check with
+  `String(row.rsn)` also left the suite green — turning a numeric or object `rsn` into `"42"` or
+  `"[object Object]"`. That field is GSTN's stated reason for blocking a credit, read by a human
+  deciding whether to claim it, so the failure mode is a fabricated government reason.
+
+**Caught by.** Two passes run *after* the suite was green, in opposite directions. Mutation
+injection — 18 faults, 16 killed immediately, 2 survivors — found the two blind spots. A separate
+input-direction probe, 16 hostile payload shapes fed straight into both parsers, found the
+oversized integer. Neither would have been found by running the tests again; both were green
+throughout.
+
+**Would have cost.** Low probability, silent direction — the expensive combination. An oversized
+amount corrupts an ITC figure with no error anywhere. A stringified `rsn` puts words in the
+government's mouth on the one field that decides whether the merchant may claim.
+
+**Permanently changed.** `requireInteger` now demands `Number.isSafeInteger`, with the reasoning
+in its header. Guards in `tests/ingestion.test.ts` pin `1e21` and `2**53`, the GSTIN shape on both
+`gstin` and `ctin`, and `rsn` typing (rejects a number and an object; accepts absent as `""`,
+which is what GSTN itself writes against an eligible invoice). Each was verified to fail against
+its own mutant before being kept.
+
+*Recorded rather than silently allowed:* negative money still parses. No verified source says a
+negative `fee` is impossible in Razorpay's ledger, and the matcher already reports a fee it cannot
+explain as `FEE_DEDUCTION` rather than inventing a reason for it. Rejecting it would be a rule
+invented by the parser, which is the same class of mistake as coercing.
+
+---
+
+## 17. Two bucket counts that were right for a reason that isn't guaranteed
+
+**Believed.** Counting the audit trail's `matched_exact` / `matched_fuzzy` / `exceptions` buckets
+off `match_method` (or off `exception_category`) is the same as counting them off `status`.
+
+**Broke.** It is the same *only* because of an invariant inside `matchBatch`: `method` is `NONE`
+exactly when the status is `EXCEPTION`, and `category` is non-null exactly then too. Both proxies
+survived mutation against the full suite. The invariant is not a law — a netted refund already
+resolves cleanly to `STANDARD` and is an exception purely on its verdict, so a matcher change that
+kept the resolved cell on an exception row would make the proxies disagree with the truth, in the
+flattering direction, on the headline 30 / 8 / 16.
+
+**Caught by.** Mutation injection on `src/lib/audit/rows.ts` — 11 faults, 9 killed, 2 survived —
+with all 96 tests green before, during and after.
+
+**Would have cost.** Nothing today; the numbers are correct. What was missing is evidence that
+they are correct *by construction* rather than by a coincidence in a neighbouring file.
+
+**Permanently changed.** Both counts read `status`. `tests/audit-rows.test.ts` feeds `toBatchRow`
+a hand-built `BatchResult` containing an `EXCEPTION` that carries `method: "EXACT"` and a null
+category — a shape the 54-row fixture cannot produce and the matcher does not currently emit —
+and asserts 1 / 1 / 2. It fails against both proxy mutants. The mapping layer takes a
+`BatchResult` rather than raw settlements precisely so this shape can be handed to it.
+
+---
+
 ## The pattern (notes for the narrative — not final wording)
 
 Almost nothing crashed. **Every significant failure here was code or spec that was wrong while
