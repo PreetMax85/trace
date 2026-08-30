@@ -14,9 +14,11 @@ It never matches automatically. Here's why:
 
 Razorpay bills MDR on **one consolidated tax invoice per month** — not per settlement, and not per transaction. Each settlement batches hundreds of transactions, nets out MDR + GST, deducts refunds, and sends a single NEFT credit to the merchant's bank, but the tax invoice backing all of those deductions arrives once a month. GSTR-2B therefore carries a *single* Razorpay line for the period, and the merchant has to reconcile hundreds of individual fee deductions against that one number. Their bookkeeper meanwhile records sales per-transaction in Tally. Three sources, three formats, three levels of granularity — none of them align without manual effort.
 
-**The result:** A CA Club India survey (Dec 2025) found GSTR-2B reconciliation takes 5-20 hours per merchant per month. Manual VLOOKUP matching achieves 51% accuracy. Every unmatched entry is potential ITC left unclaimed — real money, real compliance risk.
+**The cost:** practising CAs put manual GSTR-2A/2B reconciliation at **2–4 hours per client per month** in Excel, with firms carrying 100+ clients losing **over 100 staff hours a month** to it ([CAClubIndia thread, 31 March 2026](https://www.caclubindia.com/forum/how-long-does-gstr-2a-reconciliation-take-your-firm-per-client-quick-survey-615053.asp)). That is practitioner testimony from a forum discussion, not a controlled survey, and is cited as such. Every unmatched entry is potential ITC left unclaimed.
 
-**The gap nobody has filled:** Generic GST matching tools (Taxilla, Optotax, GST Reconcile) take CSV uploads and match purchase registers against GSTR-2B. None of them take Razorpay's settlement API as input. None of them classify WHY a mismatch happened. None of them bridge Razorpay's per-transaction fee deductions to the single consolidated invoice line that GSTR-2B actually shows, or surface the Section 34 credit-note obligation a netted refund creates. Zoho published a dedicated article on this specific gap in June 2026 — the problem is documented, the solution doesn't exist yet.
+**The gap nobody has filled:** generic GST matching tools — ClearTax, OptoTax, IRIS, TallyPrime with an ERP connector, Zoho Books — take CSV or ERP uploads and match a purchase register against GSTR-2B. None take Razorpay's settlement API as input. None classify *why* a mismatch happened. None bridge per-transaction fee deductions to the single consolidated invoice line GSTR-2B actually shows, or surface the Section 34 credit-note obligation a netted refund creates.
+
+[Zoho Payments published an article on exactly this gap](https://www.zoho.com/payments/academy/regulatory-compliance/gst-reconciliation-and-gst-invoice-records.html) on 16 June 2026: *"A settlement report alone does not satisfy that record trail,"* and *"the practical check before each period closes is whether the gateway's tax invoice for that period has appeared in GSTR-2B."* It states the problem precisely and stops there — Zoho's own answer is a Tax Invoices report and a Refund Summary report for a human to read. A competitor has documented the problem in writing and shipped no automation for it.
 
 ---
 
@@ -63,7 +65,7 @@ Three layers, each dependent on the one before:
 - **Act:** Drafted next-action per exception — CA email (prefilled settlement ID, amounts, Section 34 reference), GSTR-3B correction flag, Tally correction entry. Draft only — human confirms before send.
 - Section 34 credit-note flagging for refund-adjusted settlements, and `itcavl` ineligibility flagging from GSTR-2B
 - Batch report: match rate %, ITC matched (₹), ITC at risk (₹), exception breakdown by category
-- Audit trail: every decision logged with timestamp, match method, confidence tier, source fields
+- Audit trail: every decision logged with timestamp, match method, resolved rate cell, source fields
 
 ### Out of scope
 
@@ -225,7 +227,12 @@ matched, not an exception: the fee was correct, it was simply billed at a cell t
 expect.
 
 If a cell matches: record status = `MATCHED`. Log match method = `FUZZY`, `rate_cell` = the cell
-that resolved it. Confidence = `MEDIUM`.
+that resolved it.
+
+There is deliberately **no separate confidence field**. `match_method` *is* the confidence tier —
+`EXACT` means the merchant's expected rate held, `FUZZY` means a different published cell explained
+it, `NONE` means nothing did. A second column would be a pure function of the first and could only
+ever drift out of step with it.
 
 **Step 3: Exception queue.** Everything unresolved after Steps 1 and 2 enters the exception
 classifier in Section 7.
@@ -491,14 +498,14 @@ is generated; the counts above are exact.
 
 Before picking this direction, I mapped Razorpay's entire current AI product surface:
 
-- **Agentic Dashboard** — does 2-way reconciliation (bank statement vs settlement). Does not handle GSTR-2B. Does not explain mismatches. Does not flag ITC reversal requirements.
-- **Agent Studio** — Dispute Expert, Subscription Recovery Agent, Cart Abandonment Recovery Agent, Receivables Agent, Bookkeeping Agent. None touch payment-gateway-specific GST reconciliation.
+- **Agentic Dashboard** — 2-way reconciliation: upload a bank statement, or a screenshot of one, and the agent extracts UTRs and amounts and cross-references them against Razorpay's settlement records to flag discrepancies. Bank-to-settlement only. It never reads GSTR-2B, never explains *why* a line differs, and never surfaces a compliance obligation.
+- **Agent Studio** — a marketplace of prebuilt agents inside the dashboard: Dispute Expert / Dispute Responder, Abandoned Cart Conversion, Subscription Recovery, Cashflow Forecaster. None touch payment-gateway GST reconciliation. The **Cashflow Forecaster** is the reason forward cash forecasting sits on this project's do-not-build list — Razorpay ships it already. (Receivables belongs to RazorpayX Agentic Banking, a different product; no "Bookkeeping Agent" appears in the public listing.)
 - **Vulcan** — fraud/routing foundation model. Unrelated.
 - **Slash** — internal PR automation. Unrelated.
 
 The Agentic Dashboard's own documented capability is uploading "a bank statement" (singular) for settlement matching. Trace's input is different: Razorpay's own settlement API data + GSTR-2B JSON. Different input, different compliance domain, different user (CA vs merchant), different output (ITC claim report vs matched rows).
 
-This is not building what Razorpay already built. This is building what they explicitly said "the 2026 builder consensus" identified: verification capacity, not generation speed, is the bottleneck.
+This is not building what Razorpay already built. Different input (settlement API + GSTR-2B, not a bank statement), different domain (tax compliance, not cash matching), different user (the CA who signs the return, not the ops lead who chases a missing credit), different output (a defensible ITC position, not a list of matched rows).
 
 ---
 
@@ -509,7 +516,7 @@ This is not building what Razorpay already built. This is building what they exp
 | 50+ record batch | 54 synthetic records (Jul–Aug 2026, single merchant) |
 | Match rate | `match_rate_pct` in batch report — exact + fuzzy breakdown |
 | Honest exception list | 5-category taxonomy, UNEXPLAINED used when no rule fits |
-| Measured accuracy | Per-record `match_method` + `confidence` logged in audit trail |
+| Measured accuracy | Per-record `match_method` and `rate_cell` logged in the audit trail; `match_method` is the confidence tier |
 | Throughput | Processing time logged per batch run (target: <3 seconds for 54 records) |
 
 ---
