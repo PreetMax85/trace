@@ -1,0 +1,64 @@
+# Trace — Claude Code Instructions
+
+## Project Overview
+
+Trace is a GST tax-line matching agent for the Razorpay AI Buildathon 2026 (Track 04: AI Finance Controller). Single merchant, one GSTIN, test-mode only. Matches Razorpay settlement data against GSTR-2B entries, classifies exceptions with plain-language reasoning, and drafts the next compliance action (CA email, GSTR-3B flag, Tally entry) for a human to confirm.
+
+Three layers: a deterministic matching engine, an AI layer that answers plain-language questions about the batch, and an AI layer that drafts actions. No login, no auth — single seeded merchant, demo scope only.
+
+Full spec: `docs/PRD.md`. Pitch content: `docs/PITCH.md`. Don't duplicate their content here beyond what's needed to steer day-to-day coding — read them when you need real depth.
+
+## Commands
+
+Provisional until the project is scaffolded — update once real scripts exist.
+
+- `npm install` — install dependencies
+- `npm run dev` — start dev server
+- `npm run typecheck` — TypeScript check
+- `npm test` — run test suite
+- `npx inngest dev` — start Inngest dev server for pipeline testing
+
+**Always run typecheck + tests after a change.** Don't report a task done without running both.
+
+## Non-negotiable rules
+
+- **Documentation-first — never code against a remembered API.** Before writing calls into Inngest, Vercel AI SDK, Next.js App Router, Drizzle, or `@razorpay/blade`, pull the current docs via the Context7 MCP server. These libraries move faster than training data and guessed prop names / signatures are the main source of wasted time here. If a lookup can't be retrieved, say so — don't guess the signature.
+- Context7 runs keyless and rate-limits per IP. If lookups start getting throttled, tell me to add a free API key from context7.com/dashboard — don't silently fall back to guessing.
+- Bash is scoped, not disabled (`.claude/settings.local.json`). Build/test/read-only-git commands run directly: `npm run *`, `npm test`, `npm install`, `npx tsc`, `npx vitest`, `npx drizzle-kit`, `git status|diff|log|show`. Everything else prompts. `git commit`, `git push`, `git reset`, `rm`, and `npx inngest dev` are denied — write those out for me to run.
+- Commits use Conventional Commits (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`). Draft the message, I run `git commit` myself.
+- Ask before architectural changes. Don't restructure the 3-layer design or the exception taxonomy without checking with me first.
+- Execute one step at a time. After each step, stop and say "This step has been run. Tell me to check it." Continue only when I say to proceed, or when I name several steps to run together.
+
+## Locked scope — don't expand these
+
+- 5 fixed exception categories (`FEE_DEDUCTION`, `TIMING`, `REFUND_NETTED`, `PARTIAL_PAYMENT`, `UNEXPLAINED`) — definitions and breakdown in PRD Section 7. No new categories without discussion.
+- Single merchant, one GSTIN, test-mode only. No multi-merchant logic.
+- No auth, no login screen. Single seeded merchant, hardcoded.
+- Detect layer is deterministic — no LLM calls for matching logic itself, ever.
+- Act layer drafts only. Never auto-sends an email, never auto-files a correction. Human confirms every time.
+
+## Do NOT build
+
+These were considered and killed for specific reasons — don't rediscover them:
+
+- Settlement Q&A agent — Razorpay's own Agentic Dashboard already does this
+- Forward cash forecasting — unverifiable output in this timeframe
+- Voice/WhatsApp-based recovery — already shipped by Razorpay (Agent Studio)
+- TDS / Form 26AS / Section 194-O logic — separate compliance domain, out of scope
+- "Learning" from past exceptions — it's a `GROUP BY` query on classification results, not ML. Don't build or describe it as adaptive/learning.
+
+## Stack
+
+Next.js (App Router), PostgreSQL + Drizzle, `@razorpay/blade` for UI, Inngest for durable pipeline execution, Vercel AI SDK + Claude (Anthropic API) for the Explain/Act agent layers, Langfuse for tracing, Sentry for error monitoring, deployed on Vercel.
+
+## Data
+
+- `razorpay-mcp-server` (test-mode `rzp_test_` keys) — primarily `fetch_settlement_recon_details` (`fee`/`tax` fields in paise) and `fetch_all_refunds`.
+- Synthetic GSTR-2B JSON matching GSTN's real schema (`ctin`/`inum`/`flprdr1`/`txval`/`camt`/`samt`/`iamt`).
+- Matching keys: GSTIN + normalized invoice number + filing period + tax amount within ₹1 tolerance. Exact match first, fuzzy fallback (±3 day window) second.
+- 54 synthetic records total, causally broken per category — see PRD Section 13 for the exact breakdown, don't regenerate randomly.
+
+## Reference docs
+
+- `docs/PRD.md` — full spec: architecture, data schemas, exception taxonomy (Section 7), synthetic data breakdown (Section 13)
+- `docs/PLAN.md`, `docs/PITCH.md` — local working docs, untracked by design. Read them for scheduling and narrative context when present; don't assume they exist.

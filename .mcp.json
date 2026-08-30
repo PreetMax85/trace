@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "blade": {
+      "command": "npx",
+      "args": ["-y", "@razorpay/blade-mcp@latest"]
+    },
+    "razorpay": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "https://mcp.razorpay.com/mcp",
+        "--header",
+        "Authorization: Basic ${RAZORPAY_MCP_TOKEN}"
+      ]
+    }
+  }
+}
