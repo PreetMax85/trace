@@ -207,12 +207,26 @@ the resolved rows up and ties the period total to the single GSTR-2B invoice lin
 All comparisons are in **integer paise**. The ₹1 tolerance is exactly `100` paise. Rounding is
 deliberately *not* an exception category — it is absorbed by that tolerance.
 
-**The tolerance has a discrimination floor.** Two rate cells 0.15 percentage points apart produce
-fees differing by `amount × 0.0015 × 1.18`, which stays under ₹1 for any transaction below roughly
-**₹565**. Beneath that threshold a fee satisfies both the 2% and 2.15% cells and the match becomes
-order-dependent rather than deterministic. The matcher must treat a fee resolving to more than one
-cell as ambiguous rather than silently taking the first hit, and the synthetic dataset keeps every
-amount above the floor so `EXACT` and `FUZZY` stay well-defined.
+**Ambiguity is a property of the fee, not of the amount.** Two rate cells 0.15 percentage points
+apart produce prices differing by roughly `amount × 0.0015 × 1.18`, and where that difference is
+small the ₹1 tolerance cannot tell them apart. Two thresholds follow, and they are not the same
+number:
+
+- A **correct** fee, sitting exactly on one cell, can still satisfy the other whenever the two
+  prices are within 100 paise of each other — true up to **₹572.32**. (The continuous formula
+  gives ₹564.98; both the MDR and the GST on it are rounded to whole paise, and that rounding
+  widens the band by ₹7.34. Verified by brute force over every amount from 1 paise to ₹50,000.)
+- An **incorrect** fee, sitting between the two cells, satisfies both whenever the prices are
+  less than 200 paise apart — true up to **₹1,138.37**. Worked example: on a ₹1,000 payment
+  `STANDARD` prices the fee at ₹23.60 and `CORPORATE` at ₹25.37, so a fee of ₹24.49 is within ₹1
+  of both.
+
+The matcher therefore **counts how many cells resolve within tolerance and treats more than one
+as ambiguous**. It must never compare an amount against a threshold: that test is wrong in both
+directions, waving genuinely ambiguous mid-gap fees through as clean matches while flagging
+amounts that are fine. An ambiguous fee is reported `EXCEPTION` / `UNEXPLAINED` rather than
+resolved by iteration order. The synthetic dataset independently keeps every record resolvable
+to at most one cell, so `EXACT` and `FUZZY` stay well-defined.
 
 ### Tier 1 — per-record rate-cell resolution
 

@@ -207,10 +207,12 @@ describe("fee arithmetic", () => {
   });
 
   it("leaves no record resolvable to more than one rate cell", () => {
-    // Below ~₹564.98 the 2% and 2.15% cells differ by less than the ₹1
-    // tolerance, so a fee would satisfy both and the match would depend on
-    // which cell the matcher happened to try first. Every amount in the
-    // dataset must clear that floor, or "EXACT vs FUZZY" is not deterministic.
+    // Two cells 0.15pp apart price a fee less than the ₹1 tolerance apart on
+    // small amounts, so a fee can satisfy both and the match would depend on
+    // which cell was tried first. This asserts the property directly — at most
+    // one cell per record — rather than testing amounts against a floor, which
+    // is the wrong shape: a fee sitting BETWEEN the cells resolves to both on
+    // payments as large as ₹1,138.37. See PRD §6.
     for (const p of payments) {
       if (p.amount === 0) continue;
       const hits = Object.values(RATE_CELLS).filter(
