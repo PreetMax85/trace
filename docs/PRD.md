@@ -12,11 +12,11 @@ Every merchant using Razorpay pays MDR (Merchant Discount Rate) fees. 18% GST si
 
 It never matches automatically. Here's why:
 
-Razorpay issues one GST invoice per settlement cycle. Each settlement batches hundreds of transactions, nets out MDR + GST, deducts refunds, and sends a single NEFT credit to the merchant's bank. The merchant's bookkeeper records sales per-transaction in Tally. Their CA downloads GSTR-2B monthly from the GST portal. Three sources, three formats, three timelines — none of them align without manual effort.
+Razorpay bills MDR on **one consolidated tax invoice per month** — not per settlement, and not per transaction. Each settlement batches hundreds of transactions, nets out MDR + GST, deducts refunds, and sends a single NEFT credit to the merchant's bank, but the tax invoice backing all of those deductions arrives once a month. GSTR-2B therefore carries a *single* Razorpay line for the period, and the merchant has to reconcile hundreds of individual fee deductions against that one number. Their bookkeeper meanwhile records sales per-transaction in Tally. Three sources, three formats, three levels of granularity — none of them align without manual effort.
 
 **The result:** A CA Club India survey (Dec 2025) found GSTR-2B reconciliation takes 5-20 hours per merchant per month. Manual VLOOKUP matching achieves 51% accuracy. Every unmatched entry is potential ITC left unclaimed — real money, real compliance risk.
 
-**The gap nobody has filled:** Generic GST matching tools (Taxilla, Optotax, GST Reconcile) take CSV uploads and match purchase registers against GSTR-2B. None of them take Razorpay's settlement API as input. None of them classify WHY a mismatch happened. None of them handle the refund-ITC reversal compliance requirement. Zoho published a dedicated article on this specific gap in June 2026 — the problem is documented, the solution doesn't exist yet.
+**The gap nobody has filled:** Generic GST matching tools (Taxilla, Optotax, GST Reconcile) take CSV uploads and match purchase registers against GSTR-2B. None of them take Razorpay's settlement API as input. None of them classify WHY a mismatch happened. None of them bridge Razorpay's per-transaction fee deductions to the single consolidated invoice line that GSTR-2B actually shows, or surface the Section 34 credit-note obligation a netted refund creates. Zoho published a dedicated article on this specific gap in June 2026 — the problem is documented, the solution doesn't exist yet.
 
 ---
 
@@ -30,11 +30,11 @@ Three layers, each dependent on the one before:
 
 **Explain:** Conversational interface over the batch result. Merchant asks "why is my settlement ₹3,000 short this month?" — Trace answers in plain language, referencing the specific records, amounts, and dates from their actual batch. Every question is different. Every batch result is different. No template can answer this.
 
-**Act:** For each explained exception, Trace drafts the next action the merchant needs to take — the CA email with settlement ID and ITC reversal amount prefilled, the GSTR-3B line flagged for correction, the Tally correction entry. Merchant reviews and confirms before anything is sent. Trace never acts without a human gate.
+**Act:** For each explained exception, Trace drafts the next action the merchant needs to take — the CA email with settlement ID and Section 34 credit-note amount prefilled, the GSTR-3B line flagged for correction, the Tally correction entry. Merchant reviews and confirms before anything is sent. Trace never acts without a human gate.
 
 **The USP in one sentence:** Trace finds where your settlement money went, explains it in plain language, and prepares the next action — your CA email, your GSTR-3B correction, your Tally entry — ready for you to confirm and send.
 
-**Why AI is not optional here:** The Detect layer is deterministic (rules-based matching). The Explain layer requires AI — every merchant's question is different, every batch has different amounts and dates, no template handles this. The Act layer requires AI — drafting a contextually accurate CA email with the correct settlement ID, rupee amounts, and regulatory reference (Section 41, GSTR-3B line) for that specific record is not a fill-in-the-blank problem. Remove the AI and you have a spreadsheet with better formatting.
+**Why AI is not optional here:** The Detect layer is deterministic (rules-based matching). The Explain layer requires AI — every merchant's question is different, every batch has different amounts and dates, no template handles this. The Act layer requires AI — drafting a contextually accurate CA email with the correct settlement ID, rupee amounts, and regulatory reference (Section 34, GSTR-3B line) for that specific record is not a fill-in-the-blank problem. Remove the AI and you have a spreadsheet with better formatting.
 
 **Design principles:** Razorpay's own bar language (Track 01: "every money action explainable, bounded and gated") maps directly onto the three layers, not by design intent added after the fact — it's what the architecture already does. Detect is **bounded**: five fixed exception categories, nothing open-ended. Explain is **explainable**: every answer traces back to a specific record, amount, and date in the batch. Act is **gated**: every drafted action waits for human confirmation before anything sends.
 
@@ -58,10 +58,10 @@ Three layers, each dependent on the one before:
 
 - Single merchant (one GSTIN, one Razorpay test account)
 - 50+ synthetic transactions across 2 months (July–August 2026)
-- **Detect:** Matching Razorpay `fee` + `tax` fields (from `fetch_settlement_recon_details`) against GSTR-2B `txval` + `camt`/`samt`/`iamt` fields
+- **Detect:** Matching Razorpay `fee` + `tax` fields (from `fetch_settlement_recon_details`) against GSTR-2B `txval` + `cgst`/`sgst`/`igst` fields
 - **Explain:** Conversational Q&A interface over batch results — merchant asks in plain language, agent answers using that specific batch's data
-- **Act:** Drafted next-action per exception — CA email (prefilled settlement ID, amounts, Section 41 reference), GSTR-3B correction flag, Tally correction entry. Draft only — human confirms before send.
-- ITC reversal flagging for refund-adjusted settlements
+- **Act:** Drafted next-action per exception — CA email (prefilled settlement ID, amounts, Section 34 reference), GSTR-3B correction flag, Tally correction entry. Draft only — human confirms before send.
+- Section 34 credit-note flagging for refund-adjusted settlements, and `itcavl` ineligibility flagging from GSTR-2B
 - Batch report: match rate %, ITC matched (₹), ITC at risk (₹), exception breakdown by category
 - Audit trail: every decision logged with timestamp, match method, confidence tier, source fields
 
@@ -94,7 +94,7 @@ Field list verified against Razorpay's official SDK docs (`razorpay-node/documen
 | `type` | string | `payment` or `refund`. Refunds are separate line items, not adjustments to a payment row. |
 | `settlement_id` | string | Primary batch identifier |
 | `order_id` | string | Per-order reference |
-| `payment_id` | string | ⚠️ Returns `null` in recon items. Do not use — the payment ID is in `entity_id`. |
+| `payment_id` | string | ⚠️ `null` on **payment** rows — the payment's own ID is in `entity_id`. On **refund** rows it *is* populated, pointing at the payment being reversed, which makes it the join key for `REFUND_NETTED`. |
 | `fee` | integer | MDR in paise (÷100 = ₹) |
 | `tax` | integer | GST on MDR in paise (÷100 = ₹) |
 | `amount` | integer | Gross transaction amount in paise |
@@ -106,70 +106,146 @@ Field list verified against Razorpay's official SDK docs (`razorpay-node/documen
 
 ### Source 2: Synthetic GSTR-2B (B2B Table)
 
-Schema matches GSTN's official JSON format (confirmed from Sandbox.co.in GST API docs):
+**GSTR-2B is not GSTR-2A, and the two schemas differ in every field name that matters.** Earlier
+drafts of this document specified the GSTR-2A shape (`flprdr1`, `fldtr1`, `inv_typ`, `idt`,
+`itms`/`itm_det`, `camt`/`samt`/`iamt`) — none of those fields exist in GSTR-2B. The shape below is
+GSTR-2B, cross-checked against three independent renderings of GSTN's API: Vayana's GSTN API docs,
+Sandbox's Upload GSTR-2B reference, and fyn-gateway's GSTN developer-portal mirror.
+
+One statement is generated **per return period**, so each month is its own file.
 
 ```json
 {
-  "b2b": [
-    {
-      "ctin": "27AAGCR4375J1ZU",
-      "fldtr1": "11-Aug-26",
-      "flprdr1": "Jul-26",
-      "inv": [
-        {
-          "inum": "RZP/TAX/2026-07/001234",
-          "idt": "31-07-2026",
-          "inv_typ": "R",
-          "val": 2301,
-          "pos": "27",
-          "rchrg": "N",
-          "itms": [
-            {
-              "num": 1,
-              "itm_det": {
+  "gstin": "27TESTM1234A1Z0",
+  "rtnprd": "072026",
+  "gendt": "14-08-2026",
+  "version": "1.0",
+  "docdata": {
+    "b2b": [
+      {
+        "ctin": "27AAGCR4375J1ZY",
+        "trdnm": "RAZORPAY SOFTWARE PRIVATE LIMITED",
+        "supprd": "072026",
+        "supfildt": "11-08-2026",
+        "inv": [
+          {
+            "inum": "RZP/TAX/2026-07/0041882",
+            "typ": "R",
+            "dt": "31-07-2026",
+            "val": 2301,
+            "pos": "27",
+            "rev": "N",
+            "itcavl": "Y",
+            "rsn": "",
+            "items": [
+              {
+                "num": 1,
                 "rt": 18,
                 "txval": 1950,
-                "camt": 175.5,
-                "samt": 175.5,
-                "iamt": 0,
-                "csamt": 0
+                "igst": 0,
+                "cgst": 175.5,
+                "sgst": 175.5,
+                "cess": 0
               }
-            }
-          ]
-        }
-      ]
-    }
-  ]
+            ]
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
 
-**Key mapping to Razorpay fields:**
+**GSTINs must pass the check-digit algorithm.** `27AAGCR4375J1ZU`, used in earlier drafts as
+"Razorpay's GSTIN", is not a valid GSTIN — it welds Maharashtra's state code to the Karnataka
+registration's check digit. Razorpay's real Maharashtra registration is **`27AAGCR4375J1ZY`**; the
+Karnataka one is `29AAGCR4375J1ZU`. The demo merchant is `27TESTM1234A1Z0` — an obviously synthetic
+PAN so it cannot collide with a real business, with a correct check digit so it survives validation.
+A judge pasting an invalid GSTIN into the GST portal is a worse failure than any code bug, so this
+is asserted in `tests/fixtures.test.ts`.
+
+**Granularity — read this before the mapping table.** One GSTR-2B `inv` entry covers a whole
+filing period, because Razorpay issues one consolidated MDR tax invoice per month. There is **one**
+Razorpay invoice line per period in the B2B table, not one per transaction, and **no
+per-transaction invoice number exists anywhere in Razorpay's data** — the eight Payment Gateway
+reports do not carry one. Every 2B field below is therefore a *period-level total*, and maps to a
+**sum across recon rows**, never to a single row.
 
 | GSTR-2B field | Razorpay equivalent | Notes |
 |---|---|---|
-| `ctin` | Razorpay GSTIN | Always `27AAGCR4375J1ZU` for Maharashtra |
-| `txval` | `fee` ÷ 100 | MDR in rupees |
-| `camt` + `samt` | `tax` ÷ 100 | GST on MDR, intra-state |
-| `iamt` | `tax` ÷ 100 | GST on MDR, inter-state (IGST) |
-| `inum` | Settlement invoice number | Fuzzy match required |
-| `flprdr1` | Settlement period | Filing lag source (T+2 → next month) |
+| `ctin` | Razorpay GSTIN | `27AAGCR4375J1ZY` (Maharashtra) |
+| `txval` | `SUM(fee - tax)` ÷ 100, over the period | MDR ex-GST in rupees. Razorpay's `fee` is **inclusive of tax**; `tax` is the GST portion inside it |
+| `cgst` + `sgst` | `SUM(tax)` ÷ 100, over the period | GST on MDR, intra-state (Maharashtra merchant) |
+| `igst` | `SUM(tax)` ÷ 100, over the period | GST on MDR, inter-state. **Always match on `cgst + sgst + igst`, never one field** — a Maharashtra merchant sees CGST+SGST, every other state sees IGST |
+| `inum` | Monthly tax invoice number | Period-level. **Not** a per-transaction key — nothing to join a single settlement row to |
+| `supprd` | Filing period, `MMYYYY` | Filing lag source (T+2 → next month) |
+| `itcavl` / `rsn` | — | **GSTN's own verdict** on whether the credit is claimable, and why not. No Razorpay equivalent; it outranks anything Trace infers |
+
+### Source 3: Razorpay's published rate card
+
+Because no per-transaction invoice number exists, the per-record match target is Razorpay's
+**published pricing**, which is a real, citable artifact:
+
+| Rate cell | Fee | Applies to |
+|---|---|---|
+| `STANDARD` | 2% + 18% GST | Visa/Mastercard/RuPay debit & credit, UPI, netbanking, wallets, pay-later, EMI (domestic standard) |
+| `CORPORATE` | 2.15% + 18% GST | Corporate / commercial credit cards |
+
+Source: `https://razorpay.com/pricing/`. Enterprise rates are negotiated and unpublished; the demo
+merchant is on the standard card.
 
 ---
 
 ## 6. Matching Engine
 
-### Step 1: Exact match
-Join on: `ctin` (Razorpay's GSTIN) + `inum` normalized (strip hyphens, slashes, spaces) + `flprdr1` period + `txval` within ₹1 rounding tolerance.
+Matching runs in **two tiers**, because the two sides of the reconciliation are at different
+granularities. Tier 1 resolves each settlement row against the published rate card. Tier 2 rolls
+the resolved rows up and ties the period total to the single GSTR-2B invoice line.
 
-If all four match: record status = `MATCHED`. Log match method = `EXACT`.
+All comparisons are in **integer paise**. The ₹1 tolerance is exactly `100` paise. Rounding is
+deliberately *not* an exception category — it is absorbed by that tolerance.
 
-### Step 2: Fuzzy match (for invoice number format variations)
-If exact match fails, retry with: `ctin` + period + `txval` within ₹1 + date within 3-day window (T+2 tolerance).
+**The tolerance has a discrimination floor.** Two rate cells 0.15 percentage points apart produce
+fees differing by `amount × 0.0015 × 1.18`, which stays under ₹1 for any transaction below roughly
+**₹565**. Beneath that threshold a fee satisfies both the 2% and 2.15% cells and the match becomes
+order-dependent rather than deterministic. The matcher must treat a fee resolving to more than one
+cell as ambiguous rather than silently taking the first hit, and the synthetic dataset keeps every
+amount above the floor so `EXACT` and `FUZZY` stay well-defined.
 
-If match found: record status = `MATCHED`. Log match method = `FUZZY`. Confidence = `MEDIUM`.
+### Tier 1 — per-record rate-cell resolution
 
-### Step 3: Exception queue
-Everything that doesn't match after Steps 1 and 2 enters the exception classifier.
+**Step 1: Exact match.** The row's `fee` and `tax` tie to the `STANDARD` rate cell (2% + 18% GST)
+within ₹1, **and** `settled_at` falls inside the claimed filing period.
+
+If both hold: record status = `MATCHED`. Log match method = `EXACT`, `rate_cell = STANDARD`.
+
+**Step 2: Fuzzy match (alternate rate cell).** If Step 1 fails, retry against every other published
+rate cell — currently `CORPORATE` at 2.15% + 18% GST. A row that ties to one of those within ₹1 is
+matched, not an exception: the fee was correct, it was simply billed at a cell the merchant did not
+expect.
+
+If a cell matches: record status = `MATCHED`. Log match method = `FUZZY`, `rate_cell` = the cell
+that resolved it. Confidence = `MEDIUM`.
+
+**Step 3: Exception queue.** Everything unresolved after Steps 1 and 2 enters the exception
+classifier in Section 7.
+
+**Mode flag (required, not optional).** The matcher runs in `exact-only` or `exact+fuzzy` mode.
+Exact-only reconciles 30/54 = 55.6%; enabling the alternate-cell pass lifts it to 38/54 = 70.4%.
+Both modes must be runnable so the lift is demonstrated rather than asserted. Build this in from
+the start — it must not be retrofitted.
+
+### Tier 2 — period rollup against GSTR-2B
+
+For each filing period, sum `tax` across the period's matched records and compare that total to the
+period's single GSTR-2B invoice line (`cgst + sgst + igst`), within ₹1.
+
+The residual is the reconciliation's actual output: **the delta between the 2B invoice total and the
+matched rollup is exactly the tax on the exceptions billed in that same period.** `TIMING` records
+are excluded from the delta by construction — they are billed in the *following* period, so they
+appear in the next month's invoice rather than this one. A batch is fully explained when those two
+numbers agree. This is the claim the demo rests on — not "we matched 54 rows to 54 rows", which is
+not how Razorpay bills.
 
 ---
 
@@ -179,13 +255,71 @@ Five categories, rules-based classification (no ML), applied in priority order:
 
 | Category | Detection Rule | Plain-language reason shown to user |
 |---|---|---|
-| `FEE_DEDUCTION` | `txval` differs from expected MDR by >₹1, rate mismatch vs contracted MDR% | "MDR rate in GSTR-2B (X%) differs from Razorpay settlement (Y%). Check your pricing plan." |
-| `TIMING` | `flprdr1` is one month ahead of settlement date (T+2 crosses month boundary) | "This settlement crossed a month boundary. The GST invoice appears in next month's GSTR-2B. Expected — check next period." |
-| `REFUND_NETTED` | A `type: "refund"` item shares this record's `settlement_id` (refunds are separate rows carrying `debit`, not a reduced `credit` on the payment row) | "A refund was netted into this settlement. Original ITC may require partial reversal under Section 41 — verify with your CA." |
+| `FEE_DEDUCTION` | `fee` ties to **no** published rate cell within ₹1 — neither `STANDARD` (2%) nor `CORPORATE` (2.15%) explains it | "This transaction was charged X%, which matches none of Razorpay's published rates. Expected ₹Y at the standard 2% rate; you were charged ₹Z. Check your pricing plan." |
+| `TIMING` | `settled_at` falls outside the claimed filing period — T+2 pushed the settlement past the month end, so the fee is billed on the *following* month's invoice | "This settlement crossed a month boundary on T+2, so its GST invoice appears in next month's GSTR-2B. Expected, not an error — check the next period." |
+| `REFUND_NETTED` | A `type: "refund"` row carries this record's `entity_id` in its `payment_id` field. Refunds are separate rows carrying `debit`, not a reduced `credit`. **Do not join on `settlement_id`** — a refund is netted into a *later* settlement cycle, so it almost never shares one with the payment it reverses | "A refund was netted into this settlement. **Razorpay does not return its MDR on a refunded transaction, so the GST on that fee remains valid ITC — do not reverse it.** Separately, the refund means you owe your customer a credit note under Section 34 of the CGST Act. Deadline: 30 November following the end of the financial year of the original supply." |
 | `PARTIAL_PAYMENT` | Multiple `payment_id` entries share one `order_id`, one is zero-value | "A failed-then-retried payment created duplicate entries. Only the successful capture is billable." |
 | `UNEXPLAINED` | None of the above rules match | "No automated classification possible. Manual review required. Settlement ref: [id]." |
 
-**ITC Reversal flag:** Any record classified `REFUND_NETTED` additionally gets `ITC_REVERSAL_REVIEW: true` in the output. The system does not auto-resolve this — it surfaces the flag with a plain-language note and the specific Section 41 reference. Resolution stays with the CA.
+**The sixth signal: `itcavl`.** GSTR-2B states, per document, whether the credit is available
+(`itcavl`, `"Y"` or `"N"`) and why not (`rsn`). This is **GSTN's own verdict, and it outranks
+anything Trace infers.** An invoice marked `itcavl: "N"` is ITC at risk on the government's
+authority, no matter how cleanly its records matched.
+
+The two grounds that matter here are the **place-of-supply restriction** introduced alongside
+GSTR-2B by Notification 82/2020 — where the supplier's state and the place of supply match but the
+recipient is registered elsewhere, so the recipient cannot claim — and the **Section 16(4) time
+bar**. Both are documented; the literal `rsn` code strings are not. GSTN publishes no enumerated
+code list in its schema, and the API examples show only `rsn: ""` against eligible invoices, so
+Trace stores the reason as free text and does not constrain it to an enum it cannot verify.
+
+It is a **flag, not a category** — `ITC_INELIGIBLE`. The five-category taxonomy stays locked; a
+record can be `MATCHED` and still be ineligible, and collapsing those two facts into one field
+would lose the distinction that matters. The flag lives on the **batch**, not the record, for the
+same reason the tier-2 rollup does: the verdict is carried by the invoice, and one invoice covers
+the period. A record has no 2B counterpart to carry a 2B verdict, so a per-record column would be
+the same fact copied 54 times. The UI derives the per-record badge from the batch.
+
+In the synthetic dataset both statements are `itcavl: "Y"`, because a Maharashtra merchant billed by
+Razorpay's Maharashtra registration with place of supply in Maharashtra genuinely is eligible —
+fabricating an ineligible line would be dishonest data. The code path is exercised by test rather
+than by demo fixture.
+
+**A second cause of timing drift, deliberately not modelled.** A supplier amending an invoice
+through **GSTR-1A** also moves the ITC into the following month's GSTR-2B, and this is confirmed by
+the GSTN advisory. It is not a detection rule here because it leaves **no per-record trace**: an
+amended record is identical to a clean one in the settlement data, so attributing a period shortfall
+to specific records would be a subset-sum guess rather than deterministic classification. Trace can
+prove *how much* value moved; naming *which* records requires an amendment record (`b2ba`) in the
+following period's 2B, which is a candidate enhancement rather than a shipped rule.
+
+**Credit-note flag:** Any record classified `REFUND_NETTED` additionally gets
+`CREDIT_NOTE_REVIEW: true` in the output. The system does not auto-resolve this — it surfaces the
+flag with a plain-language note and the Section 34 reference. Resolution stays with the CA.
+
+**Why this is a credit-note flag and not an ITC-reversal flag.** Two different credit notes exist in
+this story and they must not be conflated:
+
+| | Supplier | Who issues the credit note | What moves |
+|---|---|---|---|
+| The merchant's sale to a customer | The merchant | **The merchant** | The merchant's **output tax liability** — GSTR-1 CDNR → GSTR-3B Table 3.1 |
+| Razorpay's MDR to the merchant | Razorpay | **Razorpay** | The merchant's **ITC** — GSTR-3B Table 4B(2) |
+
+Razorpay does not refund MDR when a merchant refunds a customer, so Razorpay issues no credit note,
+so **the merchant's ITC on the GST-on-MDR is never reversed.** The obligation a refund creates is on
+the *outward* side: the merchant owes its customer a Section 34 credit note, which reduces the
+merchant's output tax liability, not its ITC. Flagging this as an ITC reversal — as earlier drafts of
+this document did, citing Section 41 — is wrong twice over. Section 41 was fully substituted with
+effect from 1 October 2022 (Finance Act 2022 s.106, Notification 18/2022-CT); it is now
+*"Availment of input tax credit"* and its only reversal trigger is the supplier failing to pay tax.
+It has nothing to do with refunds.
+
+**Verification status.** Section 34's scope and its 30 November deadline are verified against CBIC's
+own text of the CGST Act. Section 41's substitution is likewise verified. That **Razorpay does not
+return MDR on refunded transactions** is corroborated only by third-party sources — Razorpay's refund
+documentation is silent, and the "₹0 refund processing fee" on its pricing page means no *additional*
+charge, not reversal of the original fee. Treat it as industry norm, not established fact, and do not
+assert it flatly in the pitch.
 
 ---
 
@@ -198,14 +332,17 @@ Five categories, rules-based classification (no ML), applied in priority order:
   "record_id": "pay_ABC123",
   "settlement_id": "setl_XYZ789",
   "period": "Jul-26",
-  "razorpay_fee_inr": 19.50,
-  "razorpay_tax_inr": 3.51,
-  "gstr2b_txval": 19.50,
-  "gstr2b_tax": 3.51,
+  "amount_inr": 1000.00,
+  "method": "card",
+  "razorpay_fee_inr": 23.60,
+  "razorpay_tax_inr": 3.60,
+  "rate_cell": "STANDARD",
+  "expected_fee_inr": 23.60,
+  "expected_tax_inr": 3.60,
   "status": "MATCHED",
   "match_method": "EXACT",
   "exception_category": null,
-  "itc_reversal_review": false,
+  "credit_note_review": false,
   "reason": null,
   "logged_at": "2026-08-28T10:23:11Z"
 }
@@ -215,26 +352,72 @@ Five categories, rules-based classification (no ML), applied in priority order:
 
 ```json
 {
-  "merchant_gstin": "27XXXXXXXXXXXX",
-  "period": "Jul-Aug 2026",
+  "merchant_gstin": "27TESTM1234A1Z0",
+  "period": "072026",
   "total_records": 54,
-  "matched_exact": 38,
-  "matched_fuzzy": 7,
-  "exceptions": 9,
-  "match_rate_pct": 83.3,
-  "itc_claimable_inr": 4821.50,
-  "itc_at_risk_inr": 612.00,
-  "itc_reversal_review_count": 3,
+  "matched_exact": 30,
+  "matched_fuzzy": 8,
+  "exceptions": 16,
+  "match_rate_exact_only_pct": 55.6,
+  "match_rate_pct": 70.4,
+  "projected_match_rate_pct": 79.6,
+  "itc_claimable_inr": 855.87,
+  "itc_at_risk_inr": 341.05,
+  "credit_note_review_count": 4,
+  "gstr2b_invoice_txval_inr": 6649.45,
+  "gstr2b_invoice_tax_inr": 1196.92,
+  "rolled_up_tax_inr": 855.87,
+  "rollup_delta_inr": 341.05,
+  "gstr2b_itc_available": true,
+  "gstr2b_itc_reason": null,
   "exception_breakdown": {
-    "FEE_DEDUCTION": 2,
-    "TIMING": 4,
-    "REFUND_NETTED": 3,
-    "PARTIAL_PAYMENT": 0,
+    "FEE_DEDUCTION": 4,
+    "TIMING": 5,
+    "REFUND_NETTED": 4,
+    "PARTIAL_PAYMENT": 3,
     "UNEXPLAINED": 0
   },
   "processing_time_ms": 2100
 }
 ```
+
+Counts are the Section 13 dataset and the money ties to `data/synthetic/`, so this example is the
+matcher's expected output, not an illustration. `gstr2b_invoice_tax_inr` is July's invoice line
+(₹1196.92); `rolled_up_tax_inr` is the tax on the records that matched (₹855.87); the difference is
+`rollup_delta_inr` (₹341.05), and `tests/fixtures.test.ts` asserts that identity.
+
+**A batch is one filing period, not a date range.** GSTR-2B is generated per return period and
+GSTR-3B is filed per period, so a run reconciles one period against one statement. The five
+`TIMING` records are July transactions whose fee is billed on *August's* invoice — they are neither
+claimable nor at risk in July, which is why `itc_claimable_inr` and `itc_at_risk_inr` sum to July's
+invoice rather than to all 54 records. The following period's statement is read as evidence for the
+`TIMING` rule; it is not a second rollup target.
+
+The three rates are derived, never stored:
+
+- `match_rate_exact_only_pct` — the `STANDARD` rate-cell pass alone (30/54). Establishes the
+  baseline the alternate-cell pass improves on, so the lift is demonstrable rather than asserted.
+- `match_rate_pct` — after the alternate rate-cell fallback (38/54). The headline figure.
+- `projected_match_rate_pct` — headline plus `TIMING` records (43/54). Those settlements
+  crossed the month boundary on T+2 and land in the next period's GSTR-2B; they are not
+  yet due, so excluding them understates the merchant's true reconciled position.
+
+The four rollup fields are the Tier 2 result:
+
+- `gstr2b_invoice_txval_inr` / `gstr2b_invoice_tax_inr` — the period's **single** Razorpay
+  invoice line in GSTR-2B, taken as-is from the 2B JSON.
+- `rolled_up_tax_inr` — `SUM(tax)` over the period's matched records.
+- `rollup_delta_inr` — `gstr2b_invoice_tax_inr − rolled_up_tax_inr`. **This must equal the tax
+  sitting in the exception queue.** When it does, the batch is fully explained; when it doesn't,
+  the matcher has a gap it is not accounting for, and that is a bug, not a finding.
+
+Note on `fee` vs `txval`: Razorpay's `fee` is **inclusive of tax**, and `tax` is the GST portion
+inside it. So the 2B taxable value is `fee − tax` (₹23.60 − ₹3.60 = ₹20.00 on a ₹1,000 card
+payment at the standard 2% cell), and `cgst + sgst + igst` is `tax`. Getting this backwards
+inflates every taxable value by 18%.
+
+`itc_claimable_inr` / `itc_at_risk_inr` are placeholders until the dataset in Section 13
+is generated; the counts above are exact.
 
 ---
 
@@ -258,7 +441,7 @@ Five categories, rules-based classification (no ML), applied in priority order:
 │                       │  fetch_all_refunds / order context  │  │
 │                       │  classifies + explains THIS record  │  │
 │                       │  Policy gate: must be 1 of 5 cats    │  │
-│                       │  ITC_REVERSAL_REVIEW → Inngest PAUSE│  │
+│                       │  CREDIT_NOTE_REVIEW → Inngest PAUSE │  │
 │                       │  (human-in-the-loop event)           │  │
 │                       └────────────┬──────────────────────┘   │
 │                                    │                           │
@@ -348,11 +531,11 @@ This is not building what Razorpay already built. This is building what they exp
 
 | Records | Condition | Expected classification |
 |---|---|---|
-| 30 | Clean match, exact invoice number format | `MATCHED` / `EXACT` |
-| 8 | Invoice number format varies (slashes vs hyphens) | `MATCHED` / `FUZZY` |
-| 5 | Settlement crosses July/August boundary (T+2 lag) | `TIMING` |
-| 4 | Refund netted before settlement, ITC reversal needed | `REFUND_NETTED` + `ITC_REVERSAL_REVIEW` |
-| 4 | MDR rate differs (2% card vs 0.5% UPI, misrecorded) | `FEE_DEDUCTION` |
+| 30 | `fee`/`tax` tie to the `STANDARD` cell (2% + 18%) within ₹1, settled inside the period | `MATCHED` / `EXACT` |
+| 8 | Ties to no standard cell but resolves against `CORPORATE` (2.15% + 18%) within ₹1 — corporate-card payments | `MATCHED` / `FUZZY` |
+| 5 | T+2 pushes settlement past the July/August boundary, so the fee is billed on the Aug-26 invoice | `TIMING` |
+| 4 | Refund netted into the settlement; MDR not returned, so ITC stands and a Section 34 credit note is due | `REFUND_NETTED` + `CREDIT_NOTE_REVIEW` |
+| 4 | `fee` matches no published rate cell — effective rate is neither 2% nor 2.15% | `FEE_DEDUCTION` |
 | 3 | Failed-then-retried UPI, duplicate entry | `PARTIAL_PAYMENT` |
 | 0 | Genuine unexplained | `UNEXPLAINED` (kept at 0 for a clean dataset — judges see the category exists, no cherry-picked exceptions) |
 
@@ -363,24 +546,24 @@ This is not building what Razorpay already built. This is building what they exp
 ```
 trace/
 ├── docs/
-│   ├── PRD.md                   ← this document
-│   ├── PITCH.md                 ← pitch video script + content plan
-│   └── README.md                ← repo-facing summary
+│   └── PRD.md                   ← this document
 ├── src/
 │   ├── app/                     ← Next.js App Router
 │   │   └── api/chat/            ← Explain layer (streamText endpoint)
 │   ├── lib/
 │   │   ├── ingestion/           ← Razorpay MCP + GSTR-2B parser
 │   │   ├── matching/            ← exact + fuzzy matcher (Detect, deterministic)
-│   │   ├── inngest/              ← durable pipeline functions + human-in-loop pause
-│   │   ├── agent/                ← Investigation agent (Vercel AI SDK + MCP tools)
-│   │   ├── actions/               ← Act layer: email draft, GSTR-3B flag, Tally entry generators
+│   │   ├── inngest/             ← durable pipeline functions + human-in-loop pause
+│   │   ├── agent/               ← Investigation agent (Vercel AI SDK + MCP tools)
+│   │   ├── actions/             ← Act layer: email draft, GSTR-3B flag, Tally entry generators
 │   │   └── audit/                ← Postgres logging + Langfuse tracing
 │   └── components/              ← Blade UI: dashboard + chat panel + action review cards
 ├── data/
 │   └── synthetic/
-│       ├── settlements.json     ← 54 Razorpay-format records
-│       └── gstr2b.json          ← matching GSTR-2B synthetic data
-├── tests/                       ← TDD via /tdd Claude Code skill
-└── README.md
+│       ├── settlements.json     ← 54 payment records + 4 refund rows
+│       ├── gstr2b-072026.json   ← July GSTR-2B: one Razorpay invoice line
+│       ├── gstr2b-082026.json   ← August GSTR-2B: where the TIMING records land
+│       └── expected.json        ← per-record assertion table the matcher is tested against
+├── tests/
+└── README.md                    ← repo-facing summary
 ```

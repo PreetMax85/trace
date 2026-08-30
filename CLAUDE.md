@@ -55,8 +55,8 @@ Next.js (App Router), PostgreSQL + Drizzle, `@razorpay/blade` for UI, Inngest fo
 ## Data
 
 - `razorpay-mcp-server` (test-mode `rzp_test_` keys) — primarily `fetch_settlement_recon_details` (`fee`/`tax` fields in paise) and `fetch_all_refunds`.
-- Synthetic GSTR-2B JSON matching GSTN's real schema (`ctin`/`inum`/`flprdr1`/`txval`/`camt`/`samt`/`iamt`).
-- Matching keys: GSTIN + normalized invoice number + filing period + tax amount within ₹1 tolerance. Exact match first, fuzzy fallback (±3 day window) second.
+- Synthetic GSTR-2B JSON matching GSTN's real schema (`docdata.b2b` → `ctin`/`inum`/`supprd`/`txval`/`cgst`/`sgst`/`igst`/`itcavl`). Note GSTR-2B is NOT GSTR-2A — the 2A field names (`flprdr1`, `itm_det`, `camt`) do not exist in 2B.
+- Matching: two-tier. Tier 1 resolves each settlement row against Razorpay's published rate card (2% standard, 2.15% corporate) within ₹1; tier 2 rolls the period up against the single GSTR-2B invoice line. There is no per-transaction invoice number to join on.
 - 54 synthetic records total, causally broken per category — see PRD Section 13 for the exact breakdown, don't regenerate randomly.
 
 ## Reference docs
