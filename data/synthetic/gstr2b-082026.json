@@ -1,0 +1,39 @@
+{
+  "gstin": "27TESTM1234A1Z0",
+  "rtnprd": "082026",
+  "gendt": "14-09-2026",
+  "version": "1.0",
+  "docdata": {
+    "b2b": [
+      {
+        "ctin": "27AAGCR4375J1ZY",
+        "trdnm": "RAZORPAY SOFTWARE PRIVATE LIMITED",
+        "supprd": "082026",
+        "supfildt": "11-09-2026",
+        "inv": [
+          {
+            "inum": "RZP/TAX/2026-08/0043117",
+            "typ": "R",
+            "dt": "31-08-2026",
+            "val": 1280.3,
+            "pos": "27",
+            "rev": "N",
+            "itcavl": "Y",
+            "rsn": "",
+            "items": [
+              {
+                "num": 1,
+                "rt": 18,
+                "txval": 1085,
+                "igst": 0,
+                "cgst": 97.65,
+                "sgst": 97.65,
+                "cess": 0
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

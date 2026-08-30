@@ -1,0 +1,499 @@
+{
+  "period": "072026",
+  "merchant_gstin": "27TESTM1234A1Z0",
+  "supplier_gstin": "27AAGCR4375J1ZY",
+  "total_records": 54,
+  "records": [
+    {
+      "entity_id": "pay_4gaSMyqces2Qkk",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_GQiwcS8koSo6mm",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_SUCSC448Mk8gci",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_W0WmGCOCsEoUYw",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_6icGMEwkg2KWow",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_oammUk2iwOQUKm",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_Sog6ei26YaOYuu",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_0Eoeuq6wISqQio",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_EOwSSA6MGKO62c",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_ce6OKOMaskqwiU",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_8a6oQAeemG0eKu",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_KO68gC602mOcc6",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_46I0KmQyUeEQcC",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_eQICwiyCsK4Ei6",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_OSk0Q40QMkiuIe",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_oMUiWG0OOCqmy0",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_Wu4a8Os8MSeuyg",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_8COmuUaEGu4qoy",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_Y8aqmqQ0GyaWmU",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_4OGkYy8WkCaiUG",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_AqaksWACOWMUqS",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_uAScq8ESUGYYis",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_UI8uGm6cUU0O6W",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_ceIC6Y22g2yWSM",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_q8ymI0scQu6E4W",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_asPCsymugGkUAe",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_cQUMAeqUeAG82q",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_qe0aEkIAsoCWmg",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_aY0YoCEcQsKk6q",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_oAWu6cGEoI068C",
+      "status": "MATCHED",
+      "match_method": "EXACT",
+      "rate_cell": "STANDARD",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_KwW0E0gIa8UsKo",
+      "status": "MATCHED",
+      "match_method": "FUZZY",
+      "rate_cell": "CORPORATE",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_GOkouO8WGyYKKs",
+      "status": "MATCHED",
+      "match_method": "FUZZY",
+      "rate_cell": "CORPORATE",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_aQm2ioUIa0w8eo",
+      "status": "MATCHED",
+      "match_method": "FUZZY",
+      "rate_cell": "CORPORATE",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_uOIgOSwiIGGoOM",
+      "status": "MATCHED",
+      "match_method": "FUZZY",
+      "rate_cell": "CORPORATE",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_wuuweoSwEMAEew",
+      "status": "MATCHED",
+      "match_method": "FUZZY",
+      "rate_cell": "CORPORATE",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_sAsaqIimm8suaE",
+      "status": "MATCHED",
+      "match_method": "FUZZY",
+      "rate_cell": "CORPORATE",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_qw28MGKW0QaMAO",
+      "status": "MATCHED",
+      "match_method": "FUZZY",
+      "rate_cell": "CORPORATE",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_2IqiSMyg62soSM",
+      "status": "MATCHED",
+      "match_method": "FUZZY",
+      "rate_cell": "CORPORATE",
+      "exception_category": null,
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_S2s6M2O4AEQkOA",
+      "status": "EXCEPTION",
+      "match_method": "NONE",
+      "rate_cell": "STANDARD",
+      "exception_category": "TIMING",
+      "credit_note_review": false,
+      "billed_in": "082026",
+      "timing_cause": "T+2"
+    },
+    {
+      "entity_id": "pay_gQ4OQyw2EK4io0",
+      "status": "EXCEPTION",
+      "match_method": "NONE",
+      "rate_cell": "STANDARD",
+      "exception_category": "TIMING",
+      "credit_note_review": false,
+      "billed_in": "082026",
+      "timing_cause": "T+2"
+    },
+    {
+      "entity_id": "pay_SMaCEuc4uEorwE",
+      "status": "EXCEPTION",
+      "match_method": "NONE",
+      "rate_cell": "STANDARD",
+      "exception_category": "TIMING",
+      "credit_note_review": false,
+      "billed_in": "082026",
+      "timing_cause": "T+2"
+    },
+    {
+      "entity_id": "pay_0g2MGvCSGoyeQW",
+      "status": "EXCEPTION",
+      "match_method": "NONE",
+      "rate_cell": "STANDARD",
+      "exception_category": "TIMING",
+      "credit_note_review": false,
+      "billed_in": "082026",
+      "timing_cause": "T+2"
+    },
+    {
+      "entity_id": "pay_IEEYkwi6yKs0s2",
+      "status": "EXCEPTION",
+      "match_method": "NONE",
+      "rate_cell": "STANDARD",
+      "exception_category": "TIMING",
+      "credit_note_review": false,
+      "billed_in": "082026",
+      "timing_cause": "T+2"
+    },
+    {
+      "entity_id": "pay_OmWyu0UGKY8O4o",
+      "status": "EXCEPTION",
+      "match_method": "NONE",
+      "rate_cell": "STANDARD",
+      "exception_category": "REFUND_NETTED",
+      "credit_note_review": true,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_cOy8OKC0WYS2gq",
+      "status": "EXCEPTION",
+      "match_method": "NONE",
+      "rate_cell": "STANDARD",
+      "exception_category": "REFUND_NETTED",
+      "credit_note_review": true,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_OquIYaYcCYEoSQ",
+      "status": "EXCEPTION",
+      "match_method": "NONE",
+      "rate_cell": "STANDARD",
+      "exception_category": "REFUND_NETTED",
+      "credit_note_review": true,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_2K4wAoIMaAkmAU",
+      "status": "EXCEPTION",
+      "match_method": "NONE",
+      "rate_cell": "STANDARD",
+      "exception_category": "REFUND_NETTED",
+      "credit_note_review": true,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_qcqeWqwISCOg2K",
+      "status": "EXCEPTION",
+      "match_method": "NONE",
+      "rate_cell": null,
+      "exception_category": "FEE_DEDUCTION",
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_GAAC2oIGuQAIk4",
+      "status": "EXCEPTION",
+      "match_method": "NONE",
+      "rate_cell": null,
+      "exception_category": "FEE_DEDUCTION",
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_ewuukseCy0uaU2",
+      "status": "EXCEPTION",
+      "match_method": "NONE",
+      "rate_cell": null,
+      "exception_category": "FEE_DEDUCTION",
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_I0c2AKEeoIgqiu",
+      "status": "EXCEPTION",
+      "match_method": "NONE",
+      "rate_cell": null,
+      "exception_category": "FEE_DEDUCTION",
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_WIek2uqiSm6OSe",
+      "status": "EXCEPTION",
+      "match_method": "NONE",
+      "rate_cell": null,
+      "exception_category": "PARTIAL_PAYMENT",
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_C8QeCCOouxW4yc",
+      "status": "EXCEPTION",
+      "match_method": "NONE",
+      "rate_cell": null,
+      "exception_category": "PARTIAL_PAYMENT",
+      "credit_note_review": false,
+      "billed_in": "072026"
+    },
+    {
+      "entity_id": "pay_aCKSAMew6U0eQ6",
+      "status": "EXCEPTION",
+      "match_method": "NONE",
+      "rate_cell": null,
+      "exception_category": "PARTIAL_PAYMENT",
+      "credit_note_review": false,
+      "billed_in": "072026"
+    }
+  ]
+}
