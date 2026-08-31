@@ -302,6 +302,27 @@ describe("statement field validation", () => {
     expect(() => parseStatement(badCtin)).toThrow(/ctin/);
   });
 
+  it("holds a GSTIN to the same structure the dataset is held to", () => {
+    // `tests/fixtures.test.ts:133` gates the mod-36 checksum behind
+    // `[1-9A-Z]Z[0-9A-Z]`: the entity code is 1-9 or A-Z and never 0, and the
+    // 14th character is a literal Z. Ingestion accepting a shape the dataset's
+    // own assertion rejects would put an identifier into the audit trail that
+    // the repo elsewhere calls invalid — and the checksum, which is what would
+    // catch it later, is deliberately not computed here.
+    const withGstin = (gstin: string) => ({ ...rawStatement(), gstin });
+
+    expect(() => parseStatement(withGstin("27TESTM1234A0Z0"))).toThrow(/gstin/);
+    expect(() => parseStatement(withGstin("27TESTM1234A1X0"))).toThrow(/gstin/);
+
+    const badCtin = rawStatement();
+    badCtin.docdata.b2b[0].ctin = "27AAGCR4375J0ZY";
+    expect(() => parseStatement(badCtin)).toThrow(/ctin/);
+
+    // The two real identifiers still parse.
+    expect(parseStatement(withGstin("27TESTM1234A1Z0")).gstin).toBe("27TESTM1234A1Z0");
+    expect(parseStatement(rawStatement()).docdata.b2b[0].ctin).toBe("27AAGCR4375J1ZY");
+  });
+
   it("requires the identifying strings", () => {
     const blankGstin = { ...rawStatement(), gstin: "" };
     expect(() => parseStatement(blankGstin)).toThrow(/gstin/);

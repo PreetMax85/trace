@@ -85,12 +85,18 @@ export function requireFiniteNumber(value: unknown, path: string): number {
 }
 
 /**
- * A GSTIN's STRUCTURE — 15 characters, two-digit state code, PAN core. The
- * mod-36 check digit is deliberately not verified here: `tests/fixtures.test.ts`
- * already asserts it over the dataset, and a wrong implementation of the
- * checksum would reject valid identifiers, which is the more expensive failure.
+ * A GSTIN's STRUCTURE — two-digit state code, ten-character PAN, entity code,
+ * the literal `Z`, check digit. This is the same pattern `tests/fixtures.test.ts`
+ * gates its mod-36 checksum behind, deliberately: an entity code of `0` and a
+ * 14th character other than `Z` are shapes the dataset's own assertion rejects,
+ * and ingestion accepting them would admit an identifier the repo elsewhere
+ * calls invalid.
+ *
+ * The check digit itself is not verified here. `tests/fixtures.test.ts` already
+ * asserts it over the dataset, and a wrong checksum implementation would reject
+ * valid identifiers — the more expensive failure.
  */
-const GSTIN_SHAPE = /^\d{2}[A-Z]{5}\d{4}[A-Z][0-9A-Z]{3}$/;
+const GSTIN_SHAPE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 
 export function requireGstin(value: unknown, path: string): string {
   const gstin = requireNonEmptyString(value, path);
