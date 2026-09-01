@@ -77,11 +77,14 @@ the per-slice loop. It is written for an unattended run and is the same for ever
 you are a scheduled run. If you are an interactive session, read it anyway: the slice definitions
 and acceptance criteria are there and are not duplicated here.
 
+**Run log.** Scheduled run started 19:02 UTC, 1 Sep 2026. Preflight steps 1-3 clean: `npm ci`
+restored the lockfile, 104 tests pass, typecheck and lint are both silent.
+
 **Status board — every run updates this before it stops.**
 
 | # | Slice | Branch | Status |
 |---|---|---|---|
-| 1 | Backlog findings 3-8 | `fix/matcher-edge-cases` | not started |
+| 1 | Backlog findings 3-8 | `fix/matcher-edge-cases` | in progress (`fix/matcher-edge-cases`, started 19:02 UTC 1 Sep) |
 | 2 | The screen | `feat/exception-review-screen` | not started |
 | 3 | `ai_calls` + Investigate + policy gate | `feat/investigate-agent` | not started |
 | 4 | `npm run eval` harness | `feat/investigate-agent` | not started |
