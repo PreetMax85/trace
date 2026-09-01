@@ -49,6 +49,9 @@ Thumbs.db
 
 # internal working docs — strategy, scheduling, and pitch drafts.
 # kept local and referenced during development, not part of the shipped repo.
+# NOTE: docs/HANDOFF.md was deliberately un-ignored on 1 Sep. It is the state
+# document scheduled cloud runs read and write, and an untracked file cannot
+# coordinate anything across machines.
 docs/PLAN.md
 docs/PITCH.md
 docs/VIDEO.md
@@ -56,4 +59,3 @@ docs/VIDEO.md
 # certificates
 *.pem
 docs/BRIEF.md
-docs/HANDOFF.md

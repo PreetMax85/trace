@@ -64,4 +64,6 @@ Next.js (App Router), PostgreSQL + Drizzle, `@razorpay/blade` for UI, Vercel AI 
 ## Reference docs
 
 - `docs/PRD.md` — full spec: architecture, data schemas, exception taxonomy (Section 7), synthetic data breakdown (Section 13)
-- `docs/PLAN.md`, `docs/PITCH.md`, `docs/BUILD-LOG.md`, `docs/HANDOFF.md` — local working docs, untracked by design. Read them for scheduling, narrative and incident context when present; don't assume they exist.
+- `docs/HANDOFF.md` — **tracked.** Current state, the slice status board, and what is owed. Read it first in any session. `docs/NEXT-TASK.md` — **tracked.** The briefing scheduled runs follow: preflight, banned commands, the slice queue.
+- `docs/BUILD-LOG.md` — tracked. Every bug that survived its own tests, with the guard that stops it recurring. Submission material.
+- `docs/PLAN.md`, `docs/PITCH.md`, `docs/VIDEO.md`, `docs/BRIEF.md` — local working docs, untracked by design. Read them for scheduling and narrative context when present; don't assume they exist.

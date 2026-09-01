@@ -163,7 +163,7 @@ One statement is generated **per return period**, so each month is its own file.
 registration's check digit. Razorpay's real Maharashtra registration is **`27AAGCR4375J1ZY`**; the
 Karnataka one is `29AAGCR4375J1ZU`. The demo merchant is `27TESTM1234A1Z0` — an obviously synthetic
 PAN so it cannot collide with a real business, with a correct check digit so it survives validation.
-A judge pasting an invalid GSTIN into the GST portal is a worse failure than any code bug, so this
+Anyone pasting an invalid GSTIN into the GST portal is a worse failure than any code bug, so this
 is asserted in `tests/fixtures.test.ts`.
 
 **Granularity — read this before the mapping table.** One GSTR-2B `inv` entry covers a whole
@@ -512,14 +512,34 @@ is generated; the counts above are exact.
 | Pipeline execution | Plain async functions + Postgres | **Inngest cut 1 Sep.** Durable execution earns its cost on long, expensive or fan-out steps. Detect is 54 records through pure functions in under 3 seconds, and a re-run is byte-identical because it is deterministic — so there is nothing to resume. Run state lives in the `batches` row, not in a workflow engine. The human-in-the-loop pause Inngest was chosen for is `actions.confirmed_at`: a nullable column and a Confirm button, which is also the only version of that gate a demo can actually show on screen. |
 | Agent/AI calls | Vercel AI SDK + Claude (Anthropic API) | Tool calling for MCP context fetches, `streamText` for the Explain conversational layer |
 | Database | PostgreSQL via Drizzle | Audit trail needs ACID guarantees |
-| UI | `@razorpay/blade` | Looks Razorpay-native, signals stack familiarity |
+| UI | `@razorpay/blade` | Razorpay's own design system: tokenised, accessible, and already the visual language of the dashboard these merchants read their settlements in. A reconciliation view that looks like a different product makes people distrust the numbers. |
 | Data layer | `razorpay-mcp-server` (dev-time) + synthetic fixtures (runtime) | Official tooling, used during development to verify the `fetch_settlement_recon_details` response shape. **Not the runtime path** — it is a stdio subprocess and Vercel is serverless; a fresh test account also returns zero settlements until a settlement cycle runs. Runtime reads the synthetic fixtures. |
 | Observability / trace | `ai_calls` table in the same Postgres | **Langfuse cut 1 Sep.** `langfuse-vercel` is deprecated in its own README, and the current SDK drops spans on Vercel unless `exportMode: "immediate"` is set and `forceFlush()` is called — a *silent* failure that looks like "the model made fewer calls" rather than an error, which is the worst thing to be debugging the night before a deadline. For an audit product the trace **is** the audit trail, so it belongs in our own database beside the records it explains. That serves the data-sovereignty narrative better than a third-party SaaS did. Stretch goal only if there is slack on Sep 4. |
 | Error tracking | ~~Sentry~~ — cut | No real users and no production traffic in a demo, so error monitoring has almost nothing to catch. Revisit Sep 4 only if there is slack. |
 | Deployment | Vercel | Native Next.js, zero config |
 | Dev tooling | Claude Code + Claude Pro | `/wayfinder`, `/tdd`, `/handoff`, `mcp-server` skill, `ai-playbook` conventions |
 
-**On cost:** Anthropic's $5 free signup credit covers the whole build — 54 records, maybe 15-20 trigger an investigation call at ~800 tokens each, plus the Explain/Act conversational calls. No extra spend beyond Claude Pro.
+**On cost.** Claude Pro and the Anthropic API are **separate balances** — a Pro subscription
+contributes nothing to what Trace's own agent calls cost. The API is billed from a prepaid balance
+at `console.anthropic.com`, and this build runs on **$5** with a console spending limit set to the
+same figure, so overrun is impossible rather than merely unlikely.
+
+The workload that dominates spend is §15.2's eval, which puts all 54 records through Investigate,
+not just the 16 exceptions. At `claude-opus-5` rates ($5/$25 per MTok) a naive implementation costs
+about $1.40 per eval run, which does not survive fifteen rounds of prompt tuning. Four measures,
+each of which the design wants for its own sake, bring that to roughly **$0.31 per run**:
+
+| Measure | Effect |
+|---|---|
+| Structured output with a tight schema (§15.3) | ~800 → ~150 output tokens per record, and output is ~77% of the bill |
+| Prompt caching on the system prefix | the taxonomy and rate card are byte-identical across all 54 records, so input drops ~90% |
+| `effort: "low"` on Investigate | a constrained classification over already-fetched tool results is not hard reasoning |
+| Batch API for the eval | nothing waits on a script that prints a number — 50% off |
+
+Model choice is **`claude-opus-5` for all three layers**. Investigate decides a tax classification,
+which is the output most expensive to get wrong and so the wrong place to economise; and
+one model means one prompt-cache namespace, where a cheap-model cascade would forfeit cache reuse
+across models while adding a second failure surface.
 
 ---
 
@@ -573,7 +593,7 @@ This is not building what Razorpay already built. Different input (settlement AP
 | 4 | Refund netted into the settlement; MDR not returned, so ITC stands and a Section 34 credit note is due | `REFUND_NETTED` + `CREDIT_NOTE_REVIEW` |
 | 4 | `fee` matches no published rate cell — effective rate is neither 2% nor 2.15% | `FEE_DEDUCTION` |
 | 3 | Failed-then-retried UPI, duplicate entry | `PARTIAL_PAYMENT` |
-| 0 | Genuine unexplained | `UNEXPLAINED` (kept at 0 for a clean dataset — judges see the category exists, no cherry-picked exceptions) |
+| 0 | Genuine unexplained | `UNEXPLAINED` (kept at 0: the category exists and is reachable, but nothing in this dataset is genuinely unexplainable, and inventing one would be dishonest) |
 
 ---
 
@@ -609,11 +629,15 @@ trace/
 ## 15. Making the AI Legible
 
 Trace's AI is deliberately narrow: the matching is deterministic, and Claude is used only where
-language or judgement is genuinely required. That is the right engineering decision (§12) and the
-wrong *presentation* decision if nothing on screen shows the AI working. A reviewer who cannot see
-the agent reason concludes there is no agent.
+language or judgement is genuinely required (§12).
 
-This section is committed scope, not stretch. Each item states what it is and how you know it works.
+That narrowness creates an obligation. A CA is personally accountable for what they file, so an
+exception classified by a model is worthless to them unless they can see *why* it was classified
+that way and check it. An answer they cannot audit is an answer they have to redo by hand — which
+is the exact work Trace claims to remove.
+
+So the agent's reasoning is part of the product, not decoration on top of it. This section is
+committed scope, not stretch. Each item states what it is and how you know it works.
 
 ### 15.1 Investigate renders its reasoning
 
@@ -631,11 +655,11 @@ produced its category, sourced from `ai_calls`, not regenerated on view.
 
 `data/synthetic/expected.json` already carries the correct category for all 54 records, because the
 deterministic matcher is tested against it. Running Investigate over the same 54 and comparing gives
-a real accuracy number for the AI layer — the thing the track asks for and the thing almost no
-submission can produce, because almost nobody has ground truth to score against.
+a real accuracy number for the AI layer, scored against ground truth rather than asserted.
 
 The disagreements are the interesting output, not the agreements. Each one is either a dataset
-ambiguity worth knowing about or a prompt weakness worth fixing.
+ambiguity worth knowing about or a prompt weakness worth fixing. Without this number, "the agent
+classifies exceptions" is a claim nobody — including us — can check.
 
 **Done when:** `npm run eval` prints agreement out of 54 and lists every disagreement with both
 verdicts and the agent's stated reason. The number goes in the batch report and in the video.
@@ -658,8 +682,14 @@ records one of the five.
 Claude call. The batch report surfaces the total: *"54 records · 16 investigations · 47,200 tokens ·
 ₹2.40."*
 
-A compliance product that cannot account for its own spend is making an odd argument. This also
-makes the per-record economics checkable by anyone reading the repo rather than asserted in a pitch.
+Cost per reconciled batch is an operating cost of running Trace, so it belongs on the batch report
+next to the other figures. A compliance product that cannot account for its own spend is making an
+odd argument.
+
+The same table is the reason the build fits in $5 (§9, "On cost"): structured output keeps responses
+short, prompt caching makes the repeated system prefix nearly free, `effort: "low"` suits a bounded
+classification, and the eval goes through the Batch API. Report the measured figures, not estimates —
+`ai_calls` holds the real token counts.
 
 **Done when:** the batch header shows token count and rupee cost for the run that produced it.
 
