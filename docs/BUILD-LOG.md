@@ -487,6 +487,158 @@ verified to fail against its own mutant before being kept.
 
 ---
 
+## 16. An integer check that admitted an uncountable integer
+
+**Believed.** `Number.isInteger` is the right test for "this arrived as integer paise", and the
+ingestion layer's 32 tests — an end-to-end acceptance run plus a hand-built rejection case for
+every documented rule — were adequate evidence that the guards work.
+
+**Broke.** Three things, none of which any test could see.
+
+- **`Number.isInteger(1e21)` is `true`.** So is `1e21 + 1 === 1e21`. Money past 2^53 passes
+  validation and then stops being countable: the tier-2 rollup sums it into a total that is
+  quietly wrong rather than obviously absurd. The check was asking "is this a whole number"
+  when the question is "can this be added up".
+- **The GSTIN shape check had no test at all.** Deleting it left the suite green. `gstin: ""`
+  was covered; `gstin: "NOTAGSTIN"` was not, and PRD §5 is explicit that an invalid GSTIN
+  reaching a judge is worse than a code bug.
+- **`rsn` could be stringified instead of validated.** Replacing the string check with
+  `String(row.rsn)` also left the suite green — turning a numeric or object `rsn` into `"42"` or
+  `"[object Object]"`. That field is GSTN's stated reason for blocking a credit, read by a human
+  deciding whether to claim it, so the failure mode is a fabricated government reason.
+
+**Caught by.** Two passes run *after* the suite was green, in opposite directions. Mutation
+injection — 18 faults, 16 killed immediately, 2 survivors — found the two blind spots. A separate
+input-direction probe, 16 hostile payload shapes fed straight into both parsers, found the
+oversized integer. Neither would have been found by running the tests again; both were green
+throughout.
+
+**Would have cost.** Low probability, silent direction — the expensive combination. An oversized
+amount corrupts an ITC figure with no error anywhere. A stringified `rsn` puts words in the
+government's mouth on the one field that decides whether the merchant may claim.
+
+**Permanently changed.** `requireInteger` now demands `Number.isSafeInteger`, with the reasoning
+in its header. Guards in `tests/ingestion.test.ts` pin `1e21` and `2**53`, the GSTIN shape on both
+`gstin` and `ctin`, and `rsn` typing (rejects a number and an object; accepts absent as `""`,
+which is what GSTN itself writes against an eligible invoice). Each was verified to fail against
+its own mutant before being kept.
+
+*Recorded rather than silently allowed:* negative money still parses. No verified source says a
+negative `fee` is impossible in Razorpay's ledger, and the matcher already reports a fee it cannot
+explain as `FEE_DEDUCTION` rather than inventing a reason for it. Rejecting it would be a rule
+invented by the parser, which is the same class of mistake as coercing.
+
+---
+
+## 17. Two bucket counts that were right for a reason that isn't guaranteed
+
+**Believed.** Counting the audit trail's `matched_exact` / `matched_fuzzy` / `exceptions` buckets
+off `match_method` (or off `exception_category`) is the same as counting them off `status`.
+
+**Broke.** It is the same *only* because of an invariant inside `matchBatch`: `method` is `NONE`
+exactly when the status is `EXCEPTION`, and `category` is non-null exactly then too. Both proxies
+survived mutation against the full suite. The invariant is not a law — a netted refund already
+resolves cleanly to `STANDARD` and is an exception purely on its verdict, so a matcher change that
+kept the resolved cell on an exception row would make the proxies disagree with the truth, in the
+flattering direction, on the headline 30 / 8 / 16.
+
+**Caught by.** Mutation injection on `src/lib/audit/rows.ts` — 11 faults, 9 killed, 2 survived —
+with all 96 tests green before, during and after.
+
+**Would have cost.** Nothing today; the numbers are correct. What was missing is evidence that
+they are correct *by construction* rather than by a coincidence in a neighbouring file.
+
+**Permanently changed.** Both counts read `status`. `tests/audit-rows.test.ts` feeds `toBatchRow`
+a hand-built `BatchResult` containing an `EXCEPTION` that carries `method: "EXACT"` and a null
+category — a shape the 54-row fixture cannot produce and the matcher does not currently emit —
+and asserts 1 / 1 / 2. It fails against both proxy mutants. The mapping layer takes a
+`BatchResult` rather than raw settlements precisely so this shape can be handed to it.
+
+---
+
+## 18. ITC reported as at risk that we had already decided was claimable
+
+**Believed.** With GSTN's `itcavl` flag on "Y", the input tax credit a merchant can claim is the
+matched rollup, and the tier-2 delta — the invoice tax nothing matched — is what is at risk. That
+is what `toBatchRow` wrote, and what `tests/audit-rows.test.ts` asserted: 85587 claimable, 34105
+at risk.
+
+**Broke.** The delta is not one thing. Decomposed, July's 34105 is **12636 of REFUND_NETTED tax +
+21469 of FEE_DEDUCTION tax + 0 from three zero-value retry legs**. The refund half contradicts a
+decision this project settled long before: a netted refund obliges the merchant to issue a
+Section 34 credit note, which is an **output-side** obligation to its own customer, and Razorpay
+does **not** return its MDR on a refunded transaction — so the GST on that fee is still a real
+input tax the merchant paid, and the credit on it is untouched. Those rows are exceptions for a
+reason that has nothing to do with whether the credit is good. Sweeping their tax into "at risk"
+took a number the project had already reasoned about correctly in `schema.ts` and PRD §7 and
+reversed it at the row-mapping boundary.
+
+The size is not marginal: at risk was overstated by 59% (34105 against a true 21469), and the
+corrected at-risk figure is now exactly the four unexplained fee deductions — which is both right
+and a far better sentence to say to a CA than a number that quietly includes credit they can take.
+
+**Caught by.** An adversarial review pass over the ingestion PR that decomposed the delta by
+exception category instead of accepting it as a total. All 98 tests were green; the test asserting
+the wrong split was written by the same agent that wrote the wrong split. Nothing in the suite
+could have found this, because the suite encoded the assumption.
+
+**Would have cost.** The headline number on the dashboard, and the one a judge is most likely to
+ask about. Worse in the direction it was wrong: telling a merchant credit is at risk when it is
+not is the error that makes them *not* claim money they are owed.
+
+**Permanently changed.** `itcSplit` now adds the tax on `REFUND_NETTED` records billed in the
+period, and derives at-risk from the invoice total rather than from the delta, so the two halves
+always sum to the tax the period was actually billed. The `itcavl: "N"` branch is unchanged — a
+government block still outranks everything. Three guards in `tests/audit-rows.test.ts`, each
+verified to fail against its own mutant: a refund whose settlement landed in the next month is not
+credited here (it is on the next invoice, and crediting it twice is the obvious way to get this
+wrong); relabelling the refunds as `FEE_DEDUCTION` moves their tax back out of claimable, which
+kills a filter on "any exception in the period"; and August, which nets no refunds, still reads
+19530 / 0.
+
+---
+
+## 19. A GSTR-2A detector that would have rejected a real GSTR-2B
+
+**Believed.** `flprdr1`, `fldtr1`, `itm_det`, `camt`, `samt` and `iamt` are GSTR-2A field names
+that do not exist in GSTR-2B (entry 1), so finding any of them **anywhere** in a document proves
+the wrong form arrived. `parseStatement` deep-scanned the whole parsed document for all six.
+
+**Broke.** Only the first three are 2A-exclusive. `iamt`, `camt` and `samt` are 2A's names for
+the three tax heads **inside a line item**, where 2B says `igst`/`cgst`/`sgst` — but a real
+GSTR-2B uses the same names elsewhere in the document: the **IMPG** section (import of goods)
+carries `iamt` against a bill of entry, and the ITC summary node totals all three heads. So a
+genuine GSTR-2B downloaded by a merchant who imports anything would have been rejected with
+"this is a GSTR-2A" — a false rejection, and the most confusing possible way to be wrong, since
+the operator would go looking for a document-substitution bug that never happened.
+
+Entry 1 is not wrong; it is scoped to the item level and was read as document-wide.
+
+**Caught by.** A web verification pass against GSTN's own IMPG advisory and 2B-schema
+documentation, run during PR review specifically to check whether a blocklist inherited from
+entry 1 was still true. The fixture is b2b-only, so no test in the repo could ever have fired
+this — the input that triggers it cannot be built from `data/synthetic/`.
+
+**Would have cost.** Nothing in the demo, and everything in the claim the demo makes. The pitch is
+"we read GSTN's real schema"; a judge handing it a real 2B with an import line would have watched
+it refuse the document on camera.
+
+**Permanently changed.** The blocklist is split. `GSTR_2A_ONLY_FIELDS` (`flprdr1`, `fldtr1`,
+`itm_det`) still deep-scans the whole document. `GSTR_2A_ITEM_FIELDS` (`iamt`, `camt`, `samt`) is
+checked **only** inside a `docdata.b2b[].inv[].items[]` entry, which is the one place the
+substitution actually occurs, and throws naming it as a line-item field so the reader is not sent
+to the wrong problem. Guards in `tests/ingestion.test.ts`: a 2B carrying both an IMPG section and
+an `itcsumm` node parses and its invoice total is unaffected; a genuine 2A document is still
+refused; all six markers still reject in the position they really occupy. Verified against three
+mutants — restoring the global list, dropping the item check, and an item check that only looks
+for `camt`.
+
+*Recorded rather than fixed:* three of the four `csamt`/`cess`-adjacent names were not audited,
+and neither were the `cdnr`/`isd` sections, because nothing reads them. If the parser is ever
+extended past `b2b`, this blocklist needs the same treatment again.
+
+---
+
 ## The pattern (notes for the narrative — not final wording)
 
 Almost nothing crashed. **Every significant failure here was code or spec that was wrong while
