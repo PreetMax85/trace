@@ -639,6 +639,85 @@ extended past `b2b`, this blocklist needs the same treatment again.
 
 ---
 
+## 20. A briefing that told an agent a tool was missing when it was merely locked
+
+**Believed.** `docs/NEXT-TASK.md`, written to brief an unattended overnight cloud run, said: "the
+Context7 MCP server is not available to you — use WebSearch instead." The reasoning was that a
+cloud sandbox is a fresh environment, so the local MCP configuration would not follow it there.
+
+**Broke.** Context7 was **attached but not pre-approved**. That is strictly worse than absent.
+Absent would have fallen through to WebSearch and finished the task. Present-but-blocked put an
+unanswerable permission prompt in front of an agent with no human awake to answer it, and it
+stalled there for **eleven hours**, one step before pushing its branch. The code was written,
+green and complete at 04:24 IST; it survived only because the push happened to come before the
+step that asked for permission. The task the prompt blocked — writing `docs/STACK-CHECK.md` —
+was never done that night and had to be redone by hand the following morning.
+
+**Caught by.** Preet noticing the run had produced commits but no `STACK-CHECK.md`, then reading
+the transcript to find out where it stopped.
+
+**Would have cost.** It did cost: eleven hours of a three-day build, and very nearly the whole
+branch. Had the optional step been ordered before the push instead of after, 1,273 reviewed lines
+would have died in a sandbox behind a dialog box nobody could click.
+
+**Permanently changed.** Two guards, because the incident has two independent causes.
+`.claude/settings.json` is now **tracked in the repo**, so the Context7 grant travels with the
+clone into any sandbox rather than living only in a local file. And any future unattended briefing
+must carry the instruction: *push the branch as soon as it is green, before any optional step, and
+if anything asks for permission, abandon that step and report the block rather than waiting.* The
+general rule is that an unattended agent must never be told a tool is unavailable unless that has
+been verified — "I could not reach it" and "I was not allowed to reach it" fail in opposite
+directions, and only the second one hangs.
+
+---
+
+## 21. Two dependencies in the spec: one wrong about itself, one just unnecessary
+
+**Believed.** PRD §9 committed to Inngest for durable pipeline execution and Langfuse for tracing
+every Claude call. Both had been chosen on reputation and on prior use, and neither had been
+checked against the packages as they actually ship — which is the exact thing this project's first
+non-negotiable rule exists to prevent, applied to everything except its own spec.
+
+**Broke.** Two different failures, worth separating because only one is an error.
+
+*Langfuse was wrong about itself.* `langfuse-vercel` is **deprecated in its own README**, and the
+current SDK drops spans on Vercel unless `exportMode: "immediate"` is set and `forceFlush()` is
+called explicitly. The failure is silent: traces simply do not arrive, which reads as "the model
+made fewer calls than I expected" rather than as an error. That is the worst possible failure
+shape for observability, because the tool whose job is telling you what happened is the tool
+lying to you, and you would be debugging it the night before a deadline.
+
+*Inngest was not wrong — it was just not load-bearing.* `docs/STACK-CHECK.md` verified every §9
+claim about it against the shipped type definitions: `step.run`, App Router `serve`, and
+`step.waitForEvent` all exist and work as described. The problem is scale. Detect is 54 records
+through pure functions in under three seconds, and a re-run is byte-identical because the matcher
+is deterministic. There is no expensive step to resume. Durable execution was being paid for in
+setup time, a second local dev process, and deploy configuration, and returning nothing the demo
+could show.
+
+**Caught by.** A stack-verification pass reading the published `.d.ts` files and READMEs out of
+the installed tarballs, after `www.inngest.com` and `langfuse.com` both returned `EGRESS_BLOCKED`
+and no first-party documentation page could be fetched. The type definitions turned out to be the
+stronger source anyway — they are what the compiler enforces.
+
+**Would have cost.** Somewhere between four and eight hours of a three-day build, spent wiring two
+dependencies, one of which would then have failed quietly.
+
+**Permanently changed.** Both are cut, and the replacements are things the product already needed.
+The pipeline is plain async functions with run state in the `batches` row. The human-in-the-loop
+pause Inngest was chosen for becomes `actions.confirmed_at` — a nullable column and a Confirm
+button, which is also the only version of that gate a demo can show on screen. Tracing becomes an
+`ai_calls` table in the same Postgres, which for an audit product is the correct home anyway: the
+trace **is** the audit trail, and it belongs beside the records it explains. PRD §9 and `CLAUDE.md`
+were both edited rather than left stale, and `CLAUDE.md` now says explicitly not to reintroduce
+either without asking — a cut dependency that stays listed in the instructions is how a future
+session quietly puts it back.
+
+*The general guard:* the documentation-first rule applies to the spec, not only to the code. A
+stack table is a set of claims, and claims get verified before anything is built on them.
+
+---
+
 ## The pattern (notes for the narrative — not final wording)
 
 Almost nothing crashed. **Every significant failure here was code or spec that was wrong while

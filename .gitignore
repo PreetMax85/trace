@@ -51,6 +51,7 @@ Thumbs.db
 # kept local and referenced during development, not part of the shipped repo.
 docs/PLAN.md
 docs/PITCH.md
+docs/VIDEO.md
 
 # certificates
 *.pem

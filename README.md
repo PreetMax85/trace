@@ -20,7 +20,9 @@ Full research and reasoning: [`docs/PRD.md`](./docs/PRD.md)
 
 ## Stack
 
-Next.js, PostgreSQL + Drizzle, Inngest, Vercel AI SDK + Claude, `@razorpay/blade`, `razorpay-mcp-server`, Langfuse, Sentry. Full breakdown in the PRD.
+Next.js (App Router), PostgreSQL + Drizzle, Vercel AI SDK + Claude, `@razorpay/blade`, `razorpay-mcp-server`, deployed on Vercel. Full breakdown in [PRD §9](./docs/PRD.md).
+
+Inngest, Langfuse and Sentry were each considered and cut — the reasoning is in the PRD's stack table and in [`docs/BUILD-LOG.md`](./docs/BUILD-LOG.md) entry 21.
 
 ## Status
 

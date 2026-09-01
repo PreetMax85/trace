@@ -123,7 +123,7 @@ export const records = pgTable("records", {
    * of the CGST Act, due by 30 November following the financial year of the
    * original supply. It is NOT an ITC reversal: Razorpay does not return its MDR
    * on a refunded transaction, so the GST on that fee stays claimable. Needs a
-   * human decision — pauses the Inngest run.
+   * human decision, which is why the drafted action waits on `actions.confirmed_at`.
    */
   creditNoteReview: boolean("credit_note_review").notNull().default(false),
 

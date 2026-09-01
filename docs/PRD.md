@@ -445,48 +445,63 @@ is generated; the counts above are exact.
 ## 9. Architecture
 
 ```
-┌───────────────────────────────────────────────────────────────┐
-│                      Trace (Next.js)                          │
-│                                                                │
-│  ┌──────────────┐   ┌─────────────────────────────────────┐   │
-│  │  Ingestion   │   │   DETECT — Inngest durable pipeline │   │
-│  │              │   │                                     │   │
-│  │  Razorpay    │──▶│   Step: fetch settlement record     │   │
-│  │  MCP Server  │   │   Step: exact match (deterministic) │   │
-│  │              │   │   Step: fuzzy match (deterministic) │   │
-│  │  Synthetic   │──▶│   Step: if exception → Investigate  │   │
-│  │  GSTR-2B     │   └──────────────┬──────────────────────┘   │
-│  └──────────────┘                  │                          │
-│                       ┌────────────▼──────────────────────┐   │
-│                       │  Investigation Agent (Vercel AI SDK)│  │
-│                       │  fetch_all_refunds / order context  │  │
-│                       │  classifies + explains THIS record  │  │
-│                       │  Policy gate: must be 1 of 5 cats    │  │
-│                       │  CREDIT_NOTE_REVIEW → Inngest PAUSE │  │
-│                       │  (human-in-the-loop event)           │  │
-│                       └────────────┬──────────────────────┘   │
-│                                    │                           │
-│                       ┌────────────▼──────────────────────┐   │
-│                       │  Audit Trail (Postgres/Drizzle)    │   │
-│                       │  Langfuse traces every Claude call │   │
-│                       └────────────┬──────────────────────┘   │
-│                                    │                           │
-│         ┌──────────────────────────┴─────────────────────┐   │
-│         ▼                                                  ▼   │
-│  ┌─────────────────────┐                    ┌──────────────────┐│
-│  │  EXPLAIN             │                    │  ACT             ││
-│  │  Q&A over batch data │                    │  Drafts per       ││
-│  │  "why is my          │                    │  exception:       ││
-│  │  settlement short?"  │                    │  - CA email       ││
-│  │  streamText, Claude  │                    │  - GSTR-3B flag   ││
-│  │                      │                    │  - Tally entry    ││
-│  └─────────────────────┘                    │  Human confirms   ││
-│                                              │  before send      ││
-│                                              └──────────────────┘│
-│                       ┌─────────────────────────────────────┐   │
-│                       │   Blade UI — dashboard + chat panel │   │
-│                       └─────────────────────────────────────┘   │
-└───────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                          Trace (Next.js)                             │
+│                                                                      │
+│  INGESTION                                                           │
+│    Razorpay MCP  — dev-time only, to verify response shape           │
+│    Synthetic settlements.json + GSTR-2B  — the runtime path          │
+│                                  │                                   │
+│                                  ▼                                   │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │  DETECT  —  deterministic. No LLM here, ever.                  │  │
+│  │                                                                │  │
+│  │    parse → tier 1 rate-cell match → tier 2 period rollup       │  │
+│  │    54 records, pure functions, < 3s, idempotent on re-run.     │  │
+│  │    State lives in Postgres, not in a workflow engine.          │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                  │  16 exceptions                    │
+│                                  ▼                                   │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │  AGENT 1 — INVESTIGATE     may classify · may NOT write        │  │
+│  │                                                                │  │
+│  │    tools: fetch_all_refunds, order context, batch rows         │  │
+│  │    generateObject → enum of exactly the 5 categories           │  │
+│  │    policy gate: anything else is forced to UNEXPLAINED         │  │
+│  │    its tool calls + reasoning are rendered in the UI           │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                                  │                                   │
+│                                  ▼                                   │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │  AUDIT TRAIL  (PostgreSQL / Drizzle)                           │  │
+│  │                                                                │  │
+│  │    batches · records · actions · ai_calls                      │  │
+│  │    every Claude call logged: prompt version, tokens,           │  │
+│  │    cost, and the verdict the policy gate returned.             │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+│                 │                              │                     │
+│                 ▼                              ▼                     │
+│  ┌───────────────────────────────┐  ┌───────────────────────────────┐│
+│  │ AGENT 2 — EXPLAIN             │  │ AGENT 3 — ACT                 ││
+│  │ read-only · cannot write      │  │ drafts only · cannot send     ││
+│  │                               │  │                               ││
+│  │ streamText over batch rows    │  │ Per exception, drafts:        ││
+│  │ "why is my settlement         │  │   · the CA email              ││
+│  │  ₹3,000 short?"               │  │   · the GSTR-3B flag          ││
+│  │                               │  │   · the Tally entry           ││
+│  │ Cites the record IDs it       │  │                               ││
+│  │ used. Every answer traces     │  │ HUMAN GATE:                   ││
+│  │ to a record, amount, date.    │  │ actions.confirmed_at IS NULL  ││
+│  │                               │  │ until a person clicks         ││
+│  │                               │  │ Confirm. Nothing sends        ││
+│  │                               │  │ on its own.                   ││
+│  └───────────────────────────────┘  └───────────────────────────────┘│
+│                                                                      │
+│  ┌────────────────────────────────────────────────────────────────┐  │
+│  │  Blade UI                                                      │  │
+│  │    dashboard · reasoning trace · chat panel · action cards     │  │
+│  └────────────────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Stack
@@ -494,12 +509,12 @@ is generated; the counts above are exact.
 | Layer | Choice | Reason |
 |---|---|---|
 | Framework | Next.js (App Router) | Known stack, API routes + React UI in one repo |
-| Durable execution | Inngest | Already used it before (PR reviewer project) — batch pipeline as resumable steps, human-in-the-loop pause for ITC review. Same architectural principle (durable execution + audit trail) Razorpay applies in its own internal tooling, not a claim of identical implementation. |
+| Pipeline execution | Plain async functions + Postgres | **Inngest cut 1 Sep.** Durable execution earns its cost on long, expensive or fan-out steps. Detect is 54 records through pure functions in under 3 seconds, and a re-run is byte-identical because it is deterministic — so there is nothing to resume. Run state lives in the `batches` row, not in a workflow engine. The human-in-the-loop pause Inngest was chosen for is `actions.confirmed_at`: a nullable column and a Confirm button, which is also the only version of that gate a demo can actually show on screen. |
 | Agent/AI calls | Vercel AI SDK + Claude (Anthropic API) | Tool calling for MCP context fetches, `streamText` for the Explain conversational layer |
 | Database | PostgreSQL via Drizzle | Audit trail needs ACID guarantees |
 | UI | `@razorpay/blade` | Looks Razorpay-native, signals stack familiarity |
 | Data layer | `razorpay-mcp-server` (dev-time) + synthetic fixtures (runtime) | Official tooling, used during development to verify the `fetch_settlement_recon_details` response shape. **Not the runtime path** — it is a stdio subprocess and Vercel is serverless; a fresh test account also returns zero settlements until a settlement cycle runs. Runtime reads the synthetic fixtures. |
-| Observability | Langfuse (free tier, self-hostable) | Every Claude call traced/versioned — fintech data-sovereignty narrative. Wired Sep 2 as the Explain/Act call sites are written, not retrofitted later. |
+| Observability / trace | `ai_calls` table in the same Postgres | **Langfuse cut 1 Sep.** `langfuse-vercel` is deprecated in its own README, and the current SDK drops spans on Vercel unless `exportMode: "immediate"` is set and `forceFlush()` is called — a *silent* failure that looks like "the model made fewer calls" rather than an error, which is the worst thing to be debugging the night before a deadline. For an audit product the trace **is** the audit trail, so it belongs in our own database beside the records it explains. That serves the data-sovereignty narrative better than a third-party SaaS did. Stretch goal only if there is slack on Sep 4. |
 | Error tracking | ~~Sentry~~ — cut | No real users and no production traffic in a demo, so error monitoring has almost nothing to catch. Revisit Sep 4 only if there is slack. |
 | Deployment | Vercel | Native Next.js, zero config |
 | Dev tooling | Claude Code + Claude Pro | `/wayfinder`, `/tdd`, `/handoff`, `mcp-server` skill, `ai-playbook` conventions |
@@ -530,7 +545,7 @@ This is not building what Razorpay already built. Different input (settlement AP
 | 50+ record batch | 54 synthetic records (Jul–Aug 2026, single merchant) |
 | Match rate | `match_rate_pct` in batch report — exact + fuzzy breakdown |
 | Honest exception list | 5-category taxonomy, UNEXPLAINED used when no rule fits |
-| Measured accuracy | Per-record `match_method` and `rate_cell` logged in the audit trail; `match_method` is the confidence tier |
+| Measured accuracy | Two numbers, not one. **Detect:** per-record `match_method` and `rate_cell` logged in the audit trail; `match_method` is the confidence tier. **Investigate:** the agent is scored against `data/synthetic/expected.json` and the batch report states its agreement rate out of 54, with the disagreements listed. See §15. |
 | Throughput | Processing time logged per batch run (target: <3 seconds for 54 records) |
 
 ---
@@ -574,10 +589,9 @@ trace/
 │   ├── lib/
 │   │   ├── ingestion/           ← Razorpay MCP + GSTR-2B parser
 │   │   ├── matching/            ← exact + fuzzy matcher (Detect, deterministic)
-│   │   ├── inngest/             ← durable pipeline functions + human-in-loop pause
-│   │   ├── agent/               ← Investigation agent (Vercel AI SDK + MCP tools)
+│   │   ├── agent/               ← Investigate agent (Vercel AI SDK + MCP tools)
 │   │   ├── actions/             ← Act layer: email draft, GSTR-3B flag, Tally entry generators
-│   │   └── audit/                ← Postgres logging + Langfuse tracing
+│   │   └── audit/                ← Postgres audit trail + ai_calls logging
 │   └── components/              ← Blade UI: dashboard + chat panel + action review cards
 ├── data/
 │   └── synthetic/
@@ -588,3 +602,80 @@ trace/
 ├── tests/
 └── README.md                    ← repo-facing summary
 ```
+
+
+---
+
+## 15. Making the AI Legible
+
+Trace's AI is deliberately narrow: the matching is deterministic, and Claude is used only where
+language or judgement is genuinely required. That is the right engineering decision (§12) and the
+wrong *presentation* decision if nothing on screen shows the AI working. A reviewer who cannot see
+the agent reason concludes there is no agent.
+
+This section is committed scope, not stretch. Each item states what it is and how you know it works.
+
+### 15.1 Investigate renders its reasoning
+
+Every exception row expands to show what the agent actually did: the tools it called, what came
+back, and the classification it reached.
+
+> `pay_Nx4kR2` — fee ₹41.30, expected ₹35.40 at STANDARD 2.00%
+> → called `fetch_all_refunds(payment_id)` → one refund, ₹1,180.00, 12 Jul 2026
+> → **REFUND_NETTED** · the fee is on the original capture; the refund was netted from the settlement
+
+**Done when:** clicking any of the 16 exceptions shows its tool calls and the reasoning that
+produced its category, sourced from `ai_calls`, not regenerated on view.
+
+### 15.2 The agent is scored against ground truth
+
+`data/synthetic/expected.json` already carries the correct category for all 54 records, because the
+deterministic matcher is tested against it. Running Investigate over the same 54 and comparing gives
+a real accuracy number for the AI layer — the thing the track asks for and the thing almost no
+submission can produce, because almost nobody has ground truth to score against.
+
+The disagreements are the interesting output, not the agreements. Each one is either a dataset
+ambiguity worth knowing about or a prompt weakness worth fixing.
+
+**Done when:** `npm run eval` prints agreement out of 54 and lists every disagreement with both
+verdicts and the agent's stated reason. The number goes in the batch report and in the video.
+
+### 15.3 Categories are constrained at generation, not just validated after
+
+Investigate returns structured output through `generateObject` with a Zod enum of exactly the five
+categories, so a sixth cannot be decoded at all. The policy gate that forces anything unrecognised
+to `UNEXPLAINED` stays in place behind it.
+
+Two independent mechanisms, described honestly as defence in depth: the schema makes the wrong
+answer unrepresentable, and the gate catches the case where the schema is ever loosened.
+
+**Done when:** a test forces the model toward a category outside the five and the batch still
+records one of the five.
+
+### 15.4 The batch reports its own cost
+
+`ai_calls` logs model, prompt version, input and output tokens, latency and computed cost for every
+Claude call. The batch report surfaces the total: *"54 records · 16 investigations · 47,200 tokens ·
+₹2.40."*
+
+A compliance product that cannot account for its own spend is making an odd argument. This also
+makes the per-record economics checkable by anyone reading the repo rather than asserted in a pitch.
+
+**Done when:** the batch header shows token count and rupee cost for the run that produced it.
+
+### 15.5 Explain cites what it used
+
+Every answer from the Explain layer names the records behind it, and each citation is a link that
+scrolls to that row in the table. §2 claims "every answer traces back to a specific record, amount,
+and date" — this is what makes that claim checkable rather than asserted.
+
+**Done when:** an answer to "why is my settlement short?" renders citations that navigate to the
+rows it counted.
+
+### What is deliberately not being added
+
+Recorded so it is not rediscovered: no vector database (54 records fit in a single prompt — there is
+nothing to retrieve), no agent-orchestration framework (three agents with fixed hand-offs is a
+function call, not a graph), and no second model provider for comparison (unverifiable in the time
+available). Signal here comes from measured results and visible constraints, not from dependency
+count.

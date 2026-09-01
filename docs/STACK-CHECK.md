@@ -1,5 +1,12 @@
 # Stack check — verifying what PRD §9 assumes
 
+> **Superseded in part, 1 Sep 2026.** This file records what was true when it was written and is
+> kept as evidence, not as current guidance. Acting on its findings, **Inngest and Langfuse were
+> both cut from the stack** — Langfuse because the mechanism below is broken, Inngest because it
+> was verified correct but is not load-bearing at 54 records. See PRD §9's stack table and
+> BUILD-LOG entry 21. Conclusion 1 below ("nothing in §9 needs rewriting for Inngest") is the part
+> that no longer holds: §9 was rewritten, for a reason this file did not weigh.
+
 PRD §9 names Inngest, the Vercel AI SDK and Langfuse and describes how they will be used. Those
 claims had never been checked against the libraries as they actually ship. This file checks them.
 It changes no code and edits no spec: where §9 is wrong, it says so here.
