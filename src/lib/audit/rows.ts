@@ -36,7 +36,7 @@ export function toBatchRow(result: BatchResult, meta: BatchMeta): typeof batches
     matchedFuzzy: countMethod(classified, "FUZZY"),
     exceptions: classified.filter((r) => r.status === "EXCEPTION").length,
 
-    ...itcSplit(result),
+    ...itcSplit(result, meta.period),
 
     gstr2bInvoiceTxvalPaise: rollup.gstr2bInvoiceTxvalPaise,
     gstr2bInvoiceTaxPaise: rollup.gstr2bInvoiceTaxPaise,
@@ -57,22 +57,49 @@ export function toBatchRow(result: BatchResult, meta: BatchMeta): typeof batches
 /**
  * ITC, split into what the merchant can claim and what is at risk.
  *
- * While GSTN says the credit is available, the claimable figure is the matched
- * rollup — the tax Trace tied to a published rate cell — and the rollup delta is
- * what is at risk, being the tax on this period's invoice that nothing explained.
+ * While GSTN says the credit is available, claimable is the tax Trace tied to a
+ * published rate cell PLUS the tax on this period's netted refunds, and at risk
+ * is whatever the period's invoice bills beyond that.
  *
- * When GSTN says it is NOT available, the verdict is the government's and it
- * outranks anything Trace infers (PRD §7): the whole invoice is blocked however
- * cleanly its records matched, so the full invoice tax is at risk and nothing is
- * claimable. Erring the other way would show a merchant credit they cannot take.
+ * A netted refund is on the invoice at a price a rate cell explains; it is an
+ * exception because the merchant owes its customer a Section 34 credit note,
+ * which is an OUTPUT-side obligation. The MDR itself is not returned on a
+ * refunded transaction, so the input tax credit on that fee is untouched
+ * (PRD §7). Leaving it in the delta reports credit as at risk that this project
+ * has already decided is claimable — a number a CA would act on.
+ *
+ * When GSTN says the credit is NOT available, the verdict is the government's
+ * and it outranks anything Trace infers (PRD §7): the whole invoice is blocked
+ * however cleanly its records matched, so the full invoice tax is at risk and
+ * nothing is claimable. Erring the other way would show a merchant credit they
+ * cannot take.
  */
-function itcSplit(result: BatchResult) {
+function itcSplit(result: BatchResult, period: string) {
   const { rollup, itc } = result;
 
-  return itc.available
-    ? { itcClaimablePaise: rollup.rolledUpTaxPaise, itcAtRiskPaise: rollup.rollupDeltaPaise }
-    : { itcClaimablePaise: 0, itcAtRiskPaise: rollup.gstr2bInvoiceTaxPaise };
+  if (!itc.available) {
+    return { itcClaimablePaise: 0, itcAtRiskPaise: rollup.gstr2bInvoiceTaxPaise };
+  }
+
+  const claimable = rollup.rolledUpTaxPaise + refundNettedTaxPaise(result, period);
+  return {
+    itcClaimablePaise: claimable,
+    // Derived from the invoice rather than from the delta, so the two halves
+    // always sum to the tax the period was actually billed.
+    itcAtRiskPaise: rollup.gstr2bInvoiceTaxPaise - claimable,
+  };
 }
+
+/**
+ * Tax on the refunds this period's invoice bills. Scoped by `billedIn` for the
+ * same reason the rollup is: a refund netted into a settlement that landed in
+ * the next month is on the NEXT invoice, and crediting it here would claim it
+ * twice.
+ */
+const refundNettedTaxPaise = (result: BatchResult, period: string) =>
+  result.records
+    .filter((r) => r.category === "REFUND_NETTED" && r.billedIn === period)
+    .reduce((total, r) => total + r.razorpayTaxPaise, 0);
 
 const countMethod = (classified: MatchedRecord[], method: MatchedRecord["method"]) =>
   classified.filter((r) => r.status === "MATCHED" && r.method === method).length;

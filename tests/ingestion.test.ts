@@ -190,6 +190,68 @@ describe("the statement is GSTR-2B, not GSTR-2A", () => {
     });
   }
 
+  it("names the LINE-ITEM field, so the reader is not sent to the wrong problem", () => {
+    // A 2A item read as a 2B one would otherwise fail as "igst must be a finite
+    // number", which describes a missing field rather than the wrong document.
+    for (const field of ["iamt", "camt", "samt"]) {
+      const s = rawStatement();
+      (s.docdata.b2b[0].inv[0].items[0] as Record<string, unknown>)[field] = 1;
+      expect(() => parseStatement(s)).toThrow(/GSTR-2A line-item field/);
+    }
+  });
+
+  it("rejects a genuine GSTR-2A document outright", () => {
+    const twoA = {
+      gstin: "27TESTM1234A1Z0",
+      fp: "072026",
+      b2b: [
+        {
+          ctin: "27AAGCR4375J1ZY",
+          cfs: "Y",
+          inv: [
+            {
+              inum: "RZP/TAX/2026-07/0041882",
+              flprdr1: "072026",
+              fldtr1: "11-08-2026",
+              val: 7846.37,
+              itms: [{ num: 1, itm_det: { rt: 18, txval: 6649.45, camt: 598.46, samt: 598.46 } }],
+            },
+          ],
+        },
+      ],
+    };
+    expect(() => parseStatement(twoA)).toThrow(/GSTR-2A/);
+  });
+
+  // The other direction, and the one a global scan got wrong: `iamt`, `camt`
+  // and `samt` are NOT 2A-exclusive. A real GSTR-2B uses them outside `b2b` —
+  // the IMPG section carries `iamt` against a bill of entry for imported goods,
+  // and the ITC summary node totals all three heads. Scanning the whole
+  // document for them rejected a genuine 2B AS a 2A. Only `flprdr1`, `fldtr1`
+  // and `itm_det` are safe to look for document-wide.
+  it("accepts a real GSTR-2B carrying an IMPG section and an ITC summary", () => {
+    const s = rawStatement() as Record<string, unknown>;
+    (s.docdata as Record<string, unknown>).impg = [
+      {
+        recdt: "12-07-2026",
+        portcd: "INNSA1",
+        boenum: "9876543",
+        boedt: "10-07-2026",
+        txval: 250000,
+        iamt: 45000,
+        csamt: 0,
+        isamd: "N",
+      },
+    ];
+    s.itcsumm = { itcavl: [{ ty: "B2B", iamt: 0, camt: 598.46, samt: 598.46, csamt: 0 }] };
+
+    const parsed = parseStatement(s);
+    expect(parsed.rtnprd).toBe("072026");
+    // And neither section leaks into the Razorpay invoice the rollup reads.
+    expect(parsed.docdata.b2b).toHaveLength(1);
+    expect(parsed.docdata.b2b[0].inv[0].items[0].cgst).toBe(598.46);
+  });
+
   it("rejects a statement with no `docdata.b2b` at all", () => {
     const missingB2b = { ...rawStatement(), docdata: {} };
     expect(() => parseStatement(missingB2b)).toThrow(/docdata\.b2b/);

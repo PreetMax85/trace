@@ -10,13 +10,30 @@ import {
 } from "./guards";
 
 /**
- * Field names that exist in GSTR-2A and NOT in GSTR-2B. 2A is the older dynamic
- * ledger; 2B is the static monthly ITC statement a merchant actually files
- * against. Building against the wrong one cost two days on this project
- * (BUILD-LOG entry 1), and the two are similar enough that a 2A document
+ * Structural field names that exist in GSTR-2A and NOT anywhere in GSTR-2B. 2A
+ * is the older dynamic ledger; 2B is the static monthly ITC statement a merchant
+ * actually files against. Building against the wrong one cost two days on this
+ * project (BUILD-LOG entry 1), and the two are similar enough that a 2A document
  * validates as "some GST statement" if nobody looks for these.
+ *
+ * Safe to scan the WHOLE document for, because no section of a 2B uses them.
+ * `itm_det` is 2A's name for the line-item array 2B calls `items`, and the two
+ * `flprd`/`fldt` fields are 2A's supplier filing markers.
  */
-const GSTR_2A_FIELDS = ["flprdr1", "fldtr1", "itm_det", "camt", "samt", "iamt"];
+const GSTR_2A_ONLY_FIELDS = ["flprdr1", "fldtr1", "itm_det"];
+
+/**
+ * 2A's names for the three tax heads, which 2B calls `igst`/`cgst`/`sgst`.
+ *
+ * Checked ONLY inside a b2b line item, never document-wide: a real GSTR-2B uses
+ * `iamt`, `camt` and `samt` elsewhere — the IMPG (import of goods) section
+ * carries `iamt` against a bill of entry, and the ITC summary node totals all
+ * three. Scanning for them globally rejected a genuine 2B download AS a 2A,
+ * which is both wrong and the most confusing way to be wrong. Inside an item
+ * they are still decisive, because that is the one place the substitution
+ * actually happens.
+ */
+const GSTR_2A_ITEM_FIELDS = ["iamt", "camt", "samt"];
 
 /**
  * A GSTR-2B statement into the matcher's type, from raw JSON text or an
@@ -81,6 +98,7 @@ function toInvoice(invoice: unknown, path: string): Invoice {
     items: requireNonEmptyArray(row.items, `${path}.items`).map((line, l) => {
       const at = `${path}.items[${l}]`;
       const item = requireObject(line, at);
+      rejectGstr2aItemFields(item, at);
 
       // All four heads required, `igst: 0` included. A Maharashtra merchant's
       // tax is entirely CGST+SGST and every merchant elsewhere is the mirror
@@ -119,11 +137,26 @@ function rejectGstr2a(value: unknown, path: string): void {
 
   for (const [key, child] of Object.entries(value)) {
     const here = path ? `${path}.${key}` : key;
-    if (GSTR_2A_FIELDS.includes(key)) {
+    if (GSTR_2A_ONLY_FIELDS.includes(key)) {
       throw new Error(
         `${here} is a GSTR-2A field, and this parser reads GSTR-2B. GSTR-2A is the older dynamic ledger and a different document: its \`${key}\` has no GSTR-2B equivalent to read.`,
       );
     }
     rejectGstr2a(child, here);
+  }
+}
+
+/**
+ * A 2A tax head sitting where a 2B line item's `igst`/`cgst`/`sgst` belong. The
+ * heads are read by name, so a 2A item would otherwise fail as "igst must be a
+ * finite number" — an error that sends the reader looking at the wrong problem.
+ */
+function rejectGstr2aItemFields(item: Record<string, unknown>, at: string): void {
+  for (const key of GSTR_2A_ITEM_FIELDS) {
+    if (key in item) {
+      throw new Error(
+        `${at}.${key} is a GSTR-2A line-item field, and this parser reads GSTR-2B. A GSTR-2B item names its tax heads \`igst\`, \`cgst\` and \`sgst\`.`,
+      );
+    }
   }
 }

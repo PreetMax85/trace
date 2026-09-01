@@ -71,15 +71,21 @@ describe("the batch row", () => {
   });
 
   it("splits ITC into claimable and at risk on GSTN's verdict, not on ours", () => {
-    // The assumption, stated rather than buried: while `itcavl` is "Y" the
-    // claimable figure is the matched rollup and the delta is what is at risk —
-    // it is the tax Trace could not tie to a rate cell. The moment GSTN marks
-    // the invoice "N" the whole invoice is blocked on the government's
+    // While `itcavl` is "Y", claimable is the matched rollup PLUS the tax on
+    // the netted refunds this invoice bills — those are priced at a rate a cell
+    // explains, and are exceptions only because the merchant owes its customer
+    // a Section 34 credit note, which is an output-side obligation that leaves
+    // the input credit alone. At risk is what the invoice bills beyond that:
+    // here, exactly the four fee deductions nothing explained. The moment GSTN
+    // marks the invoice "N" the whole invoice is blocked on the government's
     // authority, however cleanly the records matched, so at risk is the FULL
     // invoice tax and claimable is zero.
     const eligible = toBatchRow(july(), meta);
-    expect(eligible.itcClaimablePaise).toBe(85587);
-    expect(eligible.itcAtRiskPaise).toBe(34105);
+    expect(eligible.itcClaimablePaise).toBe(98223); // 85587 rollup + 12636 refunds
+    expect(eligible.itcAtRiskPaise).toBe(21469); // the 4 FEE_DEDUCTION rows
+    // Not the delta: the delta still carries the refunds, and reporting it as
+    // at-risk would call credit doubtful that this project has decided is good.
+    expect(eligible.itcAtRiskPaise).not.toBe(eligible.rollupDeltaPaise);
     // The two halves account for the whole invoice while the credit is live.
     expect(eligible.itcClaimablePaise! + eligible.itcAtRiskPaise!).toBe(
       eligible.gstr2bInvoiceTaxPaise,
@@ -106,6 +112,45 @@ describe("the batch row", () => {
     expect(blocked.gstr2bItcReason).toMatch(/registered in another state/);
     // The records are untouched by the verdict — matched is still matched.
     expect(blocked.matchedExact).toBe(30);
+  });
+
+  it("credits a netted refund only to the period whose invoice bills it", () => {
+    // The scoping that is easy to drop. A refund netted into a settlement that
+    // landed in the NEXT month is on the next month's Razorpay invoice, so
+    // crediting it here would claim the same input tax in two periods.
+    const moved = july();
+    const refund = moved.records.find((r) => r.category === "REFUND_NETTED");
+    expect(refund).toBeDefined();
+    refund!.billedIn = "082026";
+
+    const row = toBatchRow(moved, meta);
+    expect(row.itcClaimablePaise).toBe(98223 - refund!.razorpayTaxPaise);
+    expect(row.itcClaimablePaise! + row.itcAtRiskPaise!).toBe(row.gstr2bInvoiceTaxPaise);
+  });
+
+  it("credits only REFUND_NETTED — an unexplained fee stays at risk", () => {
+    // Recategorising the four refunds as FEE_DEDUCTION must move their tax back
+    // out of claimable. Without this, a filter on "any exception billed in the
+    // period" would pass every other assertion here.
+    const relabelled = july();
+    for (const r of relabelled.records) {
+      if (r.category === "REFUND_NETTED") r.category = "FEE_DEDUCTION";
+    }
+    const row = toBatchRow(relabelled, meta);
+    expect(row.itcClaimablePaise).toBe(85587);
+    expect(row.itcAtRiskPaise).toBe(34105);
+  });
+
+  it("leaves August alone — nothing is netted against that invoice", () => {
+    const august = matchBatch({
+      settlements: parseSettlements(rawText("settlements.json")),
+      statement: parseStatement(rawText("gstr2b-082026.json")),
+      period: "082026",
+      mode: "exact+fuzzy",
+    });
+    const row = toBatchRow(august, { ...meta, period: "082026" });
+    expect(row.itcClaimablePaise).toBe(19530);
+    expect(row.itcAtRiskPaise).toBe(0);
   });
 
   it("counts the buckets off `status`, never off a proxy for it", () => {
