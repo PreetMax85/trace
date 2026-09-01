@@ -70,13 +70,19 @@ hours in BUILD-LOG entry 20.
 ## How to pick your work
 
 Read `docs/HANDOFF.md` first. It records which slices are done. Take **the first slice below that is
-not yet done**, and work down from there for as long as you have budget. You will probably be cut
+neither done nor `in progress`**, and work down from there for as long as you have budget. A slice
+marked `in progress` belongs to another run that may still be working — skip it, do not duplicate it. You will probably be cut
 off mid-slice — that is expected and fine, because every completed slice is already pushed.
 
 ## The per-slice loop — follow it exactly
 
 For each slice:
 
+0. **Claim the slice first.** In `docs/HANDOFF.md`, set that slice's status to `in progress
+   (<branch>, started HH:MM UTC)`, commit, and **push immediately** — before you write any code.
+   Another run may start while you are working; this is the only thing that stops it duplicating
+   your slice. When you finish, set the status to `done`. If you abandon it, set it back to
+   `not started` with a note saying why.
 1. `git checkout -b <branch>` off an up-to-date `main`.
 2. Build it. Follow TDD where a test can express the requirement.
 3. `npm test`, `npm run typecheck`, `npm run lint` — all must be clean.
