@@ -36,7 +36,7 @@ Three layers, each dependent on the one before:
 
 **The USP in one sentence:** Trace finds where your settlement money went, explains it in plain language, and prepares the next action — your CA email, your GSTR-3B correction, your Tally entry — ready for you to confirm and send.
 
-**Why AI is not optional here:** The Detect layer is deterministic (rules-based matching). The Explain layer requires AI — every merchant's question is different, every batch has different amounts and dates, no template handles this. The Act layer requires AI — drafting a contextually accurate CA email with the correct settlement ID, rupee amounts, and regulatory reference (Section 34, GSTR-3B line) for that specific record is not a fill-in-the-blank problem. Remove the AI and you have a spreadsheet with better formatting.
+**Where the AI sits, and why:** The Detect layer is deterministic (rules-based matching). The Explain layer requires AI — every merchant's question is different, every batch has different amounts and dates, no template handles this. The Act layer requires AI — drafting a contextually accurate CA email with the correct settlement ID, rupee amounts, and regulatory reference (Section 34, GSTR-3B line) for that specific record is not a fill-in-the-blank problem. The deterministic half could be a spreadsheet; the language half could not.
 
 **Design principles:** Razorpay's own bar language (Track 01: "every money action explainable, bounded and gated") maps directly onto the three layers, not by design intent added after the fact — it's what the architecture already does. Detect is **bounded**: five fixed exception categories, nothing open-ended. Explain is **explainable**: every answer traces back to a specific record, amount, and date in the batch. Act is **gated**: every drafted action waits for human confirmation before anything sends.
 
@@ -558,9 +558,9 @@ This is not building what Razorpay already built. Different input (settlement AP
 
 ---
 
-## 11. The Bar, Met Explicitly
+## 11. Measured Outcomes
 
-| Track requirement | How Trace delivers |
+| What is claimed | How it is measured |
 |---|---|
 | 50+ record batch | 54 synthetic records (Jul–Aug 2026, single merchant) |
 | Match rate | `match_rate_pct` in batch report — exact + fuzzy breakdown |

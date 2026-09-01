@@ -146,7 +146,7 @@ Commit `bfb3662`.
 ## 6. A field claimed in three places that never existed
 
 **Believed.** PRD §4, §6 and §11 all described a per-record **confidence tier** logged in the
-audit trail. §11 listed it in the table of how the project meets the track's bar.
+audit trail. §11 listed it in the table of what the project measures.
 
 **Broke.** No `confidence` column had ever existed in the schema. The claim had propagated
 across three sections without anything checking it against the code.
