@@ -35,7 +35,7 @@ because a run of unrelated corrections had eroded confidence in the PRD generall
 anything failed.
 
 **Would have cost.** The whole product parses an input format that does not exist. Every demo
-claim about "matching against GSTR-2B" would have been false, and any judge who works in GST
+claim about "matching against GSTR-2B" would have been false, and anyone who works in GST
 would have spotted it in the first screen.
 
 **Permanently changed.** Fixture rebuilt against the verified 2B envelope (`docdata.b2b` root,
@@ -132,7 +132,7 @@ has no source anywhere**; a direct search for it returns nothing resembling it.
 **Caught by.** A source-verification pass over §1, checking every claim against a primary source
 before it reached the pitch.
 
-**Would have cost.** The single most quotable line in the pitch, unsourced, delivered to judges
+**Would have cost.** The single most quotable line in the pitch, unsourced, stated as fact
 who work in this domain daily. "Where's the survey?" has no good answer.
 
 **Permanently changed.** Replaced with what the thread actually says, linked, and explicitly
@@ -154,7 +154,7 @@ across three sections without anything checking it against the code.
 **Caught by.** Grepping the PRD's claims against the actual schema during a full audit.
 
 **Would have cost.** A falsifiable claim in the "how we meet the requirements" table — the one
-table a judge is most likely to verify, and the cheapest possible thing to catch us on.
+table anyone would check first, and the cheapest possible thing to be wrong about.
 
 **Permanently changed.** The **claim was removed rather than the column added**. `match_method`
 *is* the confidence tier — `EXACT` / `FUZZY` / `NONE` — and a second column would have been a
@@ -501,7 +501,7 @@ every documented rule — were adequate evidence that the guards work.
   when the question is "can this be added up".
 - **The GSTIN shape check had no test at all.** Deleting it left the suite green. `gstin: ""`
   was covered; `gstin: "NOTAGSTIN"` was not, and PRD §5 is explicit that an invalid GSTIN
-  reaching a judge is worse than a code bug.
+  reaching a real user is worse than a code bug.
 - **`rsn` could be stringified instead of validated.** Replacing the string check with
   `String(row.rsn)` also left the suite green — turning a numeric or object `rsn` into `"42"` or
   `"[object Object]"`. That field is GSTN's stated reason for blocking a credit, read by a human
@@ -582,7 +582,7 @@ exception category instead of accepting it as a total. All 98 tests were green; 
 the wrong split was written by the same agent that wrote the wrong split. Nothing in the suite
 could have found this, because the suite encoded the assumption.
 
-**Would have cost.** The headline number on the dashboard, and the one a judge is most likely to
+**Would have cost.** The headline number on the dashboard, and the one anyone would check first to
 ask about. Worse in the direction it was wrong: telling a merchant credit is at risk when it is
 not is the error that makes them *not* claim money they are owed.
 
@@ -620,7 +620,7 @@ entry 1 was still true. The fixture is b2b-only, so no test in the repo could ev
 this — the input that triggers it cannot be built from `data/synthetic/`.
 
 **Would have cost.** Nothing in the demo, and everything in the claim the demo makes. The pitch is
-"we read GSTN's real schema"; a judge handing it a real 2B with an import line would have watched
+"we read GSTN's real schema"; anyone handing it a real 2B with an import line would have watched
 it refuse the document on camera.
 
 **Permanently changed.** The blocklist is split. `GSTR_2A_ONLY_FIELDS` (`flprdr1`, `fldtr1`,

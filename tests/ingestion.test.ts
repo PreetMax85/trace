@@ -351,7 +351,7 @@ describe("statement field validation", () => {
   });
 
   it("requires GSTINs to be shaped like GSTINs", () => {
-    // Also found by mutation: removing the shape check broke nothing. A judge
+    // Also found by mutation: removing the shape check broke nothing. Anyone
     // pasting an invalid GSTIN into the GST portal is a worse failure than any
     // code bug (PRD §5). The mod-36 check digit is asserted over the dataset in
     // `tests/fixtures.test.ts`; this is the structural half.

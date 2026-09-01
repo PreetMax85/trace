@@ -179,8 +179,9 @@ describe("exception distribution", () => {
       FEE_DEDUCTION: 4,
       PARTIAL_PAYMENT: 3,
     });
-    // UNEXPLAINED is deliberately 0 — judges see the category exists without
-    // the dataset being cherry-picked to avoid it.
+    // UNEXPLAINED is deliberately 0: the category exists and is reachable,
+    // but nothing in this dataset is genuinely unexplainable, and inventing
+    // one to fill the bucket would make the fixture dishonest.
     expect(
       expected.records.filter((r) => r.exception_category === "UNEXPLAINED"),
     ).toHaveLength(0);
@@ -300,8 +301,8 @@ describe("causal structure", () => {
 describe("identifiers", () => {
   it("uses GSTINs that pass the check-digit algorithm", () => {
     // 27AAGCR4375J1ZU, used in earlier drafts, fails: it welds Maharashtra's
-    // state code to the Karnataka registration's check digit. A judge pasting an
-    // invalid GSTIN into the portal is a worse failure than any code bug.
+    // state code to the Karnataka registration's check digit. Anyone pasting an
+    // invalid GSTIN into the GST portal is a worse failure than any code bug.
     expect(gstinIsValid(expected.supplier_gstin)).toBe(true);
     expect(gstinIsValid(expected.merchant_gstin)).toBe(true);
     expect(gstinIsValid("27AAGCR4375J1ZU")).toBe(false);
