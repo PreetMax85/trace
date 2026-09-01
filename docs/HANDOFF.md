@@ -77,12 +77,17 @@ the per-slice loop. It is written for an unattended run and is the same for ever
 you are a scheduled run. If you are an interactive session, read it anyway: the slice definitions
 and acceptance criteria are there and are not duplicated here.
 
+**Run log.** Scheduled run started 22:31 UTC, 1 Sep 2026 (04:00 IST slot). Preflight steps 1-3 clean:
+`npm ci` restored the lockfile, 104 tests pass, typecheck and lint are both silent. The 19:02 UTC run
+had already claimed slice 1 on `fix/matcher-edge-cases` and pushed no code beyond the claim, so this
+run skipped it as the briefing requires and took slice 2.
+
 **Status board — every run updates this before it stops.**
 
 | # | Slice | Branch | Status |
 |---|---|---|---|
-| 1 | Backlog findings 3-8 | `fix/matcher-edge-cases` | not started |
-| 2 | The screen | `feat/exception-review-screen` | not started |
+| 1 | Backlog findings 3-8 | `fix/matcher-edge-cases` | in progress (claimed 19:02 UTC 1 Sep by the earlier run) |
+| 2 | The screen | `feat/exception-review-screen` | in progress (`feat/exception-review-screen`, started 22:35 UTC 1 Sep) |
 | 3 | `ai_calls` + Investigate + policy gate | `feat/investigate-agent` | not started |
 | 4 | `npm run eval` harness | `feat/investigate-agent` | not started |
 | 5 | §15.1 reasoning trace, §15.5 citations | — | **blocked until 2 and 3 are reviewed** |
