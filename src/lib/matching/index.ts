@@ -213,7 +213,7 @@ function classify(
  * IST is UTC+05:30 with no daylight saving — it has not changed since 1945 —
  * so a fixed offset is exact here and needs no timezone database.
  */
-const IST_OFFSET_SECONDS = 5 * 3600 + 30 * 60;
+export const IST_OFFSET_SECONDS = 5 * 3600 + 30 * 60;
 
 /**
  * A settlement timestamp as a GSTR-2B return period, `MMYYYY`.
@@ -226,7 +226,7 @@ const IST_OFFSET_SECONDS = 5 * 3600 + 30 * 60;
  * detect. Reading them in local time would make the verdict depend on where the
  * server happens to run. BUILD-LOG entry 13.
  */
-function periodOf(settledAt: number): string {
+export function periodOf(settledAt: number): string {
   const ist = new Date((settledAt + IST_OFFSET_SECONDS) * 1000);
   return `${String(ist.getUTCMonth() + 1).padStart(2, "0")}${ist.getUTCFullYear()}`;
 }
