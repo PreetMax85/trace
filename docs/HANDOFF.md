@@ -1,9 +1,9 @@
-# Trace — handoff: slice 3 is done, slice 1 is next
+# Trace — handoff: slices 1 and 3 are done, the screen is next
 
-Written 2 Sep 2026, afternoon. **Slice 3 (the Investigate agent) is complete and pushed.** The
-next session takes slice 1 — six known matcher bugs, listed under **Backlog** below. It is the
-cheapest remaining work: every bug has a stated symptom, there is no new API surface and no UI,
-and the tests are the oracle. Do it in one pass, not six review cycles.
+Written 2 Sep 2026, evening. **Slice 3 (the Investigate agent) is merged into `main`, and slice 1
+(the six matcher bugs) is done on `fix/matcher-edge-cases`.** The next session takes **slice 2, the
+exception review screen** — it is the only thing standing between the working matcher and something
+a person can look at.
 
 ## Read this first
 
@@ -12,9 +12,10 @@ carries what they don't.
 
 - `docs/PRD.md` — the spec. Read **§9 (architecture)** and **§15 (making the AI legible)** before
   writing agent code. Read **§7 (exception taxonomy)** when you need it. Don't read all of it.
-- `docs/BUILD-LOG.md` — 24 entries, each a thing that was wrong while its own tests passed. **23**
-  (a spec that named a function which cannot call tools) and **24** (a test that named its own
-  subject wrongly and passed anyway) came out of slice 3 and are the most useful two to read.
+- `docs/BUILD-LOG.md` — 27 entries, each a thing that was wrong while its own tests passed. **25**
+  (a timestamp in the wrong unit) and **26** (every supplier summed into Razorpay's invoice) are the
+  two live bugs slice 1 found in merged code; **27** is the pass that found three of slice 1's own
+  new assertions passing for the wrong reason, and is the most useful one to read.
 - `docs/NEXT-TASK.md` — the routine briefing: preflight, banned commands, the per-slice loop and
   the slice definitions. Read it even as an interactive session; acceptance criteria live there and
   are not duplicated here.
@@ -88,11 +89,12 @@ reach a routine) and `razorpay` (needs an OAuth flow no unattended run can compl
 **Check `git log -3` before trusting anything in this section** — it is the part that goes stale
 first.
 
-`main` carries the merged ingestion layer plus `c6089c6`, which installed Blade, the Vercel AI SDK,
-Zod and Playwright's Chromium, and tracked `.claude/settings.json`.
+`main` carries the ingestion layer, Blade, the Vercel AI SDK, Zod, Playwright's Chromium, and — as
+of `c4a0d7a` — **all of slice 3**. `feat/investigate-agent` is merged; don't branch from it.
 
-`feat/investigate-agent` carries slice 3 on top of it: **170 tests pass, typecheck and lint clean.**
-Branch off `main` for slice 1 — the two do not overlap, and slice 3 has not been merged yet.
+`fix/matcher-edge-cases` carries slice 1 on top of `main`: **195 tests pass, typecheck and lint
+clean.** It touches ingestion, the matcher and the row mapping, and nothing under `src/lib/agent/`,
+so it does not overlap the screen. Branch slice 2 from `main` or from it, either is safe.
 
 Everything the queue needs is installed and committed, so a scheduled run never has to install
 anything. `.npmrc` sets `legacy-peer-deps=true`, which Blade requires — its peer list contradicts
@@ -118,8 +120,10 @@ already fixed.
 - **Ingestion** — `src/lib/ingestion/`: `parseSettlements`, `parseStatement`, `guards.ts`.
 - **Row mapping** — `src/lib/audit/rows.ts`: pure `BatchResult` → Drizzle rows.
 
-**Built on `feat/investigate-agent`, not yet merged:** the `ai_calls` table and the whole
-Investigate layer. See the slice 3 section below.
+**Also merged:** the `ai_calls` table and the whole Investigate layer. See the slice 3 section
+below.
+
+**On `fix/matcher-edge-cases`, not yet merged:** the six matcher fixes, described under Backlog.
 
 **Not built at all:** any UI, the Explain and Act layers, the eval harness, deploy, the video.
 
@@ -127,10 +131,10 @@ Investigate layer. See the slice 3 section below.
 
 | # | Slice | Branch | Status |
 |---|---|---|---|
-| 1 | Backlog findings 3-8 | `fix/matcher-edge-cases` | **next — this handoff** |
+| 1 | Backlog findings 3-8 | `fix/matcher-edge-cases` | **done, unmerged** |
 | 2 | The screen | `feat/exception-review-screen` | not started |
-| 3 | `ai_calls` + Investigate + policy gate | `feat/investigate-agent` | **done, pushed, unmerged** |
-| 4 | `npm run eval` harness | `feat/investigate-agent` | not started — needs slice 3 merged or branched from |
+| 3 | `ai_calls` + Investigate + policy gate | `feat/investigate-agent` | **done, merged into `main`** |
+| 4 | `npm run eval` harness | `feat/investigate-agent` | not started — unblocked, slice 3 is on `main` |
 | 5 | §15.1 reasoning trace, §15.5 citations | — | blocked until 2 and 3 are reviewed |
 
 The two branches from last night hold **only** a slice-claim commit each, no code. Either build on
@@ -238,20 +242,35 @@ retries are zero-value. Say "eleven transactions" or "eight of them carrying tax
   BUILD-LOG 10.
 - Dataset counts are locked (PRD §13). Don't regenerate.
 
-## Backlog — real bugs, found in review, deliberately deferred
+## Backlog — all six fixed on `fix/matcher-edge-cases`
 
-These are slice 1. None of them block slice 3.
+These were slice 1 and they are done: each has a test that failed before its fix and passes after,
+and every locked number above is unmoved. 195 tests pass, typecheck and lint clean. Findings 3 and
+4 were live bugs in already-merged code and are BUILD-LOG **25** and **26**; the adversarial pass
+is **27**. Next free BUILD-LOG number is **28**.
 
-3. **`settled_at` accepts milliseconds.** A single row with a millisecond timestamp silently yields
-   37 matched and a delta of 34645 instead of 38 / 34105. Needs a range guard.
-4. **A second supplier in `docdata.b2b` is summed into "the Razorpay invoice."** One extra vendor
-   turns invoice tax 119692 into 1919692. `invoiceTotals` needs a supplier-CTIN filter. This is in
-   the already-merged matcher, not a branch.
-5. Statement money given in paise instead of rupees inflates the invoice 100× unguarded.
-6. `toBatchRow` accepts a `meta.period` that contradicts the statement, and an empty `merchantGstin`.
-7. An envelope with no `count` accepts truncation silently, despite a comment claiming otherwise.
-8. `matchedExact + matchedFuzzy + exceptions` can fall short of `totalRecords` with no runtime
-   invariant.
+What each fix actually does, since the finding text describes the bug and not the remedy:
+
+3. **`settled_at` accepts milliseconds** — fixed. `requireEpochSeconds` bounds the value to
+   1 Jul 2017 (GST commencement) → 1 Jan 2100, so any millisecond, microsecond or nanosecond
+   value is refused by name rather than silently billed to a period that does not exist.
+4. **A second supplier in `docdata.b2b` was summed into "the Razorpay invoice"** — fixed. Both
+   `invoiceTotals` and `itcVerdict` are scoped to `RAZORPAY_SUPPLIER_GSTIN`, overridable per batch
+   via `MatchInput.supplierGstin`. A statement with no Razorpay invoice throws instead of totalling
+   zero. The comparison is the whole GSTIN, state code included.
+5. **Statement money given in paise** — guarded as far as a single statement allows. Every invoice
+   must now carry `val`, GSTN's own declared total, and its line items (cess included) must add up
+   to it within ₹1. That catches lines scaled by 100 under a rupee total. It does **not** catch a
+   uniformly scaled document — `val` in paise too is internally consistent, and nothing inside the
+   statement can see it; that one surfaces as a hundredfold rollup delta in front of a human, which
+   is the product's answer to it. Said plainly in the code comment rather than implied.
+6. **`toBatchRow` accepted a contradicting `meta.period` and an empty `merchantGstin`** — fixed.
+   `BatchResult` now carries the period it reconciled, and the mapping refuses a `meta` that
+   disagrees with it. Both fields are held to the same shapes ingestion holds the statement to.
+7. **An envelope with no `count`** — fixed. Refused outright, naming the absence; a bare array is
+   still accepted, because it is a different shape rather than an envelope missing a field.
+8. **The three buckets could fall short of `totalRecords`** — fixed. `toBatchRow` asserts
+   `exact + fuzzy + exceptions === totalRecords` and names all four numbers when it doesn't hold.
 
 ## Making the AI legible — PRD §15, committed scope
 

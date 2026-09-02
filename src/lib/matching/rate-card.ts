@@ -26,6 +26,19 @@ const BASIS = 10_000;
 export const TOLERANCE_PAISE = 100;
 
 /**
+ * Statement money is in RUPEES and recon money in integer paise, so somebody
+ * has to convert — once, in one place. Rounded and never truncated: ₹8.29 × 100
+ * evaluates to 828.9999999999999 in IEEE-754, and truncating loses a paise per
+ * line, silently and only on some values. BUILD-LOG entry 12 is the same fault
+ * on the fee side.
+ *
+ * It lives here rather than in the matcher because the ingestion layer needs
+ * the identical conversion to cross-check an invoice's declared total, and two
+ * copies of a rounding rule is how the two ends of a reconciliation drift.
+ */
+export const rupeesToPaise = (rupees: number) => Math.round(rupees * 100);
+
+/**
  * What a cell says the fee should have been. Razorpay's `fee` is INCLUSIVE of
  * tax; `tax` is the GST inside it.
  */

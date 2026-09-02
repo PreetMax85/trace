@@ -1,3 +1,4 @@
+import { requireGstin, requirePeriod } from "@/lib/ingestion/guards";
 import type { BatchResult, MatchedRecord } from "@/lib/matching/types";
 import type { batches, records } from "./schema";
 
@@ -24,19 +25,52 @@ export type BatchMeta = {
 export function toBatchRow(result: BatchResult, meta: BatchMeta): typeof batches.$inferInsert {
   const { records: classified, rollup, itc } = result;
 
+  // The header of the audit trail: the GSTIN is the merchant the credit is
+  // claimed by and the period is the return it lands in. Both arrived as
+  // free-form strings, so both are held to the same shapes ingestion holds the
+  // statement to — an empty GSTIN wrote a batch belonging to nobody, and a
+  // malformed one is copied onto a return and rejected by the GST portal.
+  const merchantGstin = requireGstin(meta.merchantGstin, "meta.merchantGstin");
+  const period = requirePeriod(meta.period, "meta.period");
+
+  // `matchBatch` has already refused to reconcile these settlements against
+  // another month's statement. A `meta.period` that disagrees undoes that
+  // agreement one layer down and files the whole claim in the wrong return, so
+  // the contradiction is fatal rather than resolved in either direction.
+  if (period !== result.period) {
+    throw new Error(
+      `meta.period is ${period} but the batch reconciled ${result.period} against that period's GSTR-2B`,
+    );
+  }
+
+  const matchedExact = countMethod(classified, "EXACT");
+  const matchedFuzzy = countMethod(classified, "FUZZY");
+  const exceptions = classified.filter((r) => r.status === "EXCEPTION").length;
+
+  // The three buckets are counted independently, so a record in none of them is
+  // simply absent from all three — `total_records` says 54 and the buckets say
+  // 53, on the one row a human reads as the summary of the whole batch. The
+  // arithmetic is asserted here rather than trusted, because nothing else in
+  // the pipeline ever compares the four numbers.
+  if (matchedExact + matchedFuzzy + exceptions !== classified.length) {
+    throw new Error(
+      `a batch of ${classified.length} records counts ${matchedExact} EXACT + ${matchedFuzzy} FUZZY + ${exceptions} exceptions — every record must land in exactly one bucket`,
+    );
+  }
+
   return {
-    merchantGstin: meta.merchantGstin,
-    period: meta.period,
+    merchantGstin,
+    period,
     totalRecords: classified.length,
     // `match_method` IS the confidence tier (PRD §6): EXACT means the
     // merchant's own expected rate held, FUZZY that another published cell
     // explained the fee. Counted off the records rather than tracked
     // separately, so the three buckets cannot drift out of step with the rows.
-    matchedExact: countMethod(classified, "EXACT"),
-    matchedFuzzy: countMethod(classified, "FUZZY"),
-    exceptions: classified.filter((r) => r.status === "EXCEPTION").length,
+    matchedExact,
+    matchedFuzzy,
+    exceptions,
 
-    ...itcSplit(result, meta.period),
+    ...itcSplit(result, result.period),
 
     gstr2bInvoiceTxvalPaise: rollup.gstr2bInvoiceTxvalPaise,
     gstr2bInvoiceTaxPaise: rollup.gstr2bInvoiceTaxPaise,

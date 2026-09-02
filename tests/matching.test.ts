@@ -826,3 +826,156 @@ describe("tier 2 — statements the fixture cannot produce", () => {
     expect(batch.rollup.rollupDeltaPaise).toBe(0);
   });
 });
+
+/**
+ * Backlog finding 4. `invoiceTotals` summed every supplier in `docdata.b2b`
+ * into "the Razorpay invoice". A merchant's real GSTR-2B carries every supplier
+ * who filed against their GSTIN, so this is not an exotic input — it is the
+ * normal one. A single extra vendor took July's invoice tax from 119692 to
+ * 1919692, and the delta with it.
+ */
+describe("the rollup's scope rests on the classifier, not on its own filter", () => {
+  // Found by mutation: dropping `billedIn === period` from the rollup filter
+  // breaks nothing, because `classify` calls every out-of-period row TIMING
+  // before it ever looks at the fee — so MATCHED already implies in-period.
+  // The filter is not wrong, it is currently unreachable, and the coupling is
+  // invisible from either side. Asserted here so that reordering the classifier
+  // fails a test rather than quietly moving another month's fees into this
+  // period's claimed ITC.
+  it("never matches a record billed outside the batch's own period", () => {
+    for (const period of ["072026", "082026"]) {
+      const batch = matchBatch({
+        settlements: read("settlements.json").items as ReconItem[],
+        statement: read(`gstr2b-${period}.json`),
+        period,
+        mode: "exact+fuzzy",
+      });
+
+      const matched = batch.records.filter((r) => r.status === "MATCHED");
+      expect(matched.length).toBeGreaterThan(0);
+      expect(matched.every((r) => r.billedIn === period)).toBe(true);
+    }
+  });
+});
+
+describe("tier 2 — the statement carries suppliers other than Razorpay", () => {
+  /** The July statement with one more vendor's invoice filed against it. */
+  const withSecondSupplier = (over: Record<string, unknown> = {}) => {
+    const s = structuredClone(julyStatement);
+    s.docdata.b2b.push({
+      ctin: "27AABCU9603R1ZM",
+      trdnm: "SOME OTHER VENDOR PRIVATE LIMITED",
+      inv: [
+        {
+          inum: "OV/2026-07/117",
+          val: 21240,
+          itcavl: "Y",
+          rsn: "",
+          items: [{ num: 1, rt: 18, txval: 18000, igst: 0, cgst: 1620, sgst: 1620, cess: 0 }],
+          ...over,
+        },
+      ],
+    });
+    return s;
+  };
+
+  const july = (statement: unknown) =>
+    matchBatch({
+      settlements: read("settlements.json").items as ReconItem[],
+      statement: statement as typeof julyStatement,
+      period: "072026",
+      mode: "exact+fuzzy",
+    });
+
+  it("totals only Razorpay's own invoice", () => {
+    const batch = july(withSecondSupplier());
+
+    expect(batch.rollup).toEqual({
+      gstr2bInvoiceTxvalPaise: 664945,
+      gstr2bInvoiceTaxPaise: 119692,
+      rolledUpTaxPaise: 85587,
+      rollupDeltaPaise: 34105,
+    });
+  });
+
+  it("distinguishes Razorpay's registrations from each other, not just from other vendors", () => {
+    // Found by mutation: comparing everything after the state code passed every
+    // other assertion here, because the second supplier is a different company.
+    // A GSTIN is a two-digit STATE code, then the company's ten-character PAN,
+    // then an entity code, `Z` and a check digit — so one company registered in
+    // two states has two GSTINs differing ONLY in those first two digits. That
+    // is Razorpay's actual situation, and the registration that billed the
+    // merchant is what decides whether the tax is CGST+SGST or IGST. Summing
+    // the Karnataka invoice into a Maharashtra reconciliation is the same
+    // hundredfold-style error with a far more plausible cause.
+    const otherState = structuredClone(julyStatement);
+    otherState.docdata.b2b.push({
+      // Identical to Razorpay's Maharashtra CTIN in every character but the
+      // state code, deliberately: that is the only difference between two
+      // registrations of one company, and it is the whole test.
+      ctin: "29AAGCR4375J1ZY",
+      inv: [
+        {
+          inum: "RZP/TAX/2026-07/0041999",
+          val: 21240,
+          itcavl: "Y",
+          rsn: "",
+          items: [{ num: 1, rt: 18, txval: 18000, igst: 3240, cgst: 0, sgst: 0, cess: 0 }],
+        },
+      ],
+    });
+
+    expect(july(otherState).rollup.gstr2bInvoiceTaxPaise).toBe(119692);
+  });
+
+  it("lets a merchant billed from another of Razorpay's registrations say so", () => {
+    // The escape hatch the default constant needs. A merchant outside
+    // Maharashtra is billed by whichever Razorpay registration serves them, and
+    // their statement carries that CTIN — with the tax entirely in IGST, since
+    // supplier and recipient are then in different states.
+    const karnataka = structuredClone(julyStatement);
+    karnataka.docdata.b2b[0].ctin = "29AAGCR4375J1ZY";
+    karnataka.docdata.b2b[0].inv[0].items[0] = {
+      num: 1,
+      rt: 18,
+      txval: 6649.45,
+      igst: 1196.92,
+      cgst: 0,
+      sgst: 0,
+      cess: 0,
+    };
+
+    expect(() => july(karnataka)).toThrow(/27AAGCR4375J1ZY/);
+
+    const batch = matchBatch({
+      settlements: read("settlements.json").items as ReconItem[],
+      statement: karnataka,
+      period: "072026",
+      mode: "exact+fuzzy",
+      supplierGstin: "29AAGCR4375J1ZY",
+    });
+
+    expect(batch.rollup.gstr2bInvoiceTaxPaise).toBe(119692);
+    expect(batch.rollup.rollupDeltaPaise).toBe(34105);
+  });
+
+  it("reads GSTN's verdict off Razorpay's invoice, not off another vendor's", () => {
+    // The same scoping failure with a different symptom: one blocked invoice
+    // from an unrelated supplier would report the whole Razorpay invoice as
+    // ineligible, and the ITC split downstream writes off every rupee of it.
+    const blocked = july(withSecondSupplier({ itcavl: "N", rsn: "Section 16(4) time bar" }));
+
+    expect(blocked.itc).toEqual({ available: true, reason: null });
+  });
+
+  it("refuses a statement with no Razorpay invoice at all, rather than totalling zero", () => {
+    // The failure the filter itself could introduce. A statement filed by other
+    // suppliers only would total to a zero invoice and report the merchant as
+    // claiming credit the government never billed — the same nonsense an empty
+    // b2b table produces, arrived at from the other side.
+    const noRazorpay = structuredClone(julyStatement);
+    noRazorpay.docdata.b2b[0].ctin = "27AABCU9603R1ZM";
+
+    expect(() => july(noRazorpay)).toThrow(/27AAGCR4375J1ZY|Razorpay/);
+  });
+});

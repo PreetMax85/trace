@@ -1,6 +1,7 @@
 import type { ReconItem } from "@/lib/matching/types";
 import {
   parseJsonText,
+  requireEpochSeconds,
   requireInteger,
   requireNonEmptyArray,
   requireNonEmptyString,
@@ -52,7 +53,19 @@ function extractItems(parsed: unknown): unknown[] {
     );
   }
 
-  if (envelope.count !== undefined && envelope.count !== envelope.items.length) {
+  // An envelope that declares no count cannot be checked against anything, so
+  // accepting one gives back exactly the silence this comparison exists to
+  // break — a truncated page reads as a complete batch. Razorpay's collection
+  // envelope always carries `count`; one that does not is not a short read we
+  // can rule out. A bare array is a different shape, not an envelope missing a
+  // field, and is still accepted above.
+  if (envelope.count === undefined) {
+    throw new Error(
+      "settlement collection carries no `count`, so a truncated or over-paged read cannot be ruled out — send the envelope Razorpay returns, or a bare array of rows",
+    );
+  }
+
+  if (envelope.count !== envelope.items.length) {
     throw new Error(
       `settlement collection declares count ${String(envelope.count)} but carries ${envelope.items.length} items — the payload is truncated or over-paged`,
     );
@@ -88,9 +101,10 @@ function toReconItem(item: unknown, index: number): ReconItem {
     order_id: requireNonEmptyString(row.order_id, `${at}.order_id`),
     payment_id: joinKey(row, type, at),
     settlement_id: requireNonEmptyString(row.settlement_id, `${at}.settlement_id`),
-    // The T+2 month-boundary rule reads this instant, in IST. An absent or
-    // fractional timestamp silently picks a filing period.
-    settled_at: requireInteger(row.settled_at, `${at}.settled_at`),
+    // The T+2 month-boundary rule reads this instant, in IST. An absent,
+    // fractional or wrongly-scaled timestamp silently picks a filing period —
+    // hence seconds specifically, not merely an integer.
+    settled_at: requireEpochSeconds(row.settled_at, `${at}.settled_at`),
   };
 }
 

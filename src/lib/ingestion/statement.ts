@@ -1,3 +1,4 @@
+import { rupeesToPaise } from "@/lib/matching/rate-card";
 import type { Gstr2bStatement } from "@/lib/matching/types";
 import {
   parseJsonText,
@@ -86,8 +87,81 @@ function requireItcavl(value: unknown, path: string): "Y" | "N" {
   throw new Error(`${path}.itcavl must be exactly "Y" or "N", got ${JSON.stringify(value)}`);
 }
 
+/**
+ * A tax invoice may round its total to the nearest rupee, so the declared total
+ * and the sum of the lines are allowed to differ by one. A unit error is four
+ * orders of magnitude away from that.
+ */
+const VAL_TOLERANCE_PAISE = 100;
+
+/**
+ * The invoice's own declared total, against the lines that make it up.
+ *
+ * This is the only cross-check a single statement carries, and it is the one
+ * defence against the unit error: statement money is in RUPEES, and the same
+ * figures given in paise inflate the invoice a hundredfold while every field
+ * stays a perfectly good finite number. `val` is GSTN's own total for the
+ * document, so lines scaled by 100 no longer add up to it.
+ *
+ * What it CANNOT catch, and this is worth being plain about: a document scaled
+ * uniformly — `val` in paise too — is internally consistent, and no check
+ * inside the statement can see it. That one surfaces as a rollup delta a
+ * hundred times too large, in front of a human, which is the product's answer
+ * to it rather than an assertion here.
+ */
+function checkDeclaredTotal(
+  row: Record<string, unknown>,
+  items: (Invoice["items"][number] & { cess: number })[],
+  path: string,
+): void {
+  const declared = rupeesToPaise(requireFiniteNumber(row.val, `${path}.val`));
+  const lines = items.reduce(
+    (total, item) =>
+      total +
+      rupeesToPaise(item.txval) +
+      rupeesToPaise(item.igst) +
+      rupeesToPaise(item.cgst) +
+      rupeesToPaise(item.sgst) +
+      rupeesToPaise(item.cess),
+    0,
+  );
+
+  if (Math.abs(declared - lines) > VAL_TOLERANCE_PAISE) {
+    throw new Error(
+      `${path}.val declares ₹${row.val as number} but its line items add up to ₹${lines / 100} — statement money is in RUPEES, and line items given in paise inflate the invoice a hundredfold`,
+    );
+  }
+}
+
 function toInvoice(invoice: unknown, path: string): Invoice {
   const row = requireObject(invoice, path);
+
+  const items = requireNonEmptyArray(row.items, `${path}.items`).map((line, l) => {
+    const at = `${path}.items[${l}]`;
+    const item = requireObject(line, at);
+    rejectGstr2aItemFields(item, at);
+
+    // All four heads required, `igst: 0` included. A Maharashtra merchant's
+    // tax is entirely CGST+SGST and every merchant elsewhere is the mirror
+    // image, so an absent head is a missing fact rather than a zero —
+    // treating it as zero reports a whole invoice as carrying no tax
+    // (BUILD-LOG entry 15).
+    return {
+      txval: requireFiniteNumber(item.txval, `${at}.txval`),
+      igst: requireFiniteNumber(item.igst, `${at}.igst`),
+      cgst: requireFiniteNumber(item.cgst, `${at}.cgst`),
+      sgst: requireFiniteNumber(item.sgst, `${at}.sgst`),
+      // Absent is genuinely zero here, unlike the four heads above: cess
+      // applies to a short list of goods and a services invoice simply has
+      // none. It is read only to make the total add up.
+      cess:
+        item.cess === undefined || item.cess === null
+          ? 0
+          : requireFiniteNumber(item.cess, `${at}.cess`),
+    };
+  });
+
+  checkDeclaredTotal(row, items, path);
 
   return {
     inum: requireNonEmptyString(row.inum, `${path}.inum`),
@@ -95,23 +169,16 @@ function toInvoice(invoice: unknown, path: string): Invoice {
     // Free text, never an enum: GSTN documents the grounds for ineligibility
     // but publishes no code list. Absent is an empty reason, not a missing one.
     rsn: row.rsn === undefined || row.rsn === null ? "" : requireString(row.rsn, `${path}.rsn`),
-    items: requireNonEmptyArray(row.items, `${path}.items`).map((line, l) => {
-      const at = `${path}.items[${l}]`;
-      const item = requireObject(line, at);
-      rejectGstr2aItemFields(item, at);
-
-      // All four heads required, `igst: 0` included. A Maharashtra merchant's
-      // tax is entirely CGST+SGST and every merchant elsewhere is the mirror
-      // image, so an absent head is a missing fact rather than a zero —
-      // treating it as zero reports a whole invoice as carrying no tax
-      // (BUILD-LOG entry 15).
-      return {
-        txval: requireFiniteNumber(item.txval, `${at}.txval`),
-        igst: requireFiniteNumber(item.igst, `${at}.igst`),
-        cgst: requireFiniteNumber(item.cgst, `${at}.cgst`),
-        sgst: requireFiniteNumber(item.sgst, `${at}.sgst`),
-      };
-    }),
+    // Cess is dropped on the way out. It is a separate levy, it is not part of
+    // the GST the rollup reconciles, and Razorpay's invoice never carries one —
+    // but it IS inside `val`, so the cross-check has to see it or a well-formed
+    // statement carrying cess would be rejected for not adding up.
+    items: items.map((item) => ({
+      txval: item.txval,
+      igst: item.igst,
+      cgst: item.cgst,
+      sgst: item.sgst,
+    })),
   };
 }
 

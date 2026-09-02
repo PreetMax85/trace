@@ -74,6 +74,45 @@ export function requireInteger(value: unknown, path: string): number {
 }
 
 /**
+ * GST commenced on 1 July 2017, so no settlement predating it can appear on any
+ * GSTR-2B; and no real settlement lands in the 22nd century. The window is
+ * deliberately domain-shaped rather than arbitrary, and it is what makes the
+ * unit detectable at all.
+ */
+const GST_COMMENCEMENT_SECONDS = 1_498_847_400; // 00:00 IST, 1 Jul 2017
+const FAR_FUTURE_SECONDS = 4_102_444_800; // 00:00 UTC, 1 Jan 2100
+
+/**
+ * A settlement instant, in Unix SECONDS.
+ *
+ * Razorpay returns seconds, but a millisecond value is a perfectly good safe
+ * integer, so `requireInteger` passes it straight through. Nothing then fails:
+ * `periodOf` reads it as a date tens of thousands of years out, which is simply
+ * a different filing period, and the row is billed against a GSTR-2B that does
+ * not exist. One such row takes the July batch from 38 matched to 37 and the
+ * rollup delta from 34105 to 34645, silently. BUILD-LOG entry 25.
+ *
+ * Milliseconds (~1.8e12), microseconds and nanoseconds all sit far above the
+ * ceiling, and seconds-since-1970 values from before GST sit below the floor.
+ */
+export function requireEpochSeconds(value: unknown, path: string): number {
+  const seconds = requireInteger(value, path);
+  if (seconds < GST_COMMENCEMENT_SECONDS || seconds > FAR_FUTURE_SECONDS) {
+    // The hint is worth naming: milliseconds is the way this actually happens,
+    // and "out of range" alone sends the reader looking at the data instead of
+    // at the unit.
+    const hint =
+      seconds > FAR_FUTURE_SECONDS
+        ? " — a value this large is the same instant in milliseconds (or finer), not seconds"
+        : "";
+    throw new Error(
+      `${path} must be a settlement instant in Unix seconds between 1 Jul 2017 and 1 Jan 2100, got ${seconds}${hint}`,
+    );
+  }
+  return seconds;
+}
+
+/**
  * A finite number that may be fractional — statement money is in RUPEES. The
  * asymmetry with the recon side is real, not a bug; the matcher converts once.
  */
