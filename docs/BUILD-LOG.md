@@ -1014,3 +1014,59 @@ that row's id and the right opening. It was confirmed to fail when the bug is re
 is the only evidence that a guard guards anything. The rule this generalises to: a click handler
 is not verified by a test that calls the handler, only by an event a person could actually
 produce — aimed where a person would actually aim it.
+
+---
+
+## 29. The free model could do both halves of the job, but not at the same time
+
+**Believed.** The eval harness could be run for free on Gemini before spending anything on an
+Anthropic key. The check that produced that recommendation was that `gemini-2.5-flash` supports
+tool calling, and supports structured output. Both facts are true, and the Vercel AI SDK exposes
+both through the same `generateText` call the agent already uses, so the swap looked like one line:
+`google(...)` in place of `anthropic(...)`.
+
+**Broke.** Google's API refuses the two **together**:
+
+```
+AI_APICallError — Function calling with a response mime type:
+'application/json' is unsupported
+```
+
+`Output.object` sets that response mime type, and `investigate()` passes `tools` in the same call,
+so every record failed. It failed *invisibly*: `investigate()` catches its own errors and reports
+`verdict: "FAILED"` rather than throwing, so the first run printed sixteen wrong classifications
+and zero tokens rather than one error. The provider's documented `structuredOutputs: false` escape
+hatch does not lift it — verified, same error with the option set.
+
+The agent cannot give either half up. The Zod enum is what makes a sixth category unrepresentable
+(§15.3) and the tools are what make it an investigation rather than a guess. Running it on Gemini
+without structured output would have scored *a different agent than the one that ships*, which is
+worse than having no free number at all.
+
+**Caught by.** Probing the boundary in layers instead of guessing: a bare `generateText` against
+Gemini (worked), then the exact call `investigate()` makes with the error uncaught (the message
+above), then tools-alone and `Output.object`-alone as separate requests. Both halves returned the
+*correct* category, `PARTIAL_PAYMENT`, which is what pinned the fault on the combination rather
+than on the prompt, the schema, the key or the network.
+
+**Would have cost.** The believed version had already been said out loud as a recommendation, and
+acted on — a key was created and added to `.env` on the strength of it. Shipped, it would have put
+a Gemini agreement number in the pitch that was measured on an agent the product does not run.
+
+**Permanently changed.** Three things.
+
+- `resolveModelChoice` now refuses a non-Anthropic provider *before* any call, and its error states
+  the constraint in full, so the next person does not spend a run rediscovering it. Two tests assert
+  the message still names the constraint and not merely "unsupported".
+- The reasoning is written into `src/lib/eval/model.ts` as a comment, next to the code it explains,
+  rather than left only here.
+- `runEval` was split out of `scripts/eval.ts` so the entire loop — pacing, retries, token
+  accounting — is driven end to end by `MockLanguageModelV4` in `npm test`, with no API key and no
+  spend. The reason a free provider was wanted was to exercise the harness; a mock does that
+  better, deterministically, and in the suite rather than by hand.
+
+**The general lesson, since it is the second time this shape has appeared.** "X supports A" and
+"X supports B" do not compose into "X supports A and B". Both sub-claims verified cleanly and the
+conjunction was still false. When a plan depends on two capabilities at once, the thing to verify
+is the conjunction — and the cheapest verification is one real call, which here took under a
+minute and would have cost nothing to run before recommending the provider.
