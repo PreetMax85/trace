@@ -188,7 +188,7 @@ describe("the batch row", () => {
 
   it("is assignable to the table's own insert type", () => {
     // Drizzle's inferred type, so a schema change breaks the build rather than
-    // the demo. `satisfies` and not a cast: a cast would silence exactly the
+    // the running app. `satisfies` and not a cast: a cast would silence exactly the
     // error this line exists to raise.
     const row = toBatchRow(july(), meta) satisfies typeof batches.$inferInsert;
     expect(row.startedAt).toEqual(meta.startedAt);

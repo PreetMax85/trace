@@ -9,7 +9,7 @@ import type { batches, records } from "./schema";
  * field-for-field without a database anywhere near the test.
  *
  * Return types are Drizzle's own inferred insert types, so a schema change
- * breaks the build rather than the demo.
+ * breaks the build rather than the running app.
  */
 
 /** What a batch row needs that the matcher does not know. */

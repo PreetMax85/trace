@@ -188,7 +188,7 @@ export const aiCallVerdict = pgEnum("ai_call_verdict", [
 export const agentLayer = pgEnum("agent_layer", ["INVESTIGATE", "EXPLAIN", "ACT"]);
 
 /**
- * Every Claude call, logged (PRD §15.4). This is the observability layer —
+ * Every model call, logged (PRD §15.4). This is the observability layer —
  * Langfuse was cut on 1 Sep and this table replaced it, on the reasoning that
  * for an audit product the trace IS the audit trail and belongs in the same
  * database as the records it explains.

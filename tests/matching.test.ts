@@ -116,7 +116,7 @@ describe("mode flag", () => {
   const corporateRow = payment({ amount: 560000, fee: 14207, tax: 2167 });
 
   it("leaves a corporate-card fee unmatched in exact-only mode", () => {
-    // The lift the demo rests on has to be demonstrable, not asserted: the same
+    // The lift this mode buys has to be demonstrable, not asserted: the same
     // row is a clean FUZZY match one mode up. Category is deliberately not
     // asserted here — the classifier does not exist yet.
     const batch = matchBatch({
@@ -570,7 +570,7 @@ describe("the whole fixture against the manifest", () => {
       PARTIAL_PAYMENT: 3,
     });
     expect(batch.records.filter((r) => r.creditNoteReview)).toHaveLength(4);
-    // 38/54 = 70.4%, the number the demo claims for the full pass.
+    // 38/54 = 70.4%, the match rate claimed for the full pass.
     expect(batch.records.filter((r) => r.status === "MATCHED")).toHaveLength(38);
   });
 
@@ -697,7 +697,7 @@ describe("tier 2 — the period rollup against GSTR-2B", () => {
   });
 
   it("ties the July invoice to the records billed in July", () => {
-    // The claim the whole demo rests on. Not "we matched 54 rows to 54 rows" —
+    // The claim the whole reconciliation rests on. Not "we matched 54 rows to 54 rows" —
     // Razorpay does not bill per row. GSTR-2B carries ONE consolidated Razorpay
     // invoice for the period, and the reconciliation is only meaningful if what
     // that invoice says, minus what we could explain, is exactly what is sitting
