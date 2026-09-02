@@ -38,6 +38,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# playwright mcp — per-run page snapshots and console logs, regenerated every session
+.playwright-mcp/
+
 # editor / os
 .DS_Store
 Thumbs.db

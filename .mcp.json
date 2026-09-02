@@ -2,11 +2,19 @@
   "mcpServers": {
     "context7": {
       "command": "npx",
-      "args": ["-y", "@upstash/context7-mcp", "--api-key", "${CONTEXT7_API_KEY}"]
+      "args": [
+        "-y",
+        "@upstash/context7-mcp",
+        "--api-key",
+        "${CONTEXT7_API_KEY}"
+      ]
     },
     "blade": {
       "command": "npx",
-      "args": ["-y", "@razorpay/blade-mcp@latest"]
+      "args": [
+        "-y",
+        "@razorpay/blade-mcp@latest"
+      ]
     },
     "razorpay": {
       "command": "npx",
@@ -16,6 +24,16 @@
         "https://mcp.razorpay.com/mcp",
         "--header",
         "Authorization: Basic ${RAZORPAY_MCP_TOKEN}"
+      ]
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--headless",
+        "--isolated",
+        "--viewport-size=1680,1000"
       ]
     }
   }
