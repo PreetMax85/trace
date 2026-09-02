@@ -161,7 +161,7 @@ One statement is generated **per return period**, so each month is its own file.
 **GSTINs must pass the check-digit algorithm.** `27AAGCR4375J1ZU`, used in earlier drafts as
 "Razorpay's GSTIN", is not a valid GSTIN — it welds Maharashtra's state code to the Karnataka
 registration's check digit. Razorpay's real Maharashtra registration is **`27AAGCR4375J1ZY`**; the
-Karnataka one is `29AAGCR4375J1ZU`. The demo merchant is `27TESTM1234A1Z0` — an obviously synthetic
+Karnataka one is `29AAGCR4375J1ZU`. The seeded merchant is `27TESTM1234A1Z0` — an obviously synthetic
 PAN so it cannot collide with a real business, with a correct check digit so it survives validation.
 Anyone pasting an invalid GSTIN into the GST portal is a worse failure than any code bug, so this
 is asserted in `tests/fixtures.test.ts`.
@@ -193,7 +193,7 @@ Because no per-transaction invoice number exists, the per-record match target is
 | `STANDARD` | 2% + 18% GST | Visa/Mastercard/RuPay debit & credit, UPI, netbanking, wallets, pay-later, EMI (domestic standard) |
 | `CORPORATE` | 2.15% + 18% GST | Corporate / commercial credit cards |
 
-Source: `https://razorpay.com/pricing/`. Enterprise rates are negotiated and unpublished; the demo
+Source: `https://razorpay.com/pricing/`. Enterprise rates are negotiated and unpublished; the seeded
 merchant is on the standard card.
 
 ---
@@ -265,7 +265,7 @@ The residual is the reconciliation's actual output: **the delta between the 2B i
 matched rollup is exactly the tax on the exceptions billed in that same period.** `TIMING` records
 are excluded from the delta by construction — they are billed in the *following* period, so they
 appear in the next month's invoice rather than this one. A batch is fully explained when those two
-numbers agree. This is the claim the demo rests on — not "we matched 54 rows to 54 rows", which is
+numbers agree. This is the claim the product rests on — not "we matched 54 rows to 54 rows", which is
 not how Razorpay bills.
 
 ---
@@ -304,7 +304,7 @@ the same fact copied 54 times. The UI derives the per-record badge from the batc
 In the synthetic dataset both statements are `itcavl: "Y"`, because a Maharashtra merchant billed by
 Razorpay's Maharashtra registration with place of supply in Maharashtra genuinely is eligible —
 fabricating an ineligible line would be dishonest data. The code path is exercised by test rather
-than by demo fixture.
+than by fixture.
 
 **A second cause of timing drift, deliberately not modelled.** A supplier amending an invoice
 through **GSTR-1A** also moves the ITC into the following month's GSTR-2B, and this is confirmed by
@@ -340,7 +340,7 @@ own text of the CGST Act. Section 41's substitution is likewise verified. That *
 return MDR on refunded transactions** is corroborated only by third-party sources — Razorpay's refund
 documentation is silent, and the "₹0 refund processing fee" on its pricing page means no *additional*
 charge, not reversal of the original fee. Treat it as industry norm, not established fact, and do not
-assert it flatly in the pitch.
+assert it flatly.
 
 ---
 
@@ -485,7 +485,7 @@ is generated; the counts above are exact.
 │  │ AGENT 2 — EXPLAIN             │  │ AGENT 3 — ACT                 ││
 │  │ read-only · cannot write      │  │ drafts only · cannot send     ││
 │  │                               │  │                               ││
-│  │ streamText over batch rows    │  │ Per exception, drafts:        ││
+│  │ generateText + Output.object  │  │ Per exception, drafts:        ││
 │  │ "why is my settlement         │  │   · the CA email              ││
 │  │  ₹3,000 short?"               │  │   · the GSTR-3B flag          ││
 │  │                               │  │   · the Tally entry           ││
@@ -509,8 +509,8 @@ is generated; the counts above are exact.
 | Layer | Choice | Reason |
 |---|---|---|
 | Framework | Next.js (App Router) | Known stack, API routes + React UI in one repo |
-| Pipeline execution | Plain async functions + Postgres | **Inngest cut 1 Sep.** Durable execution earns its cost on long, expensive or fan-out steps. Detect is 54 records through pure functions in under 3 seconds, and a re-run is byte-identical because it is deterministic — so there is nothing to resume. Run state lives in the `batches` row, not in a workflow engine. The human-in-the-loop pause Inngest was chosen for is `actions.confirmed_at`: a nullable column and a Confirm button, which is also the only version of that gate a demo can actually show on screen. |
-| Agent/AI calls | Vercel AI SDK + Claude (Anthropic API) | Tool calling for MCP context fetches, `streamText` for the Explain conversational layer |
+| Pipeline execution | Plain async functions + Postgres | **Inngest cut 1 Sep.** Durable execution earns its cost on long, expensive or fan-out steps. Detect is 54 records through pure functions in under 3 seconds, and a re-run is byte-identical because it is deterministic — so there is nothing to resume. Run state lives in the `batches` row, not in a workflow engine. The human-in-the-loop pause Inngest was chosen for is `actions.confirmed_at`: a nullable column and a Confirm button, which is also the only version of that gate a user can actually see. |
+| Agent/AI calls | Vercel AI SDK + Claude (Anthropic API) | Tool calling for MCP context fetches. `generateText` + `Output.object` for **all three** layers, Explain included — see §15.5 for why streaming was dropped there |
 | Database | PostgreSQL via Drizzle | Audit trail needs ACID guarantees |
 | UI | `@razorpay/blade` | Razorpay's own design system: tokenised, accessible, and already the visual language of the dashboard these merchants read their settlements in. A reconciliation view that looks like a different product makes people distrust the numbers. |
 | Data layer | `razorpay-mcp-server` (dev-time) + synthetic fixtures (runtime) | Official tooling, used during development to verify the `fetch_settlement_recon_details` response shape. **Not the runtime path** — it is a stdio subprocess and Vercel is serverless; a fresh test account also returns zero settlements until a settlement cycle runs. Runtime reads the synthetic fixtures. |
@@ -605,7 +605,7 @@ trace/
 │   └── PRD.md                   ← this document
 ├── src/
 │   ├── app/                     ← Next.js App Router
-│   │   └── api/chat/            ← Explain layer (streamText endpoint)
+│   │   └── api/explain/         ← Explain layer (live answers, POST)
 │   ├── lib/
 │   │   ├── ingestion/           ← Razorpay MCP + GSTR-2B parser
 │   │   ├── matching/            ← exact + fuzzy matcher (Detect, deterministic)
@@ -707,6 +707,29 @@ and date" — this is what makes that claim checkable rather than asserted.
 
 **Done when:** an answer to "why is my settlement short?" renders citations that navigate to the
 rows it counted.
+
+**Two deviations from §9, recorded here rather than left to be rediscovered.**
+
+*No streaming.* §9 named `streamText`. The citation gate cannot check half a record id: a streamed
+answer would either render `[pay_ABC` as a citation before knowing whether that record exists, or
+hold the stream back until it did — which is a non-streaming call with extra machinery. §15.5's
+guarantee is committed scope and §9's streaming was an implementation note, so the guarantee wins.
+`generateText` + `Output.object` also keeps Explain identical in shape to Investigate, so both
+share one gate discipline rather than two.
+
+*Two surfaces, one agent.* The panel offers six example questions whose answers were produced once
+by `npm run explain` and committed to `data/synthetic/explanations.json`, and a free-text box that
+calls `POST /api/explain` live. Both go through the same `explain()`, the same read-only tools and
+the same citation gate. The recorded half exists so the page renders with no API key, no database
+and no network — it keeps the screen static-prerendered, and it means a rate limit or an
+unreachable API costs the page nothing. Every answer states which it is: an answer recorded weeks ago must never read as
+one just produced, so provenance — the model, the prompt version, and either "recorded <date>" or
+"answered live" — sits under every one.
+
+*The live route will not answer off the record.* It declines with a 503 when no database is
+configured, rather than answering without writing its `ai_calls` row. "Every Claude call is
+logged" (§15.4) is either true or it is marketing, and for an audit product an untraceable answer
+is worth less than no answer.
 
 ### What is deliberately not being added
 
