@@ -958,3 +958,59 @@ deliberately: dropping `billedIn === period` from the rollup filter breaks nothi
 implies in-period. It is an equivalent mutant, not a missing test, and the invariant it depends on
 is now asserted directly so that reordering the classifier fails a test rather than quietly moving
 another month's fees into this period's claimed credit.
+
+## 28. Clicking a row did nothing, and no test could have known
+
+**Believed.** The exception review table was finished: `TableRow` was given an `onClick`, the
+handler set the open record, the detail panel read it, and everything typechecked. Blade's own
+documented example wires a row click exactly this way.
+
+**Broke.** Clicking a row did nothing at all. Blade's `Table` is built on
+`@table-library/react-table-library`, whose `Row` only forwards a click when `isRowClick(event)`
+passes — and that function is an allowlist of five tag names:
+
+```js
+"svg" === target.tagName || "path" === target.tagName ||
+"DIV" === target.tagName || "SPAN" === target.tagName || "TD" === target.tagName
+```
+
+The settlement cell rendered a Blade `Code` (a `<code>`) and a default `Text` (a `<p>`). Both are
+outside the allowlist, so a click that landed on any actual text was discarded silently — no
+error, no warning, nothing in the console. Only the few pixels of cell padding, where the target
+is the `<td>` itself, worked. Neither Blade's docs nor its TypeScript types mention this; it is a
+behaviour of a transitive dependency.
+
+**Caught by.** Driving the real page over the Chrome DevTools Protocol and dispatching a genuine
+`Input.dispatchMouseEvent` at the row's coordinates, then reading the detail panel's text back out
+of the DOM. The first attempt used `element.click()`, which is not the same event and taught
+nothing; the row element also has `display: contents`, so its bounding box is 0×0 and the click
+has to be aimed at a cell. Every unit test in this slice passed throughout — the bug lives
+entirely in the gap between a handler being *passed* and a handler being *called*.
+
+**Would have cost.** A demo where the headline interaction — click an exception, see why it was
+flagged — does nothing on camera, with a green suite and a clean build saying it was finished.
+
+**Second instance, found by the guard itself.** Blade's `Badge` renders its label as a `<p>` and
+exposes no `as` prop, so the coloured category pill — the most clickable-looking thing in an
+exception row — was dead in the same way and could not be fixed by choosing a different element.
+It is wrapped in `<Box pointerEvents="none">` so the click falls through to the cell, which keeps
+the design-system component and the row click both. The table library does the same thing to its
+own buttons (`button * { pointer-events: none }`), which is the hint that this is the intended
+escape hatch rather than a workaround.
+
+**The guard was wrong twice before it was right.** Worth recording, because it is the same failure
+as entry 27 in a new place. Version one clicked the *centre of the cell*, which is empty space: it
+passed against a deliberately reintroduced bug, because a click on padding lands on the `<td>` and
+is allowlisted whatever the text is wrapped in. Version two clicked the text but always the same
+column, so it could only ever have caught a regression in that one cell. Only version three —
+click the deepest text-bearing element, and rotate the column across the six verdicts so all six
+are covered — actually failed when the bug was put back.
+
+**Permanently changed.** Every element inside a table row is a `span`, a `div` or an `svg`, with a
+comment at the cell that says why and points here. `npm run verify:screen` (`scripts/verify-screen.mjs`)
+drives a real browser: it asserts 54 rows and 54 distinct record ids, then clicks one row per
+verdict — a different column each time — and fails unless the detail panel comes back carrying
+that row's id and the right opening. It was confirmed to fail when the bug is reintroduced, which
+is the only evidence that a guard guards anything. The rule this generalises to: a click handler
+is not verified by a test that calls the handler, only by an event a person could actually
+produce — aimed where a person would actually aim it.

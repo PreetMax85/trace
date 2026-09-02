@@ -1,12 +1,12 @@
-# Trace — handoff: slices 1 and 3 are merged, the screen is next
+# Trace — handoff: the screen is built; the eval harness is next
 
-Written 2 Sep 2026, evening. **Slices 1 and 3 are both on `main` at `c7a078b`** — the six matcher
-fixes and the whole Investigate layer. `main`, `fix/matcher-edge-cases` and both their remotes are
-in sync, and the tree is green: **195 tests, typecheck and lint clean.**
+Written 2 Sep 2026, evening. **Slices 1, 2 and 3 are done.** 1 and 3 are on `main`; slice 2 — the
+exception review screen — is on `feat/exception-review-screen`, which has been merged up to
+today's `main` and is ready to merge back. The tree is green: **226 tests, typecheck and lint
+clean**, plus `npm run verify:screen`, which drives a real browser.
 
-The next session takes **slice 2, the exception review screen** — the only thing standing between a
-working matcher and something a person can look at. Read the branch warning below before creating
-the branch; there is a trap in it that has already cost one push.
+The next session takes **slice 4, the `npm run eval` harness**. Slice 5 (§15.1 and §15.5) is
+unblocked once slices 2 and 3 have been reviewed.
 
 ## Read this first
 
@@ -15,7 +15,9 @@ carries what they don't.
 
 - `docs/PRD.md` — the spec. Read **§9 (architecture)** and **§15 (making the AI legible)** before
   writing agent code. Read **§7 (exception taxonomy)** when you need it. Don't read all of it.
-- `docs/BUILD-LOG.md` — 27 entries, each a thing that was wrong while its own tests passed. **25**
+- `docs/BUILD-LOG.md` — 28 entries, each a thing that was wrong while its own tests passed. **28**
+  is the newest and the one to read before touching the screen: a row click that was wired
+  correctly, typechecked, and did nothing. **25**
   (a timestamp in the wrong unit) and **26** (every supplier summed into Razorpay's invoice) are the
   two live bugs slice 1 found in merged code; **27** is the pass that found three of slice 1's own
   new assertions passing for the wrong reason, and is the most useful one to read.
@@ -123,10 +125,10 @@ git push -u origin feat/exception-review-screen
 
 If it does not answer, `git checkout -b <name> main` as usual, then `git push -u`.
 
-**`feat/exception-review-screen` currently holds exactly one stale claim commit (`116a36b`), on
-1 September's `main`.** It is the last of these traps left. Adopt it as above, or delete it with
-`git push origin --delete feat/exception-review-screen` and branch fresh — either is fine, but
-decide before you write code, not after.
+**That trap is now cleared.** `feat/exception-review-screen` was adopted rather than re-cut, and
+the merge of today's `main` into it resolved one conflict in this file by taking `main`'s side —
+the claim commit carried a status board and a settled-decisions list that `main` had already
+superseded. No trap branches remain.
 
 Everything the queue needs is installed and committed, so a scheduled run never has to install
 anything. `.npmrc` sets `legacy-peer-deps=true`, which Blade requires — its peer list contradicts
@@ -155,20 +157,59 @@ already fixed.
 **Also merged:** the `ai_calls` table and the whole Investigate layer. See the slice 3 section
 below.
 
-**Not built at all:** any UI, the Explain and Act layers, the eval harness, deploy, the video.
+**Built on `feat/exception-review-screen`:** the exception review screen. See the slice 2 section
+below.
+
+**Not built at all:** the Explain and Act layers, the eval harness, deploy, the video.
 
 ## Status board — every run updates this before it stops
 
 | # | Slice | Branch | Status |
 |---|---|---|---|
 | 1 | Backlog findings 3-8 | `fix/matcher-edge-cases` | **done, merged into `main`** |
-| 2 | The screen | `feat/exception-review-screen` | not started |
+| 2 | The screen | `feat/exception-review-screen` | **done, pushed — not yet merged to `main`** |
 | 3 | `ai_calls` + Investigate + policy gate | `feat/investigate-agent` | **done, merged into `main`** |
 | 4 | `npm run eval` harness | `feat/investigate-agent` | not started — unblocked, slice 3 is on `main` |
 | 5 | §15.1 reasoning trace, §15.5 citations | — | blocked until 2 and 3 are reviewed |
 
-`feat/exception-review-screen` holds **only** a slice-claim commit, no code — see the branch
-warning above before you touch it. Don't mistake it for work in progress.
+## Slice 2 — what was built, so it is not rebuilt
+
+One page at `/`, server-rendered, reading `data/synthetic/` through `matchBatch()` and **not**
+through Postgres. The database is the audit trail; it does not sit between the fixture and the
+pixels.
+
+- **`src/app/page.tsx`** — a server component. It loads and classifies the batch, then hands a
+  finished, plain-data view model to the client. Blade needs the browser, so all rendering is in
+  `src/app/exception-review.tsx` (`"use client"`), which holds nothing but which row is open.
+- **`src/lib/review/batch.ts`** — fixture → `matchBatch` → view model. The four header figures come
+  from **`toBatchRow`**, the same pure mapping that writes the audit trail, so the screen and the
+  database cannot report different numbers. The fixture is imported as JSON rather than read with
+  `fs`, so there is no working-directory dependency and nothing extra to trace into a deployment.
+- **`src/lib/review/explain.ts`** — why a row carries its verdict, in plain language, **rules only**.
+  No model is called and none should be: the screen has to read correctly with no API key. Every
+  figure it quotes is recomputed with the matcher's own `priceAt`.
+- **`src/lib/format/money.ts`** — integer paise → a rupee string. Integer arithmetic throughout,
+  Indian digit grouping, and it refuses anything that is not an exact safe integer. 18 of 18
+  mutants killed.
+- **`src/lib/format/date.ts`** — a settlement timestamp in IST, and `"072026"` → `"July 2026"`.
+  Shares `IST_OFFSET_SECONDS` with the matcher so the date on screen and the period beside it
+  cannot drift.
+- **`scripts/verify-screen.mjs`** (`npm run verify:screen`) — browser verification over the Chrome
+  DevTools Protocol, no new dependency. Run the app first, then the script.
+
+**Read BUILD-LOG 28 before editing the table.** Blade's `Table` discards a click whose target is
+not an `svg`, `path`, `div`, `span` or the `td` itself, silently. Every element inside a row is a
+span or a div for that reason, and the category `Badge` is wrapped in `<Box pointerEvents="none">`.
+
+**Blade's `Amount` is deliberately unused** — it formats through the viewer's browser locale, so
+an audit figure would render differently depending on who opened it. `docs/BLADE-NOTES.md` now
+carries that and two other findings at the top.
+
+**Console and build.** `npm run build` is clean and `/` prerenders as static. The production
+console is empty. Dev shows two third-party lines — framer-motion's `motion() is deprecated` and a
+React "cannot update a component while rendering" from Blade's own `TableHeaderRow`, which calls
+`setHeaderRowDensity` in its render body. Neither is reachable from our code and neither appears
+in production.
 
 ## Slice 3 — what was built, so it is not rebuilt
 
@@ -277,7 +318,7 @@ retries are zero-value. Say "eleven transactions" or "eight of them carrying tax
 These were slice 1 and they are done: each has a test that failed before its fix and passes after,
 and every locked number above is unmoved. 195 tests pass, typecheck and lint clean. Findings 3 and
 4 were live bugs in already-merged code and are BUILD-LOG **25** and **26**; the adversarial pass
-is **27**. Next free BUILD-LOG number is **28**.
+is **27**. Next free BUILD-LOG number is **29**.
 
 What each fix actually does, since the finding text describes the bug and not the remedy:
 

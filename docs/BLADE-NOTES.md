@@ -25,8 +25,29 @@ it is Blade's text rather than anyone's paraphrase of it.
 `.npmrc` sets `legacy-peer-deps=true`, which Blade requires — its peer list contradicts itself on
 every React version (BUILD-LOG 21). Blade components need `"use client"`.
 
-**Known issue:** `Amount` logs `window is not defined` during SSR. It renders correctly; make it
-client-only if that is cheap, and record it if not.
+## Known issues, found by using these components (slice 2)
+
+**`Amount` is not used in this project, deliberately.** It logs `window is not defined` during
+SSR, and the cause matters more than the symptom: it formats through `@razorpay/i18nify-js`,
+whose `getLocale` guards on `typeof navigator === "undefined"` and then reads `window.Intl`.
+Node defines a global `navigator` and no `window`, so the guard misses. Making the component
+client-only would silence the log but not the real problem — the grouping and decimal separator
+then follow the *viewer's* browser locale, so the same audit figure reads as `₹1.196,92` to a
+viewer on a de-DE browser. Every rupee figure on the screen is formatted by
+`src/lib/format/money.ts` instead: integer paise in, one deterministic string out, Indian digit
+grouping, tested.
+
+**A click inside a `Table` row is discarded unless its target is an `svg`, `path`, `div`, `span`
+or the `td` itself.** Blade's `Table` sits on `@table-library/react-table-library`, whose
+`isRowClick` is that exact allowlist. So `<Code>` (a `<code>`) and a default `<Text>` (a `<p>`)
+swallow row clicks silently — no error, no warning. Put `as="span"` on every `Text` inside a row.
+`Badge` renders its label as a `<p>` and has no `as` prop, so wrap it in
+`<Box pointerEvents="none">` and let the click fall through to the cell. BUILD-LOG entry 28.
+
+**`TableHeaderRow` calls `setHeaderRowDensity` during render**, which React reports as "Cannot
+update a component while rendering a different component". It is Blade's own code, unconditional,
+and cannot be avoided from the outside. It appears in the dev console and in Next's dev overlay as
+one issue; the production console is clean. Not worth working around.
 
 ---
 
