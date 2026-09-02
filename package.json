@@ -2,7 +2,7 @@
   "name": "trace",
   "version": "0.1.0",
   "private": true,
-  "description": "GST tax-line matching agent — reconciles Razorpay settlements against GSTR-2B",
+  "description": "GST tax-line matching agent \u2014 reconciles Razorpay settlements against GSTR-2B",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -11,6 +11,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "verify:screen": "node scripts/verify-screen.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
