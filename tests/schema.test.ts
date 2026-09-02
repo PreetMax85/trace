@@ -1,6 +1,13 @@
 import { getTableColumns } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { batches, exceptionCategory, rateCell, records } from "@/lib/audit/schema";
+import {
+  aiCalls,
+  aiCallVerdict,
+  batches,
+  exceptionCategory,
+  rateCell,
+  records,
+} from "@/lib/audit/schema";
 
 describe("exception taxonomy", () => {
   it("is exactly the five locked categories", () => {
@@ -44,5 +51,56 @@ describe("GSTR-2B verdict placement", () => {
       expect(batchCols).toContain(col);
       expect(recordCols).not.toContain(col);
     }
+  });
+});
+
+describe("ai_calls", () => {
+  it("carries everything a batch needs to account for its own spend", () => {
+    // PRD Section 15.4: the batch report states token count and rupee cost for
+    // the run that produced it. Anything missing here has to be back-filled
+    // from a provider dashboard, which is not an audit trail.
+    const cols = Object.keys(getTableColumns(aiCalls));
+
+    for (const col of [
+      "batchId",
+      "recordId",
+      "model",
+      "promptVersion",
+      "inputTokens",
+      "outputTokens",
+      "latencyMs",
+      "costMicroUsd",
+      "verdict",
+    ]) {
+      expect(cols).toContain(col);
+    }
+  });
+
+  it("splits cached input from fresh input", () => {
+    // Anthropic bills a cache read at 0.1x and a cache write at 1.25x. A single
+    // input_tokens column would price every call as if none of the prompt were
+    // cached, overstating cost by most of the saving PRD Section 9 claims
+    // prompt caching delivers — the one number this table exists to get right.
+    const cols = Object.keys(getTableColumns(aiCalls));
+    expect(cols).toContain("cacheReadTokens");
+    expect(cols).toContain("cacheWriteTokens");
+  });
+
+  it("records what the policy gate did, including that it fired", () => {
+    // "The gate never triggered" is only worth anything if a triggered gate
+    // would have left a row saying so. PRD Section 15.3.
+    expect(aiCallVerdict.enumValues).toEqual([
+      "ACCEPTED",
+      "COERCED_UNEXPLAINED",
+      "BLOCKED_WRITE",
+      "FAILED",
+    ]);
+  });
+
+  it("allows a batch-level call with no record", () => {
+    // Investigate runs per record; Explain answers a question about the whole
+    // batch. Forcing a record id would make the Explain layer unloggable.
+    expect(getTableColumns(aiCalls).recordId.notNull).toBe(false);
+    expect(getTableColumns(aiCalls).batchId.notNull).toBe(true);
   });
 });
