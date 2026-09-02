@@ -718,6 +718,64 @@ stack table is a set of claims, and claims get verified before anything is built
 
 ---
 
+## 22. A permission prompt that no instruction could survive
+
+**Believed.** Entry 20's guards had closed this. `.claude/settings.json` is tracked and grants
+`mcp__context7__resolve-library-id` explicitly, so the grant travels with the clone. The briefing
+tells the run, in bold, to abandon any step that asks for permission and continue. Two independent
+defences, both aimed at exactly this failure.
+
+**Broke.** Both overnight runs died on the first Context7 call, 2 minutes in, and hung until
+morning — about 12 hours between them, producing nothing but a slice-claim commit each.
+
+Two things were wrong at once, and each defeated one guard.
+
+The routine's `session_context.allowed_tools` listed `mcp__Context7`. The *shape* of that is
+right — a bare `mcp__<server>` prefix is the documented way to allow every tool on one server, and
+it is exactly what the tracked `.claude/settings.json` already used. The bug is one capital letter.
+The connector is *displayed* as "Context7", but a run registers it lowercase and calls
+`mcp__context7__resolve-library-id`. `mcp__Context7` matched nothing at all.
+
+So this was never an over-narrow allowlist — it was a whole-server grant with a typo, which fails
+identically to granting nothing. And because a routine-level `allowed_tools` **takes precedence
+over the repository's tracked `.claude/settings.json`**, the correct grant sitting in the clone
+never got a vote. The guard from entry 20 was right, and I disabled it myself by writing a
+misspelled list above it.
+
+The second failure is the more general one. The briefing's instruction — *"if anything asks for
+permission, abandon that step and continue"* — is not executable. A permission prompt does not
+fail a step and return control; it blocks the session. There is no branch for the model to take.
+An instruction cannot rescue a permission prompt, and writing one that reads as though it can is
+worse than writing nothing, because it makes the run look defended.
+
+**Caught by.** Preet asking to review the two branches. Both existed, both looked plausible in
+`git branch -r`, and both contained a single 4-line documentation commit. `list_runs` showed both
+sessions still `requires_action`; the logs showed the identical `permission prompt` line.
+
+**Would have cost.** It did cost: the entire overnight window, on a build with three days left.
+Nothing was lost, because the claim-and-push rule meant each run pushed before it stalled — that
+guard worked exactly as designed and is the only reason this is a lost night rather than a lost
+night plus a mystery.
+
+**Permanently changed.** Three things.
+
+The allowlist is written from the **tool id a run actually calls**, never from the connector's
+display name, and always lowercase. It grants whole servers by prefix and then repeats the
+specific ids underneath, so a mistake in one form is caught by the other. The briefing also now
+records that routine-level `allowed_tools` overrides tracked repo permissions, so the entry-20
+guard cannot be switched off from above without someone noticing.
+
+The MCP canary moves to **preflight step 1**, ahead of `npm ci`. A blocked tool is fatal to the
+whole session, so the only useful place to discover it is before anything else has been done. A run
+that dies in its first 30 seconds costs nothing and says exactly what is wrong in its log.
+
+And the briefing no longer claims a permission prompt can be handled. It says the opposite: a
+prompt ends the run, so every tool the run may reach must be pre-approved before it is scheduled.
+The general rule: **in an unattended run, treat a permission prompt as a crash, not an error.**
+Errors can be caught. Crashes have to be made impossible in advance.
+
+---
+
 ## The pattern (notes for the narrative — not final wording)
 
 Almost nothing crashed. **Every significant failure here was code or spec that was wrong while

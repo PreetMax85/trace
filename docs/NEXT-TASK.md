@@ -25,19 +25,23 @@ never a code change. Code either compiles or it doesn't, and the tests tell you 
 ## Preflight — run this before any slice, and stop if it fails
 
 Do these six things first, in order. They take about three minutes and they convert a silent
-all-night hang into an informative early failure.
+all-night hang into an informative early failure. **The order matters** — step 1 is first because
+it is the one that can kill the session outright, and it is worth nothing if it fires after you
+have already spent twenty minutes.
 
-1. `npm ci` (or `npm install`) — restore the lockfile, nothing new.
-2. `npm test` — expect **104 passing**. If not, stop and report; the tree was already broken.
-3. `npm run typecheck` and `npm run lint` — both clean.
-4. Create the branch for slice 1, make a trivial commit (append one dated line to
-   `docs/HANDOFF.md` saying the run started), and **push it immediately**. This proves git auth
-   works. If the push fails, stop — everything after this would be stranded.
-5. Start the dev server **in the background** and confirm `http://localhost:3000` answers.
-6. Call `resolve-library-id` on the Context7 connector once, to confirm MCP works at all.
+1. **Call `resolve-library-id` on the Context7 connector, before anything else.** This is a canary
+   for the whole MCP allowlist. If it returns, every connector is reachable and you can follow the
+   documentation-first rule normally. If it hangs, this run is already over (see below) — but it
+   will have died in thirty seconds having wasted nothing, and the log will say why.
+2. `npm ci` (or `npm install`) — restore the lockfile, nothing new.
+3. `npm test` — expect **104 passing**. If not, stop and report; the tree was already broken.
+4. `npm run typecheck` and `npm run lint` — both clean.
+5. Claim your slice in `docs/HANDOFF.md`, commit, and **push it immediately**. This proves git
+   auth works. If the push fails, stop — everything after this would be stranded.
+6. Start the dev server **in the background** and confirm `http://localhost:3000` answers.
 
-If steps 1-4 fail, **stop and report**. Do not try to repair the environment. If 5 or 6 fail, carry
-on — nothing in the queue strictly needs them.
+If steps 2-5 fail, **stop and report**. Do not try to repair the environment. If 6 fails, carry on
+— nothing in the queue strictly needs the browser.
 
 ## What MCP you have, and what you don't
 
@@ -63,9 +67,23 @@ Each of these has already cost this project real time. They are not hypothetical
 - `git rebase -i`, `git add -i`, or anything interactive.
 - Any command that prompts for a password, a confirmation, or a permission.
 
-**If anything asks you for permission or input: abandon that step immediately, write what happened
-in `docs/HANDOFF.md`, and continue with the next thing.** Never wait. Waiting is what cost eleven
-hours in BUILD-LOG entry 20.
+**A permission prompt is not an error you can handle — it is a crash.** You cannot abandon the
+step and move on, because the prompt blocks the whole session rather than failing the one tool
+call. There is no branch for you to take, and no note you can write. Earlier versions of this file
+told you to "abandon that step and continue"; that instruction was impossible to follow and it cost
+this project two full nights (BUILD-LOG entries 20 and 22).
+
+So the rule is preventative, and it is not aimed at you — it is aimed at whoever schedules you.
+Every tool this run may reach must be pre-approved **before the run is created**, in the routine's
+`allowed_tools`. Grant whole servers rather than picking tools: `mcp__context7` allows everything
+Context7 offers. Copy the name from a tool id a run actually called, not from the connector's
+display name in the UI — connectors show as "Context7" but register as `context7`, and
+`mcp__Context7` matches nothing. Note that a routine-level `allowed_tools` **overrides the
+repository's tracked `.claude/settings.json`** — a correct grant in the repo does not save you if
+the routine's own list is wrong.
+
+Your part is only step 1 of the preflight: prove MCP answers before you spend time on anything
+else.
 
 ## How to pick your work
 
