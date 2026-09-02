@@ -221,6 +221,22 @@ try {
       continue;
     }
 
+    // PRD §15.1. Only a flagged row is investigated, so only a flagged row gets
+    // this section — an empty one on a matched row would imply a run that is
+    // missing rather than a row no model was ever asked about. Asserted in a
+    // real browser because this whole file exists for the reason BUILD-LOG 28
+    // records: this screen has already shipped a section that typechecked,
+    // rendered in tests, and did nothing on the page.
+    const hasAgentSection = panel.includes("What the agent did");
+    if (hasAgentSection !== expectFlagged) {
+      failures.push(
+        expectFlagged
+          ? `${verdict}: flagged row ${id} shows no "What the agent did" section`
+          : `${verdict}: matched row ${id} should have no "What the agent did" section`,
+      );
+      continue;
+    }
+
     console.log(
       `  ${verdict.padEnd(16)} ${COLUMNS[column].padEnd(12)} ${id}  ->  ${panel.split("\n")[1] ?? ""}`,
     );
