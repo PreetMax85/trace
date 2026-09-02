@@ -25,7 +25,13 @@ export type RecordExplanation = {
 };
 
 /** A classified row before its explanation is attached. */
-type ClassifiedRow = Omit<ReviewRow, "explanation">;
+/**
+ * `trace` is excluded as well as `explanation`, and that is load-bearing rather
+ * than tidy: this module is rules-only and must stay renderable with no API key
+ * (see the note at the top of the file). Withholding the agent's output at the
+ * type level means it cannot come to depend on one by accident.
+ */
+type ClassifiedRow = Omit<ReviewRow, "explanation" | "trace">;
 
 export function explainRow(row: ClassifiedRow, period: string): RecordExplanation {
   switch (row.category) {

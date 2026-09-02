@@ -8,9 +8,11 @@ import type {
   RateCell,
   ReconItem,
 } from "@/lib/matching";
+import investigationsJson from "../../../data/synthetic/investigations.json";
 import julyStatementJson from "../../../data/synthetic/gstr2b-072026.json";
 import settlementsJson from "../../../data/synthetic/settlements.json";
 import { explainRow, type RecordExplanation } from "./explain";
+import { parseTraces, type InvestigationTrace } from "./trace";
 
 /**
  * The exception review screen's data, assembled straight from the fixture.
@@ -58,6 +60,13 @@ export type ReviewRow = {
   billedIn: string;
   settledAt: number;
   explanation: RecordExplanation;
+  /**
+   * What the agent did to reach this verdict (PRD §15.1), or null when no run
+   * has classified this record yet. Null is the normal state without an API
+   * key: the panel falls back to `explanation`, which is rules-only and needs
+   * no model.
+   */
+  trace: InvestigationTrace | null;
 };
 
 /** The four figures across the top, plus what they are qualified by. */
@@ -106,6 +115,11 @@ export function loadReviewBatch(): ReviewBatch {
   // payment id.
   const byId = new Map<string, ReconItem>(settlements.map((item) => [item.entity_id, item]));
 
+  // The agent's reasoning trace, exported from a real run's `ai_calls` rows by
+  // `npm run eval -- --write-traces`. Empty until one has been run, which is
+  // why every consumer treats an absent trace as normal rather than as an error.
+  const traces = parseTraces(investigationsJson);
+
   const rows = result.records.map((record): ReviewRow => {
     const item = byId.get(record.recordId);
     // Every classified record came from a recon row, so an absent one means the
@@ -135,7 +149,11 @@ export function loadReviewBatch(): ReviewBatch {
       settledAt: item.settled_at,
     };
 
-    return { ...base, explanation: explainRow(base, REVIEW_PERIOD) };
+    return {
+      ...base,
+      explanation: explainRow(base, REVIEW_PERIOD),
+      trace: traces.get(record.recordId) ?? null,
+    };
   });
 
   return {

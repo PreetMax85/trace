@@ -25,6 +25,7 @@ import { formatIstDateTime, formatPeriod } from "@/lib/format/date";
 import { formatRupees } from "@/lib/format/money";
 import type { ExceptionCategory } from "@/lib/matching";
 import type { ReviewBatch, ReviewRow } from "@/lib/review/batch";
+import { summariseToolValue, type InvestigationTrace } from "@/lib/review/trace";
 
 /**
  * The screen itself. It receives a finished batch and renders it — no fetching,
@@ -316,6 +317,30 @@ function Detail({ row, period }: { row: ReviewRow | null; period: string }): Rea
               ))}
             </Box>
 
+            {/* PRD §15.1. Only exceptions are investigated — the matcher
+                resolves the other 38 rows on its own — so a matched row gets no
+                section at all rather than an empty one implying a missing run. */}
+            {row.status === "EXCEPTION" && (
+              <>
+                <Divider />
+                {row.trace === null ? (
+                  <Box display="flex" flexDirection="column" gap="spacing.2">
+                    <Heading size="small">What the agent did</Heading>
+                    <Text size="small" color="surface.text.gray.muted">
+                      No agent run has classified this record yet. Everything above comes from the
+                      deterministic matcher, not from a model — run{" "}
+                      <Code size="small" isHighlighted={false}>
+                        npm run eval
+                      </Code>{" "}
+                      to record one.
+                    </Text>
+                  </Box>
+                ) : (
+                  <AgentTrace trace={row.trace} />
+                )}
+              </>
+            )}
+
             {row.creditNoteReview && (
               <Badge color="information" emphasis="intense" size="medium">
                 Credit note review
@@ -325,6 +350,67 @@ function Detail({ row, period }: { row: ReviewRow | null; period: string }): Rea
         )}
       </CardBody>
     </Card>
+  );
+}
+
+/**
+ * What the agent actually did to reach this verdict (PRD §15.1).
+ *
+ * Read from an exported `ai_calls` row, never recomputed here. The provenance
+ * line is not decoration: a trace is only checkable next to the model and
+ * prompt version that produced it, and printing them means a trace left over
+ * from a superseded prompt cannot be read as the current one's.
+ */
+function AgentTrace({ trace }: { trace: InvestigationTrace }): React.ReactElement {
+  return (
+    <Box display="flex" flexDirection="column" gap="spacing.3" testID="agent-trace">
+      <Box display="flex" alignItems="center" gap="spacing.3">
+        <Heading size="small">What the agent did</Heading>
+        {/* The gate firing is shown, not hidden. "The gate never fired" is only
+            a meaningful claim if a firing would have been visible. */}
+        {trace.verdict !== "ACCEPTED" && (
+          <Badge color="notice" emphasis="intense" size="small">
+            {trace.verdict}
+          </Badge>
+        )}
+      </Box>
+
+      {trace.toolCalls.length === 0 ? (
+        <Text size="small" color="surface.text.gray.muted">
+          It called no tools — the record itself was enough to classify.
+        </Text>
+      ) : (
+        <Box display="flex" flexDirection="column" gap="spacing.3">
+          {/* Keyed by position: the same tool can legitimately be called twice
+              with different inputs, so keying by name would drop one. */}
+          {trace.toolCalls.map((call, index) => (
+            <Box key={index} display="flex" flexDirection="column" gap="spacing.1">
+              <Code size="small" isHighlighted={false}>
+                {call.toolName}
+              </Code>
+              <Text size="xsmall" color="surface.text.gray.muted">
+                asked {summariseToolValue(call.input)}
+              </Text>
+              <Text size="xsmall" color="surface.text.gray.subtle">
+                got {summariseToolValue(call.output)}
+              </Text>
+            </Box>
+          ))}
+        </Box>
+      )}
+
+      {trace.reason !== null && (
+        <Text size="small" color="surface.text.gray.normal">
+          {trace.category} — {trace.reason}
+        </Text>
+      )}
+
+      <Text size="xsmall" color="surface.text.gray.subtle">
+        {trace.model} · {trace.promptVersion} · {(trace.latencyMs / 1000).toFixed(1)}s ·{" "}
+        {trace.inputTokens.toLocaleString("en-IN")} in / {trace.outputTokens.toLocaleString("en-IN")}{" "}
+        out tokens
+      </Text>
+    </Box>
   );
 }
 
