@@ -1,14 +1,16 @@
-"use client";
+import { loadReviewBatch } from "@/lib/review/batch";
+import { ExceptionReview } from "./exception-review";
 
-import { Box, Heading, Text, Amount, Badge } from "@razorpay/blade/components";
-
+/**
+ * The exception review screen.
+ *
+ * A server component: the fixture is parsed, matched and classified here, on
+ * the server, and only the finished verdict crosses to the browser. Nothing on
+ * this page reads the database — `matchBatch` runs against the fixture directly
+ * (see `src/lib/review/batch.ts` for why the audit trail must not sit between
+ * the two). Blade needs the browser, so the rendering itself lives in a client
+ * component that receives plain data and holds nothing but which row is open.
+ */
 export default function Home() {
-  return (
-    <Box padding="spacing.7" display="flex" flexDirection="column" gap="spacing.4">
-      <Heading size="large">Blade smoke test</Heading>
-      <Text>ITC claimable this period</Text>
-      <Amount value={982.23} currency="INR" size="large" />
-      <Badge color="negative">4 unexplained fees</Badge>
-    </Box>
-  );
+  return <ExceptionReview batch={loadReviewBatch()} />;
 }
