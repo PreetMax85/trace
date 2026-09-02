@@ -52,6 +52,35 @@ Two rules came out of this and are now in `docs/NEXT-TASK.md`:
 The one guard that worked: claim-and-push-before-coding. It is why this is a legible failure
 rather than a mystery, and it stays.
 
+## The night of 2 Sep — the allowlist is fixed, the network is not
+
+The 04:31Z run got past the thing that killed 1 Sep. `mcp__context7__resolve-library-id` was
+**permitted** — no permission prompt, the call ran — so the lowercase allowlist fix works and
+BUILD-LOG 22 is closed. It failed one layer down instead:
+
+```
+TypeError: fetch failed
+proxy: connect_rejected — "gateway answered 403 to CONNECT" — host: context7.com:443
+```
+
+The sandbox's egress proxy denies `context7.com` outright. Same run, same moment:
+`api.github.com` → 200 and `registry.npmjs.org` → 200. So this is **not** the routine's
+`allowed_tools` and not an MCP problem — it is the **remote environment's network policy**, which
+lists the domains a session may reach. `context7.com` is not on it.
+
+**The fix is on the environment, not the routine:** add `context7.com` to the allowed domains
+(Claude Code on the web → the environment's network policy). Re-check by running the preflight
+canary; it answers or it doesn't, in about ten seconds.
+
+The run stopped there without claiming a slice, per the briefing's step-1 rule — no branch, no
+code, nothing to unwind. Slice 1 is still the first unclaimed slice.
+
+Worth knowing for whoever fixes this: `CONTEXT7_API_KEY` is not set in a cloud sandbox either, so
+once the domain is unblocked, lookups there are keyless and rate-limited per IP.
+
+Two other connectors were down in the same run, both expected: `blade` (stdio-only, can never
+reach a routine) and `razorpay` (needs an OAuth flow no unattended run can complete).
+
 ## State of the tree
 
 **Check `git log -3` before trusting anything in this section** — it is the part that goes stale
