@@ -94,6 +94,10 @@ describe("ai_calls", () => {
       "COERCED_UNEXPLAINED",
       "BLOCKED_WRITE",
       "FAILED",
+      // Explain's citation gate. Kept distinct from FAILED because an answer
+      // that invented a record id is a prompt problem and a call that returned
+      // nothing is an infrastructure one. PRD Section 15.5.
+      "INVALID_CITATION",
     ]);
   });
 

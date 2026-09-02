@@ -171,6 +171,17 @@ export const aiCallVerdict = pgEnum("ai_call_verdict", [
   "BLOCKED_WRITE",
   /** The model call or one of its tools failed. The record stays UNEXPLAINED rather than guessing. */
   "FAILED",
+  /**
+   * Explain answered, but named a record this batch does not contain, so the
+   * citation gate withheld the link (PRD §15.5).
+   *
+   * Its own value rather than a flavour of FAILED, on the same reasoning that
+   * separates COERCED_UNEXPLAINED from FAILED above: an answer that invented a
+   * record id is a PROMPT problem and a call that returned nothing is an
+   * INFRASTRUCTURE one. Collapsed into one bucket, a regression that starts
+   * inventing citations would hide inside the rate-limit noise.
+   */
+  "INVALID_CITATION",
 ]);
 
 /** Which of the three layers made the call. */

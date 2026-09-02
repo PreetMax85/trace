@@ -15,6 +15,13 @@
       "when": 1788323798119,
       "tag": "0001_gorgeous_sandman",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788356144958,
+      "tag": "0002_red_white_tiger",
+      "breakpoints": true
     }
   ]
 }
