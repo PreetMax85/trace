@@ -1,8 +1,9 @@
-# Trace — handoff: build the Investigate agent
+# Trace — handoff: slice 3 is done, slice 1 is next
 
-Written 2 Sep 2026, morning. The previous handoff ("build the screen") is spent — not because the
-screen got built, but because the overnight runs that were meant to build it died. See **the night
-of 1 Sep** below before planning anything.
+Written 2 Sep 2026, afternoon. **Slice 3 (the Investigate agent) is complete and pushed.** The
+next session takes slice 1 — six known matcher bugs, listed under **Backlog** below. It is the
+cheapest remaining work: every bug has a stated symptom, there is no new API surface and no UI,
+and the tests are the oracle. Do it in one pass, not six review cycles.
 
 ## Read this first
 
@@ -11,8 +12,9 @@ carries what they don't.
 
 - `docs/PRD.md` — the spec. Read **§9 (architecture)** and **§15 (making the AI legible)** before
   writing agent code. Read **§7 (exception taxonomy)** when you need it. Don't read all of it.
-- `docs/BUILD-LOG.md` — 22 entries, each a thing that was wrong while its own tests passed. **22**
-  is the newest and explains why last night produced nothing.
+- `docs/BUILD-LOG.md` — 24 entries, each a thing that was wrong while its own tests passed. **23**
+  (a spec that named a function which cannot call tools) and **24** (a test that named its own
+  subject wrongly and passed anyway) came out of slice 3 and are the most useful two to read.
 - `docs/NEXT-TASK.md` — the routine briefing: preflight, banned commands, the per-slice loop and
   the slice definitions. Read it even as an interactive session; acceptance criteria live there and
   are not duplicated here.
@@ -58,8 +60,10 @@ rather than a mystery, and it stays.
 first.
 
 `main` carries the merged ingestion layer plus `c6089c6`, which installed Blade, the Vercel AI SDK,
-Zod and Playwright's Chromium, and tracked `.claude/settings.json`. **104 tests pass, typecheck and
-lint clean, green under three timezones.**
+Zod and Playwright's Chromium, and tracked `.claude/settings.json`.
+
+`feat/investigate-agent` carries slice 3 on top of it: **170 tests pass, typecheck and lint clean.**
+Branch off `main` for slice 1 — the two do not overlap, and slice 3 has not been merged yet.
 
 Everything the queue needs is installed and committed, so a scheduled run never has to install
 anything. `.npmrc` sets `legacy-peer-deps=true`, which Blade requires — its peer list contradicts
@@ -67,8 +71,10 @@ itself on every React version, and BUILD-LOG 21 records why.
 
 **Preet runs every `git` write himself.** Draft them, never attempt them. `git commit`, `git push`,
 `git reset`, `git checkout`, `git clean` and `rm` are denied in `.claude/settings.local.json`.
-Always hand over the commit **and** its push together — cloud routines clone from the remote, so an
-unpushed commit means the next run starts from a stale `main`.
+Several commits then ONE push at the end of the block — do not repeat `git push` after every
+commit. The branch does have to be pushed before a scheduled routine fires or before he stops for
+the day, because routines clone from the remote and a stale `main` makes a run rediscover problems
+already fixed.
 
 ## Where the project stands
 
@@ -83,45 +89,52 @@ unpushed commit means the next run starts from a stale `main`.
 - **Ingestion** — `src/lib/ingestion/`: `parseSettlements`, `parseStatement`, `guards.ts`.
 - **Row mapping** — `src/lib/audit/rows.ts`: pure `BatchResult` → Drizzle rows.
 
-**Not built at all:** any UI, all three agent layers, deploy, the video.
+**Built on `feat/investigate-agent`, not yet merged:** the `ai_calls` table and the whole
+Investigate layer. See the slice 3 section below.
+
+**Not built at all:** any UI, the Explain and Act layers, the eval harness, deploy, the video.
 
 ## Status board — every run updates this before it stops
 
 | # | Slice | Branch | Status |
 |---|---|---|---|
-| 1 | Backlog findings 3-8 | `fix/matcher-edge-cases` | not started |
+| 1 | Backlog findings 3-8 | `fix/matcher-edge-cases` | **next — this handoff** |
 | 2 | The screen | `feat/exception-review-screen` | not started |
-| 3 | `ai_calls` + Investigate + policy gate | `feat/investigate-agent` | **next — this handoff** |
-| 4 | `npm run eval` harness | `feat/investigate-agent` | not started |
+| 3 | `ai_calls` + Investigate + policy gate | `feat/investigate-agent` | **done, pushed, unmerged** |
+| 4 | `npm run eval` harness | `feat/investigate-agent` | not started — needs slice 3 merged or branched from |
 | 5 | §15.1 reasoning trace, §15.5 citations | — | blocked until 2 and 3 are reviewed |
 
 The two branches from last night hold **only** a slice-claim commit each, no code. Either build on
 them or delete them; don't mistake them for work in progress.
 
-## Slice 3 — what this session is for
+## Slice 3 — what was built, so it is not rebuilt
 
-Build the Investigate agent and everything that fences it in. **No API key is required and none
-should be requested.**
+All on `feat/investigate-agent`, all against the AI SDK's mock model. No API key was used and none
+is needed to run the tests.
 
-- **`ai_calls` table.** PRD §15.4. A new Drizzle migration: batch id, record id, model, prompt
-  version, input/output tokens, latency, computed cost, and the verdict the policy gate returned.
-  Generate it with `npm run db:generate` then `npm run db:migrate` — **never** `db:push`, which
-  bypasses the migration history already committed.
-- **The Zod output schema.** PRD §15.3. A tight enum over the five categories, plus a short
-  reason string. Tightness is a cost lever, not just hygiene — it is most of what takes a 54-record
-  eval from ~$1.40 to ~$0.31.
-- **The policy gate.** The permission boundary is the story: Investigate **may classify, may not
-  write**. Enforce that in code behind the model, not only in the prompt — a schema constrains what
-  the model emits, the gate constrains what the system accepts. Both, independently.
-- **The tool definitions** Investigate calls to look at a record.
+- **`ai_calls`** — `drizzle/0001_gorgeous_sandman.sql`, **applied to Neon**. Beyond the columns the
+  brief named it carries `layer` (three agents write here), `cache_read_tokens` / `cache_write_tokens`
+  (Anthropic bills cached input at 0.1x and a cache write at 1.25x, so one `input_tokens` column
+  would misreport cost by most of the caching saving), and `tool_calls` / `reason` for §15.1.
+- **`src/lib/agent/schema.ts`** — the Zod enum, read from `exceptionCategory.enumValues` so the
+  model's vocabulary and the column it writes to are one list.
+- **`src/lib/agent/prompt.ts`** — `SYSTEM_PROMPT` is a module constant and must stay one. It is
+  ~2,900 chars; **Claude Opus 5 will not cache a prefix under 512 tokens**, and under that limit
+  caching fails silently as a 10x bill rather than an error. A test guards the floor.
+- **`src/lib/agent/tools.ts`** — four read-only tools, reusing the matcher's own `priceAt` and
+  `periodOf` rather than reimplementing them.
+- **`src/lib/agent/policy.ts`** — the gate, plus the tool allowlist checked *before* the model call.
+- **`src/lib/agent/pricing.ts`** — cost in integer micro-USD, recomputable from the stored columns.
+- **`src/lib/agent/investigate.ts`** — the call site.
 
-All of it is testable against the AI SDK's **mock model**, with no network and no key. Build it
-that way. Swapping the real provider in later is one line, and no second provider package should be
-added to do it — PRD §15 explicitly rules that out.
+**The one thing to know before touching it:** it uses `generateText` + `Output.object`, **not**
+`generateObject`. In AI SDK v7 `generateObject` accepts no `tools`, so the PRD's original wording
+was unimplementable. PRD §15.3 and the §9 diagram now say so; BUILD-LOG 23 records why. Do not
+"restore" it.
 
-**Look the AI SDK's API up in Context7 before writing against it.** Its function signatures and the
-mock-model helper both moved recently, and guessing them is the single most common way this project
-wastes an afternoon.
+Slice 4 (the `npm run eval` harness) is unblocked and small — it scores `investigate()` against
+`data/synthetic/expected.json`. It needs slice 3's code, so branch from `feat/investigate-agent`
+or merge that to `main` first.
 
 ## Database
 

@@ -796,3 +796,69 @@ The connection worth drawing: the PRD's own argument is that **verification capa
 generation speed, is the bottleneck**. This log is that argument demonstrated on ourselves. The
 product and the process are making the same claim — which is the useful kind of coincidence,
 because it's simply what happened.
+
+---
+
+## 23. The spec named a function that cannot do the job
+
+**Believed.** Investigate would classify through `generateObject` with a Zod enum, calling tools
+along the way to fetch refunds and order context. PRD §15.3 and the §9 architecture box both said
+so, in two places, since the spec was written.
+
+**Broke.** `generateObject` in AI SDK v7 accepts no `tools` parameter. It is a one-shot: prompt in,
+validated object out, no tool loop. The two commitments were never satisfiable together — an agent
+that cannot look anything up cannot investigate. Verified against the shipped signature at
+`node_modules/ai/dist/index.d.ts:7476`, not inferred.
+
+**Caught by.** Reading the shipped `.d.ts` before writing the call site, not by Context7. Context7
+returned a correct and current description of `generateObject`; a doc that describes what a function
+*does* has no reason to mention what it does *not* accept. Only the type signature is a complete
+statement. The failure would otherwise have surfaced as a compile error after the prompt, schema,
+gate and tools were all built around it.
+
+**Would have cost.** The obvious repair under deadline is two calls per record — `generateText` to
+gather evidence, `generateObject` to classify — which doubles input on all 54 records and takes the
+eval past the $5 the whole budget is built on (§9). The alternative repair, dropping the tools, would
+have silently deleted §15.1's reasoning trace from the product.
+
+**Permanently changed.** The call site uses `generateText` + `Output.object` + `stopWhen`, which
+validates against the same Zod schema in one conversation and exposes `toolCalls` for the trace. PRD
+§15.3 and the §9 diagram now name it, with the constraint recorded so nobody "restores" the spec.
+The general rule this project already had — documentation-first via Context7 — is amended in
+practice rather than in wording: Context7 for how an API is meant to be used, the version-exact
+`.d.ts` in `node_modules` for what it will actually accept. Neither alone was sufficient here.
+
+---
+
+## 24. A test that named its own subject wrongly and passed anyway
+
+**Believed.** `investigate` survives a tool that throws, and a test proved it: the mock model called
+a broken tool, the tool threw, and the run still returned a category. Green.
+
+**Broke.** The broken tool was named `explodes`, which is not on the read-only allowlist, so the
+permission boundary refused the whole call *before the model ever ran*. The test exercised the
+allowlist, not tool failure. It passed because both paths end at `UNEXPLAINED`, and the assertion
+only checked the category.
+
+**Caught by.** Strengthening the assertion from "lands on UNEXPLAINED" to "verdict is ACCEPTED"
+during the adversarial pass. The verdict is the only field that distinguishes the two paths. The
+mutation pass had not caught it either, because no mutation targeted a test that was measuring the
+wrong thing — mutation testing checks that tests fail when the code breaks, not that they test what
+they claim.
+
+Two smaller things surfaced in the same pass and belong here. First, three `sed` mutations silently
+failed to apply because the patterns were single-line and the code was multi-line; a no-op mutation
+reads exactly like a surviving mutant, i.e. like a test that holds. Second, two genuinely surviving
+mutants turned out to be unreachable defensive branches — a `parseJson(result.text)` fallback that
+could only ever yield `undefined`, and an error-payload branch shadowed by the cause-chain walk.
+Both were deleted rather than papered over with a test.
+
+**Would have cost.** A claim in the submission that the agent degrades gracefully when a lookup
+fails, with a green test behind it and no coverage of the case at all. The permission boundary would
+have looked doubly tested while one of its two tests was really testing it twice.
+
+**Permanently changed.** The broken-tool test now uses an allowlisted name, so it can only exercise
+tool failure, and asserts the verdict rather than the category. The mutation harness prints
+`(mutation applied)` or `(MUTATION DID NOT APPLY)` for every mutant by grepping for the mutated text
+before running the suite, so a no-op can no longer be misread as a passing test. Standing rule:
+when two code paths share an outcome, assert on the field that separates them, never the outcome.
