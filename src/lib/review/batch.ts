@@ -8,6 +8,11 @@ import type {
   RateCell,
   ReconItem,
 } from "@/lib/matching";
+import { applyExplainGate } from "@/lib/explain/policy";
+import type { AnswerSegment } from "@/lib/explain/citations";
+import type { ExplainVerdict } from "@/lib/explain/policy";
+import { EXAMPLE_QUESTIONS, explanationFor, parseExplanations } from "@/lib/explain/library";
+import explanationsJson from "../../../data/synthetic/explanations.json";
 import investigationsJson from "../../../data/synthetic/investigations.json";
 import julyStatementJson from "../../../data/synthetic/gstr2b-072026.json";
 import settlementsJson from "../../../data/synthetic/settlements.json";
@@ -87,12 +92,45 @@ export type ReviewHeader = {
   itcReason: string | null;
 };
 
+/**
+ * One example question and the answer recorded for it (PRD §15.5).
+ *
+ * The answer is resolved, gated and split into segments HERE, on the server,
+ * for the same reason the rest of this file is: the client component renders
+ * and holds no logic. It also means the citation gate runs against the batch
+ * the reader is actually looking at, so a recorded answer that has fallen
+ * behind the fixture shows as an unresolved citation rather than a dead link.
+ */
+export type ExplainExample = {
+  id: string;
+  question: string;
+  /** Null when no answer has been recorded for this question's current wording. */
+  recorded: {
+    /** The answer, ready to render, with citations resolved. */
+    segments: AnswerSegment[];
+    /** Records the answer cited that really exist. */
+    cited: string[];
+    /** Records it named that this batch does not hold. */
+    unknown: string[];
+    verdict: ExplainVerdict;
+    model: string;
+    promptVersion: string;
+    recordedAt: string;
+  } | null;
+};
+
 export type ReviewBatch = {
   header: ReviewHeader;
   rows: ReviewRow[];
+  /** The Explain panel's questions, and any answers already recorded for them. */
+  examples: ExplainExample[];
 };
 
-export function loadReviewBatch(): ReviewBatch {
+/**
+ * Reconcile the fixture once. The screen and the audit trail both read this,
+ * so neither can end up describing a different run from the other.
+ */
+function reconcile() {
   const settlements = parseSettlements(settlementsJson);
   const result = matchBatch({
     settlements,
@@ -101,14 +139,33 @@ export function loadReviewBatch(): ReviewBatch {
     mode: "exact+fuzzy",
   });
 
-  // The header comes from `toBatchRow` — the same pure mapping that writes the
-  // audit trail — rather than from figures recomputed for the screen. Two
-  // derivations of "ITC at risk" is how a demo ends up showing a number the
-  // database disagrees with, and this one is already covered by its own tests.
+  // `toBatchRow` is the same pure mapping that writes the audit trail, rather
+  // than figures recomputed for the screen. Two derivations of "ITC at risk" is
+  // how a screen ends up showing a number the database disagrees with.
   const batch = toBatchRow(result, {
     merchantGstin: MERCHANT_GSTIN,
     period: REVIEW_PERIOD,
   });
+
+  return { settlements, result, batch };
+}
+
+/**
+ * The `batches` row this reconciliation earns, for a caller that needs to
+ * record one — the live Explain route, which may not log an `ai_calls` row
+ * without a batch to attach it to.
+ *
+ * Exported separately rather than added to `ReviewBatch` so the audit row does
+ * not travel to the browser with the screen's props. It is the SAME mapping the
+ * header is built from, so the row written and the figures displayed cannot
+ * disagree.
+ */
+export function loadBatchAuditRow() {
+  return reconcile().batch;
+}
+
+export function loadReviewBatch(): ReviewBatch {
+  const { settlements, result, batch } = reconcile();
 
   // A recon row carries the payment amount and when it settled; a classified
   // record carries the verdict. The table needs both, and they join on the
@@ -156,6 +213,38 @@ export function loadReviewBatch(): ReviewBatch {
     };
   });
 
+  // The recorded Explain answers (PRD §15.5). Empty until `npm run explain`
+  // has been run, which is why the panel treats an absent answer as normal
+  // rather than as an error — the same discipline as the reasoning trace.
+  const recorded = parseExplanations(explanationsJson);
+  const knownRecordIds = new Set(rows.map((row) => row.recordId));
+
+  const examples = EXAMPLE_QUESTIONS.map((question): ExplainExample => {
+    const answer = explanationFor(question, recorded);
+    if (answer === null || answer.answer === null) {
+      return { id: question.id, question: question.question, recorded: null };
+    }
+
+    // Re-checked against today's batch rather than trusting the verdict the
+    // file carries. The two agree — a test asserts it — but the one that must
+    // drive the pixels is the one computed from the records now on screen.
+    const gated = applyExplainGate({ answer: answer.answer }, knownRecordIds);
+
+    return {
+      id: question.id,
+      question: question.question,
+      recorded: {
+        segments: gated.segments,
+        cited: gated.cited,
+        unknown: gated.unknown,
+        verdict: gated.verdict,
+        model: answer.model,
+        promptVersion: answer.promptVersion,
+        recordedAt: answer.recordedAt,
+      },
+    };
+  });
+
   return {
     header: {
       period: result.period,
@@ -172,6 +261,7 @@ export function loadReviewBatch(): ReviewBatch {
       itcReason: result.itc.reason,
     },
     rows,
+    examples,
   };
 }
 

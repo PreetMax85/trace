@@ -26,6 +26,16 @@ import { formatRupees } from "@/lib/format/money";
 import type { ExceptionCategory } from "@/lib/matching";
 import type { ReviewBatch, ReviewRow } from "@/lib/review/batch";
 import { summariseToolValue, type InvestigationTrace } from "@/lib/review/trace";
+import { ExplainPanel } from "./explain-panel";
+
+/**
+ * The DOM id a citation scrolls to (PRD §15.5).
+ *
+ * Derived from the record id in one place, so the anchor the table renders and
+ * the anchor a citation looks for cannot come to disagree — a citation that
+ * silently scrolled nowhere would look exactly like one that worked.
+ */
+const rowAnchorId = (recordId: string) => `row-${recordId}`;
 
 /**
  * The screen itself. It receives a finished batch and renders it — no fetching,
@@ -36,6 +46,18 @@ export function ExceptionReview({ batch }: { batch: ReviewBatch }): React.ReactE
   const { header, rows } = batch;
   const [openRecordId, setOpenRecordId] = useState<string | null>(null);
   const openRow = rows.find((row) => row.recordId === openRecordId) ?? null;
+
+  /**
+   * Reveal the record a citation names: open its detail panel and bring the row
+   * into view. Both halves matter — scrolling to a row without opening it
+   * leaves the reader to find the claim again themselves.
+   */
+  const revealRecord = (recordId: string) => {
+    setOpenRecordId(recordId);
+    document
+      .getElementById(rowAnchorId(recordId))
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 
   const data: TableData<ReviewRow> = {
     nodes: rows.map((row) => ({ ...row, id: row.recordId })),
@@ -84,6 +106,8 @@ export function ExceptionReview({ batch }: { batch: ReviewBatch }): React.ReactE
         />
       </Box>
 
+      <ExplainPanel examples={batch.examples} onCite={revealRecord} />
+
       <Box display="flex" gap="spacing.5" alignItems="flex-start" flexWrap="wrap">
         <Box flex="1 1 720px" minWidth="720px">
           <Table
@@ -119,7 +143,12 @@ export function ExceptionReview({ batch }: { batch: ReviewBatch }): React.ReactE
                       onClick={({ item }) => setOpenRecordId(String(item.id))}
                     >
                       <TableCell>
-                        <Box display="flex" alignItems="center" gap="spacing.3">
+                        <Box
+                          id={rowAnchorId(row.recordId)}
+                          display="flex"
+                          alignItems="center"
+                          gap="spacing.3"
+                        >
                           {/* The exception queue has to be findable at a glance,
                               so every row carries a colour at its left edge as
                               well as a category badge at its right. */}
