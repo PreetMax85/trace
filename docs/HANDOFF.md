@@ -1,9 +1,12 @@
-# Trace — handoff: slices 1 and 3 are done, the screen is next
+# Trace — handoff: slices 1 and 3 are merged, the screen is next
 
-Written 2 Sep 2026, evening. **Slice 3 (the Investigate agent) is merged into `main`, and slice 1
-(the six matcher bugs) is done on `fix/matcher-edge-cases`.** The next session takes **slice 2, the
-exception review screen** — it is the only thing standing between the working matcher and something
-a person can look at.
+Written 2 Sep 2026, evening. **Slices 1 and 3 are both on `main` at `c7a078b`** — the six matcher
+fixes and the whole Investigate layer. `main`, `fix/matcher-edge-cases` and both their remotes are
+in sync, and the tree is green: **195 tests, typecheck and lint clean.**
+
+The next session takes **slice 2, the exception review screen** — the only thing standing between a
+working matcher and something a person can look at. Read the branch warning below before creating
+the branch; there is a trap in it that has already cost one push.
 
 ## Read this first
 
@@ -89,12 +92,41 @@ reach a routine) and `razorpay` (needs an OAuth flow no unattended run can compl
 **Check `git log -3` before trusting anything in this section** — it is the part that goes stale
 first.
 
-`main` carries the ingestion layer, Blade, the Vercel AI SDK, Zod, Playwright's Chromium, and — as
-of `c4a0d7a` — **all of slice 3**. `feat/investigate-agent` is merged; don't branch from it.
+`main` carries everything built so far: the ingestion layer, Blade, the Vercel AI SDK, Zod,
+Playwright's Chromium, all of slice 3 (`c4a0d7a`) and all of slice 1 (`4f56c2c`). **195 tests pass,
+typecheck and lint clean.** `agent/ingestion-layer`, `feat/investigate-agent` and
+`fix/matcher-edge-cases` are all contained in `main` and can be deleted whenever.
 
-`fix/matcher-edge-cases` carries slice 1 on top of `main`: **195 tests pass, typecheck and lint
-clean.** It touches ingestion, the matcher and the row mapping, and nothing under `src/lib/agent/`,
-so it does not overlap the screen. Branch slice 2 from `main` or from it, either is safe.
+### Before you create a slice branch — read this
+
+The overnight routines claim a slice by committing to `docs/HANDOFF.md` and pushing the slice
+branch **before** writing code. That guard works and it stays. But a claim pushed on 1 September
+sits on 1 September's `main`, and a session that later runs `git checkout -b <same-name>` off a
+current `main` produces a branch that shares no history with it — so the push is rejected as
+non-fast-forward, after the work is already committed. That happened to slice 1 and cost a
+half-hour of unpicking; the merge that resolved it is `c7a078b`.
+
+**So: `git fetch` and check for a remote branch of that name before creating one.**
+
+```
+git ls-remote --heads origin feat/exception-review-screen
+```
+
+If it answers, adopt it rather than cutting a fresh one, and always set the upstream so `git
+status` warns you early instead of `git push` failing late:
+
+```
+git checkout -b feat/exception-review-screen origin/feat/exception-review-screen
+git merge main            # bring the claim branch up to today's main
+git push -u origin feat/exception-review-screen
+```
+
+If it does not answer, `git checkout -b <name> main` as usual, then `git push -u`.
+
+**`feat/exception-review-screen` currently holds exactly one stale claim commit (`116a36b`), on
+1 September's `main`.** It is the last of these traps left. Adopt it as above, or delete it with
+`git push origin --delete feat/exception-review-screen` and branch fresh — either is fine, but
+decide before you write code, not after.
 
 Everything the queue needs is installed and committed, so a scheduled run never has to install
 anything. `.npmrc` sets `legacy-peer-deps=true`, which Blade requires — its peer list contradicts
@@ -123,22 +155,20 @@ already fixed.
 **Also merged:** the `ai_calls` table and the whole Investigate layer. See the slice 3 section
 below.
 
-**On `fix/matcher-edge-cases`, not yet merged:** the six matcher fixes, described under Backlog.
-
 **Not built at all:** any UI, the Explain and Act layers, the eval harness, deploy, the video.
 
 ## Status board — every run updates this before it stops
 
 | # | Slice | Branch | Status |
 |---|---|---|---|
-| 1 | Backlog findings 3-8 | `fix/matcher-edge-cases` | **done, unmerged** |
+| 1 | Backlog findings 3-8 | `fix/matcher-edge-cases` | **done, merged into `main`** |
 | 2 | The screen | `feat/exception-review-screen` | not started |
 | 3 | `ai_calls` + Investigate + policy gate | `feat/investigate-agent` | **done, merged into `main`** |
 | 4 | `npm run eval` harness | `feat/investigate-agent` | not started — unblocked, slice 3 is on `main` |
 | 5 | §15.1 reasoning trace, §15.5 citations | — | blocked until 2 and 3 are reviewed |
 
-The two branches from last night hold **only** a slice-claim commit each, no code. Either build on
-them or delete them; don't mistake them for work in progress.
+`feat/exception-review-screen` holds **only** a slice-claim commit, no code — see the branch
+warning above before you touch it. Don't mistake it for work in progress.
 
 ## Slice 3 — what was built, so it is not rebuilt
 

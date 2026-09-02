@@ -29,12 +29,19 @@ all-night hang into an informative early failure. **The order matters** — step
 it is the one that can kill the session outright, and it is worth nothing if it fires after you
 have already spent twenty minutes.
 
-1. **Call `resolve-library-id` on the Context7 connector, before anything else.** This is a canary
-   for the whole MCP allowlist. If it returns, every connector is reachable and you can follow the
-   documentation-first rule normally. If it hangs, this run is already over (see below) — but it
-   will have died in thirty seconds having wasted nothing, and the log will say why.
+1. **Call `resolve-library-id` on the Context7 connector, before anything else.** This is a canary,
+   and its three outcomes are not the same thing — say which one you got.
+   - **It returns.** MCP is healthy; follow the documentation-first rule normally.
+   - **It asks permission.** This run is already over (see below). Nothing you can write will
+     rescue it, but it died in thirty seconds having wasted nothing, and the log will say why.
+   - **It errors** — `fetch failed`, a timeout, an auth error. The tool is *allowed* but the
+     sandbox cannot reach it. This is recoverable and you should **carry on**. Fall back to the
+     version-exact docs vendored in the repo: `node_modules/next/dist/docs/` for Next.js,
+     `docs/BLADE-NOTES.md` and `node_modules/@razorpay/blade/build/**/*.d.ts` for Blade, and the
+     shipped `.d.ts` files for anything else. Use WebSearch only after those. Note the failure in
+     `docs/HANDOFF.md` and keep going — do **not** guess at an API you could not look up.
 2. `npm ci` (or `npm install`) — restore the lockfile, nothing new.
-3. `npm test` — expect **104 passing**. If not, stop and report; the tree was already broken.
+3. `npm test` — expect **195 passing**. If not, stop and report; the tree was already broken.
 4. `npm run typecheck` and `npm run lint` — both clean.
 5. Claim your slice in `docs/HANDOFF.md`, commit, and **push it immediately**. This proves git
    auth works. If the push fails, stop — everything after this would be stranded.
@@ -101,7 +108,13 @@ For each slice:
    Another run may start while you are working; this is the only thing that stops it duplicating
    your slice. When you finish, set the status to `done`. If you abandon it, set it back to
    `not started` with a note saying why.
-1. `git checkout -b <branch>` off an up-to-date `main`.
+1. `git fetch`, then check whether the slice's branch already exists on the remote —
+   `git ls-remote --heads origin <branch>`. **A previous run's claim commit lives there**, on that
+   run's `main`, and cutting a fresh branch of the same name off today's `main` gives you a branch
+   that shares no history with it: the push is then rejected as non-fast-forward, after your work is
+   already committed. If it exists, `git checkout -b <branch> origin/<branch>` and `git merge main`.
+   If it does not, `git checkout -b <branch> main`. Either way, push with `-u` so divergence shows
+   up in `git status` rather than in a failed push.
 2. Build it. Follow TDD where a test can express the requirement.
 3. `npm test`, `npm run typecheck`, `npm run lint` — all must be clean.
 4. **Adversarial pass.** Mutate your own implementation in several places and confirm a test fails
@@ -110,7 +123,7 @@ For each slice:
    mutant that survives.
 5. Append a `docs/BUILD-LOG.md` entry **only if** something was wrong while its own tests passed,
    an assumption turned out false, or a decision got reverted. Use the five fields at the top of
-   that file, and include the guard. Next free number is **22**.
+   that file, and include the guard. Next free number is **28**.
 6. `git commit -m "..."` — Conventional Commits, short subject, plain language, no jargon.
 7. **`git push origin <branch>` immediately.** Do not batch pushes. Do not wait for the next slice.
 8. Rewrite the status section of `docs/HANDOFF.md`: which slice you finished, what is left, anything
