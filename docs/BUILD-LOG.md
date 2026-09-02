@@ -1070,3 +1070,66 @@ a Gemini agreement number in the pitch that was measured on an agent the product
 conjunction was still false. When a plan depends on two capabilities at once, the thing to verify
 is the conjunction — and the cheapest verification is one real call, which here took under a
 minute and would have cost nothing to run before recommending the provider.
+
+---
+
+## 30. The screen verification broke the moment the screen got a second place to show a record id
+
+**Believed.** `scripts/verify-screen.mjs` was independent of anything added to the page around
+the table. It finds a row by searching the whole document for an element whose text is exactly a
+record id, then walks up to that element's `[role="row"]` ancestor and clicks a cell in it.
+
+**Broke.** The Explain panel renders record ids too, as citation links, and it sits *above* the
+table. So the document-wide search started matching the citation link instead of the table cell,
+`closest('[role="row"]')` returned null, and two of the six row-click checks failed with "no
+clickable text in the tax cell of row pay_...". The row was fine; the search was looking in the
+wrong place. The same assumption sat in the count of distinct record ids, which read
+`document.body.innerText` and so would have counted a cited id as if it were a row.
+
+**Caught by.** Deliberately installing a fixture answers file to exercise the citation branch,
+because `data/synthetic/explanations.json` is `[]` until a run with an API key happens and every
+citation assertion would otherwise have passed vacuously. `npm run verify:screen` was green
+before and after the panel was added — it only failed once there was an answer for the panel to
+render.
+
+**Would have cost.** Nothing would have looked wrong until the first real `npm run explain`,
+which is scheduled for the day the key is loaded — so the first bake would have turned a
+previously green verification red, with the failure message pointing at the table (the thing
+BUILD-LOG 28 is about) rather than at the script. That is a bad half hour to spend on the day
+before a deadline, chasing a row-click bug that does not exist.
+
+**Permanently changed.** Three things.
+
+- Both searches in `verify-screen.mjs` are now scoped to `[role="row"]` rather than to the
+  document, with the reason written at the point of the change.
+- The script asserts the Explain panel in **two branches and prints which one it took**: with no
+  recorded answers it requires the panel to *say* so, and with answers it requires a citation link
+  that opens its record's detail panel. Neither branch can pass vacuously, and a green run can no
+  longer be mistaken for coverage it did not have.
+- It also asserts, unconditionally, that all 54 rows carry the `row-<recordId>` anchor a citation
+  scrolls to. That is the half that fails silently — a citation whose target id does not exist
+  scrolls nowhere and looks exactly like one that worked — and it is checkable with zero answers
+  recorded.
+
+**It happened again within the hour, same cause.** The check counting example questions read
+`panel.querySelectorAll("button").length`. Adding the live "Ask" button to the same panel made it
+count 7 where 6 were expected — a red run caused entirely by the assertion, not by the page. Now
+scoped to a `[data-testid="explain-questions"]` container. Two instances of one mistake in one
+sitting is the argument for the rule rather than for the individual fix: **every DOM query in a
+verification script is scoped to the thing it is asserting about, never to the page.**
+
+**A second, unrelated defect the same change surfaced.** The new route check is an `async`
+expression, and `Runtime.evaluate` returns a *promise handle* rather than a value unless
+`awaitPromise: true` is passed. The assertion read `status: undefined` and failed loudly, which is
+the good outcome — but a check written as `if (status === 400) pass` instead of
+`if (status !== 400) fail` would have silently passed for the rest of the project's life. The
+helper now takes `awaitPromise` explicitly. **Prefer asserting the failure condition over
+asserting the success condition, because `undefined` satisfies neither and only one of those two
+shapes notices.**
+
+**The general lesson.** A verification script encodes assumptions about the page as surely as the
+page encodes assumptions about the data, and "this element's text is a record id" stopped being a
+unique identifier the moment a second component had a legitimate reason to print one. Worth
+noting that the *only* reason this surfaced now is that the citation branch was exercised with a
+fixture rather than left until the data existed; a conditional assertion over an empty file would
+have reported success.

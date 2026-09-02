@@ -25,6 +25,21 @@ import { join } from "node:path";
 const TARGET_URL = process.env.TARGET_URL ?? "http://localhost:3000/";
 const PORT = Number(process.env.CDP_PORT ?? 9333);
 const EXPECTED_ROWS = 54;
+const EXPECTED_QUESTIONS = 6;
+
+/**
+ * The answers the Explain panel has recorded, if any (PRD §15.5).
+ *
+ * Read here so the checks below can assert the RIGHT thing for the state the
+ * repo is actually in, rather than skipping when the file is empty. An empty
+ * file is the honest state before `npm run explain` has been run, and the panel
+ * must then say so; a full one must render citations that open their row. Both
+ * are asserted, and the script prints which branch it took so a green run is
+ * never mistaken for coverage it did not have.
+ */
+function recordedAnswers() {
+  return JSON.parse(readFileSync("data/synthetic/explanations.json", "utf8"));
+}
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -129,8 +144,12 @@ try {
       ws.send(JSON.stringify({ id, method, params }));
     });
 
-  const evaluate = async (expression) => {
-    const response = await send("Runtime.evaluate", { expression, returnByValue: true });
+  const evaluate = async (expression, awaitPromise = false) => {
+    const response = await send("Runtime.evaluate", {
+      expression,
+      returnByValue: true,
+      awaitPromise,
+    });
     return response.result?.result?.value;
   };
 
@@ -149,9 +168,13 @@ try {
   const rows = await evaluate(`document.querySelectorAll('[role="row"]').length`);
   if (rows !== EXPECTED_ROWS) failures.push(`expected ${EXPECTED_ROWS} rows, found ${rows}`);
 
-  const ids = await evaluate(
-    `new Set([...document.body.innerText.matchAll(/pay_[A-Za-z0-9]{14}/g)].map((m) => m[0])).size`,
-  );
+  // Scoped to the TABLE, not the document. The Explain panel renders record ids
+  // too, as citation links, so a document-wide count stops being a count of
+  // rows the moment an answer is recorded.
+  const ids = await evaluate(`(() => {
+    const text = [...document.querySelectorAll('[role="row"]')].map((r) => r.innerText).join(" ");
+    return new Set([...text.matchAll(/pay_[A-Za-z0-9]{14}/g)].map((m) => m[0])).size;
+  })()`);
   if (ids !== EXPECTED_ROWS) {
     failures.push(`expected ${EXPECTED_ROWS} distinct record ids, found ${ids}`);
   }
@@ -171,7 +194,11 @@ try {
     // library's tag allowlist whatever the text is wrapped in — which would
     // make this script green against the exact bug it exists to catch.
     const box = await evaluate(`(() => {
-      const anchor = [...document.querySelectorAll('*')].find(
+      // Searched INSIDE the table rows. A document-wide search finds the
+      // Explain panel's citation link for the same record first, which has no
+      // row to click and reports as "no clickable text" — a failure that looks
+      // like the row bug this script exists to catch. BUILD-LOG entry 30.
+      const anchor = [...document.querySelectorAll('[role="row"] *')].find(
         (el) => el.children.length === 0 && el.textContent.trim() === ${JSON.stringify(id)}
       );
       if (!anchor) return null;
@@ -240,6 +267,107 @@ try {
     console.log(
       `  ${verdict.padEnd(16)} ${COLUMNS[column].padEnd(12)} ${id}  ->  ${panel.split("\n")[1] ?? ""}`,
     );
+  }
+
+  // PRD §15.5 — the Explain panel.
+  const panelText = await evaluate(
+    `document.querySelector('[data-testid="explain-panel"]')?.innerText ?? ""`,
+  );
+  if (panelText === "") {
+    failures.push("the Explain panel did not render");
+  }
+
+  // Scoped to the question chips, NOT to the panel: the panel also holds the
+  // Ask button, so a panel-wide count stops being a count of questions the
+  // moment anything else in it gains a button. Same mistake as the row search
+  // below, found the same way. BUILD-LOG entry 30.
+  const questionCount = await evaluate(
+    `document.querySelectorAll('[data-testid="explain-questions"] button').length`,
+  );
+  if (questionCount !== EXPECTED_QUESTIONS) {
+    failures.push(`expected ${EXPECTED_QUESTIONS} example questions, found ${questionCount}`);
+  }
+
+  // Every row carries the anchor a citation scrolls to. Asserted whether or not
+  // any answer has been recorded, because this is the half that silently
+  // breaks: a citation whose target id does not exist scrolls nowhere and looks
+  // exactly like one that worked. BUILD-LOG entry 28 is the same class of bug.
+  const anchors = await evaluate(
+    `document.querySelectorAll('[id^="row-pay_"], [id^="row-rfnd_"]').length`,
+  );
+  if (anchors !== EXPECTED_ROWS) {
+    failures.push(`expected ${EXPECTED_ROWS} row anchors for citations, found ${anchors}`);
+  }
+
+  // The live question box and the route behind it. Exercised WITHOUT spending:
+  // an empty body is rejected by validation before the model is ever reached,
+  // so this stays free and deterministic whether or not a key is configured.
+  const box = await evaluate(`(() => {
+    const panel = document.querySelector('[data-testid="explain-panel"]');
+    const input = panel?.querySelector('input');
+    const ask = [...(panel?.querySelectorAll("button") ?? [])].find(
+      (b) => b.textContent.trim() === "Ask",
+    );
+    return { hasInput: Boolean(input), askDisabledWhenEmpty: Boolean(ask && ask.disabled) };
+  })()`);
+
+  if (!box?.hasInput) failures.push("the Explain panel has no question box");
+  // Disabled on an empty question, so a stray click cannot bill a call for a
+  // question nobody asked.
+  if (box && !box.askDisabledWhenEmpty) {
+    failures.push("the Ask button is enabled with an empty question");
+  }
+
+  const routeCheck = await evaluate(`(async () => {
+    const response = await fetch("/api/explain", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const payload = await response.json().catch(() => ({}));
+    return { status: response.status, error: payload.error ?? null };
+  })()`, true);
+
+  if (routeCheck?.status !== 400) {
+    failures.push(`POST /api/explain with no question answered ${routeCheck?.status}, expected 400`);
+  } else if (typeof routeCheck.error !== "string" || routeCheck.error.length === 0) {
+    failures.push("POST /api/explain rejected the request without saying why");
+  }
+
+  const recorded = recordedAnswers();
+  if (recorded.length === 0) {
+    // Nothing recorded yet. The panel must SAY so rather than render blank —
+    // an empty answer under a real question reads as "the agent had nothing to
+    // say" instead of "no run has happened".
+    if (!panelText.includes("No answer has been recorded")) {
+      failures.push("with no recorded answers, the panel does not say so");
+    }
+    console.log(`\n  Explain panel: ${questionCount} questions, no answers recorded yet.`);
+  } else {
+    const cited = await evaluate(`(() => {
+      const panel = document.querySelector('[data-testid="explain-panel"]');
+      const link = [...(panel?.querySelectorAll("a, [role=link]") ?? [])].find((el) =>
+        /^(pay|rfnd)_[A-Za-z0-9]+$/.test(el.textContent.trim()),
+      );
+      if (!link) return null;
+      const id = link.textContent.trim();
+      link.click();
+      return id;
+    })()`);
+
+    if (!cited) {
+      failures.push("a recorded answer rendered no citation link");
+    } else {
+      await sleep(600);
+      const panel = await evaluate(
+        `document.querySelector('[data-testid="detail-panel"]')?.innerText ?? ""`,
+      );
+      if (!panel.includes(cited)) {
+        failures.push(`citing ${cited} did not open that record's detail panel`);
+      } else {
+        console.log(`\n  Explain panel: citation ${cited} opened its row.`);
+      }
+    }
   }
 
   for (const error of consoleErrors) failures.push(`console: ${error}`);
