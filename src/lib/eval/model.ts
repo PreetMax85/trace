@@ -31,8 +31,8 @@ export type ModelChoice = {
  * the harness runs on Claude, and `runEval` is covered end to end by a mock
  * model that needs no key and costs nothing.
  */
-const NO_FREE_PROVIDER =
-  "eval: ANTHROPIC_API_KEY is not set.\n" +
+const noFreeProvider = (command: string) =>
+  `${command}: ANTHROPIC_API_KEY is not set.\n` +
   "  Gemini cannot run this agent: Google's API rejects function calling and a\n" +
   "  JSON response format in the same request, and Investigate needs both.\n" +
   "  The harness itself is covered by `npm test` against a mock model, with no key.";
@@ -46,11 +46,15 @@ const NO_FREE_PROVIDER =
 export function resolveModelChoice(
   flags: { provider?: string; model?: string },
   env: Record<string, string | undefined>,
+  /** Which command is reporting, so its error names the command that was run. */
+  command = "eval",
 ): ModelChoice {
   if (flags.provider !== undefined && flags.provider !== "anthropic") {
-    throw new Error(`eval: provider "${flags.provider}" is not supported.\n${NO_FREE_PROVIDER}`);
+    throw new Error(
+      `${command}: provider "${flags.provider}" is not supported.\n${noFreeProvider(command)}`,
+    );
   }
-  if (!env.ANTHROPIC_API_KEY) throw new Error(NO_FREE_PROVIDER);
+  if (!env.ANTHROPIC_API_KEY) throw new Error(noFreeProvider(command));
 
   const modelId = flags.model ?? MODEL_ID;
 

@@ -16,7 +16,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "eval": "tsx --env-file-if-exists=.env scripts/eval.ts"
+    "eval": "tsx --env-file-if-exists=.env scripts/eval.ts",
+    "explain": "tsx --env-file-if-exists=.env scripts/explain.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.46",
