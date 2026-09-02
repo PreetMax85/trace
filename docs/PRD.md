@@ -466,7 +466,7 @@ is generated; the counts above are exact.
 │  │  AGENT 1 — INVESTIGATE     may classify · may NOT write        │  │
 │  │                                                                │  │
 │  │    tools: fetch_all_refunds, order context, batch rows         │  │
-│  │    generateObject → enum of exactly the 5 categories           │  │
+│  │    generateText + Output.object → enum of exactly 5 categories │  │
 │  │    policy gate: anything else is forced to UNEXPLAINED         │  │
 │  │    its tool calls + reasoning are rendered in the UI           │  │
 │  └────────────────────────────────────────────────────────────────┘  │
@@ -666,9 +666,15 @@ verdicts and the agent's stated reason. The number goes in the batch report and 
 
 ### 15.3 Categories are constrained at generation, not just validated after
 
-Investigate returns structured output through `generateObject` with a Zod enum of exactly the five
-categories, so a sixth cannot be decoded at all. The policy gate that forces anything unrecognised
-to `UNEXPLAINED` stays in place behind it.
+Investigate returns structured output through `generateText` with `Output.object` and a Zod enum of
+exactly the five categories, so a sixth cannot be decoded at all. The policy gate that forces
+anything unrecognised to `UNEXPLAINED` stays in place behind it.
+
+`generateText` + `Output.object`, **not** `generateObject`, and the reason is a constraint rather
+than a preference: in AI SDK v7 `generateObject` accepts no `tools`, and an agent that cannot look
+anything up cannot investigate. `Output.object` validates the final answer against the same Zod
+schema in the same single call, so nothing about this section's guarantee changes — only the
+function that carries it. BUILD-LOG 23.
 
 Two independent mechanisms, described honestly as defence in depth: the schema makes the wrong
 answer unrepresentable, and the gate catches the case where the schema is ever loosened.

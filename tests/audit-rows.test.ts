@@ -163,6 +163,7 @@ describe("the batch row", () => {
     // DOES resolve cleanly to STANDARD — only the verdict changes), counting on
     // the proxy would quietly inflate the matched figure on a slide.
     const handBuilt: BatchResult = {
+      period: "072026",
       records: [
         record({ recordId: "pay_1", status: "MATCHED", method: "EXACT" }),
         record({ recordId: "pay_2", status: "MATCHED", method: "FUZZY", rateCell: "CORPORATE" }),
@@ -273,5 +274,103 @@ describe("the record rows", () => {
   it("is assignable to the table's own insert type", () => {
     const rows = toRecordRows(july(), BATCH_ID) satisfies (typeof records.$inferInsert)[];
     expect(rows).toHaveLength(54);
+  });
+});
+
+/**
+ * Backlog finding 6. The batch row is the audit trail's header: the GSTIN it
+ * names is the merchant the credit is claimed by, and the period it names is
+ * the return that claim lands in. Both arrived as free-form strings in `meta`,
+ * unchecked, while the matcher had already agreed a period with the statement.
+ */
+describe("the batch row's own identity", () => {
+  it("refuses a period that contradicts the one the batch reconciled", () => {
+    // `matchBatch` has already refused to reconcile July's settlements against
+    // any other month's statement. Writing an August header over a July batch
+    // undoes that agreement one layer down, and the row it produces claims
+    // ₹982.23 of credit in the wrong return.
+    expect(() => toBatchRow(july(), { ...meta, period: "082026" })).toThrow(/072026/);
+    expect(() => toBatchRow(july(), { ...meta, period: "082026" })).toThrow(/period/);
+  });
+
+  it("refuses a period that is not a filing period", () => {
+    expect(() => toBatchRow(july(), { ...meta, period: "2026-07" })).toThrow(/period/);
+    expect(() => toBatchRow(july(), { ...meta, period: "" })).toThrow(/period/);
+
+    // The case the equality check above cannot see, and the reason the shape
+    // check is not redundant: a malformed period that BOTH sides agree on.
+    // `matchBatch` compares the batch's period against the statement's without
+    // reading either, so a hand-built statement can carry `2026-07` in both
+    // places and reach here agreeing with itself.
+    const malformed = { ...july(), period: "2026-07" };
+    expect(() => toBatchRow(malformed, { ...meta, period: "2026-07" })).toThrow(
+      /meta\.period must be a filing period/,
+    );
+  });
+
+  it("refuses a merchant GSTIN that is missing or malformed", () => {
+    // An empty GSTIN wrote a batch that belongs to nobody. A malformed one is
+    // worse: it is copied onto a return and rejected by the GST portal.
+    expect(() => toBatchRow(july(), { ...meta, merchantGstin: "" })).toThrow(/merchantGstin/);
+    expect(() => toBatchRow(july(), { ...meta, merchantGstin: "NOTAGSTIN" })).toThrow(
+      /merchantGstin/,
+    );
+  });
+
+  it("still writes the locked header for the batch it was actually given", () => {
+    expect(toBatchRow(july(), meta)).toMatchObject({
+      merchantGstin: "27TESTM1234A1Z0",
+      period: "072026",
+      itcClaimablePaise: 98223,
+      itcAtRiskPaise: 21469,
+    });
+  });
+});
+
+/**
+ * Backlog finding 8. The three buckets are counted independently off the
+ * records, so a record in none of them is simply absent from all three —
+ * `totalRecords` says 54 and the buckets say 53, on a row a human reads as the
+ * summary of the whole batch.
+ */
+describe("every record lands in exactly one bucket", () => {
+  const handBuilt = (records: MatchedRecord[]): BatchResult => ({
+    records,
+    period: "072026",
+    rollup: {
+      gstr2bInvoiceTxvalPaise: 1000,
+      gstr2bInvoiceTaxPaise: 180,
+      rolledUpTaxPaise: 100,
+      rollupDeltaPaise: 80,
+    },
+    itc: { available: true, reason: null },
+  });
+
+  it("refuses a batch whose buckets do not add up to its records", () => {
+    // MATCHED with no method is the shape that falls through every count: it is
+    // neither EXACT nor FUZZY, and it is not an EXCEPTION either.
+    const row = () =>
+      toBatchRow(
+        handBuilt([
+          record({ recordId: "pay_1" }),
+          record({ recordId: "pay_2", status: "MATCHED", method: "NONE", rateCell: null }),
+        ]),
+        meta,
+      );
+
+    expect(row).toThrow(/2 records/);
+    expect(row).toThrow(/1 EXACT \+ 0 FUZZY \+ 0 exceptions/);
+  });
+
+  it("counts a well-formed batch without complaint", () => {
+    expect(() =>
+      toBatchRow(
+        handBuilt([
+          record({ recordId: "pay_1" }),
+          record({ recordId: "pay_2", status: "EXCEPTION", method: "NONE", category: "TIMING" }),
+        ]),
+        meta,
+      ),
+    ).not.toThrow();
   });
 });

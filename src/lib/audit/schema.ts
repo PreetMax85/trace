@@ -154,3 +154,95 @@ export const actions = pgTable("actions", {
     .notNull()
     .defaultNow(),
 });
+
+/**
+ * What the policy gate did with the model's answer (PRD §15.3). The gate is the
+ * second of two independent mechanisms: the Zod enum makes a sixth category
+ * unrepresentable at generation, and this catches the case where the schema is
+ * ever loosened. Recording which one fired is the point — "the gate never
+ * triggered" is only credible if a triggered gate would have left a row saying so.
+ */
+export const aiCallVerdict = pgEnum("ai_call_verdict", [
+  /** The model returned one of the five categories and the gate let it stand. */
+  "ACCEPTED",
+  /** The model returned something else; the gate forced UNEXPLAINED. */
+  "COERCED_UNEXPLAINED",
+  /** The agent tried to use a capability it does not have. Investigate may classify, may not write. */
+  "BLOCKED_WRITE",
+  /** The model call or one of its tools failed. The record stays UNEXPLAINED rather than guessing. */
+  "FAILED",
+]);
+
+/** Which of the three layers made the call. */
+export const agentLayer = pgEnum("agent_layer", ["INVESTIGATE", "EXPLAIN", "ACT"]);
+
+/**
+ * Every Claude call, logged (PRD §15.4). This is the observability layer —
+ * Langfuse was cut on 1 Sep and this table replaced it, on the reasoning that
+ * for an audit product the trace IS the audit trail and belongs in the same
+ * database as the records it explains.
+ */
+export const aiCalls = pgTable("ai_calls", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  batchId: uuid("batch_id")
+    .notNull()
+    .references(() => batches.id, { onDelete: "cascade" }),
+
+  /**
+   * Nullable, and not an oversight: Investigate runs per record, but Explain
+   * answers a question about the whole batch and Act drafts against one. A
+   * batch-level call has no record to point at.
+   */
+  recordId: uuid("record_id").references(() => records.id, { onDelete: "cascade" }),
+
+  layer: agentLayer("layer").notNull(),
+  model: text("model").notNull(),
+
+  /**
+   * Which prompt produced this row. Without it the eval's agreement number
+   * (§15.2) cannot be attributed to a prompt, so a tuning round that made
+   * things worse would be indistinguishable from one that made them better.
+   */
+  promptVersion: text("prompt_version").notNull(),
+
+  /**
+   * Tokens, split the way Anthropic bills them. Cached input costs 0.1x a fresh
+   * read and a cache write costs 1.25x, so a single `input_tokens` column would
+   * report a cost wrong by most of the saving prompt caching is claimed to
+   * deliver (PRD §9, "On cost"). `inputTokens` is the total; the two cache
+   * columns are the part of it that was not billed at the full rate.
+   */
+  inputTokens: integer("input_tokens").notNull().default(0),
+  cacheReadTokens: integer("cache_read_tokens").notNull().default(0),
+  cacheWriteTokens: integer("cache_write_tokens").notNull().default(0),
+  outputTokens: integer("output_tokens").notNull().default(0),
+
+  latencyMs: integer("latency_ms").notNull().default(0),
+
+  /**
+   * Cost in MICRO-USD (millionths of a dollar), integer — the same discipline
+   * as the paise columns, for the same reason. Anthropic bills in USD, so USD
+   * is what gets stored; rupees are a presentation concern and need an exchange
+   * rate this table has no business inventing. Micro-USD because a single
+   * classification costs on the order of $0.004: in paise it would round to
+   * zero, and a cost column that reports zero is worse than no column.
+   */
+  costMicroUsd: integer("cost_micro_usd").notNull().default(0),
+
+  verdict: aiCallVerdict("verdict").notNull(),
+  /** The category that survived the gate. Null when the call failed outright. */
+  category: exceptionCategory("exception_category"),
+
+  /**
+   * The tool calls and the model's reasoning, kept so §15.1 can render what the
+   * agent actually did from the audit trail rather than regenerating it on view.
+   * Regenerating would show the reader a different answer from the one that was
+   * recorded, which for a compliance product is the whole failure mode.
+   */
+  toolCalls: jsonb("tool_calls").notNull().default([]),
+  reason: text("reason"),
+
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});

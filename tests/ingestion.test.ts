@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { parseSettlements, parseStatement } from "@/lib/ingestion";
-import { matchBatch } from "@/lib/matching";
+import { matchBatch, periodOf } from "@/lib/matching";
 
 /** Read as raw TEXT, deliberately. The parser's job starts at the string. */
 const rawText = (f: string) => readFileSync(`data/synthetic/${f}`, "utf8");
@@ -564,5 +564,162 @@ describe("recon envelope", () => {
     expect(() => parseSettlements(null)).toThrow(/items|array/);
     expect(() => parseSettlements(collection())).toThrow(/empty/);
     expect(() => parseSettlements([null])).toThrow(/object/);
+  });
+});
+
+/**
+ * Backlog finding 3. `settled_at` decides which month's GSTR-2B bills a fee, so
+ * a wrong unit does not fail — it silently moves the record into another filing
+ * period. One row given in milliseconds takes the July batch from 38 matched to
+ * 37 and the rollup delta from 34105 to 34645, with nothing anywhere saying so.
+ */
+describe("settlement timestamps are epoch seconds", () => {
+  const settledAt = (value: unknown) => () => parseSettlements([rawPayment({ settled_at: value })]);
+
+  it("rejects a timestamp given in milliseconds", () => {
+    // The same instant, times a thousand. It is a perfectly good safe integer,
+    // so every existing guard passes it through.
+    expect(settledAt(1784000000000)).toThrow(/settled_at/);
+    expect(settledAt(1784000000000)).toThrow(/millisecond/i);
+  });
+
+  it("is the silent failure the guard exists to stop", () => {
+    // Why milliseconds are worse than garbage: the value reads as a real date
+    // 54,000 years out, which resolves to a filing period that is merely not
+    // this one. Nothing throws; the row is just billed somewhere else.
+    expect(periodOf(1784000000)).toBe("072026");
+    expect(periodOf(1784000000000)).not.toBe("072026");
+  });
+
+  it("rejects an instant before GST existed, and one absurdly far out", () => {
+    // GST commenced on 1 July 2017, so no settlement before it can appear on
+    // any GSTR-2B. The upper bound catches microseconds and nanoseconds too.
+    expect(settledAt(0)).toThrow(/settled_at/);
+    expect(settledAt(-1784000000)).toThrow(/settled_at/);
+    expect(settledAt(1483228800)).toThrow(/settled_at/); // 1 Jan 2017
+    expect(settledAt(1784000000000000)).toThrow(/settled_at/);
+  });
+
+  it("puts the boundaries exactly where it says it does", () => {
+    // Both bounds are inclusive, and an off-by-one on either survives every
+    // other assertion here — the window is 83 years wide, so nothing else in
+    // the suite comes anywhere near an edge of it.
+    const GST_COMMENCEMENT = 1_498_847_400; // 00:00 IST, 1 Jul 2017
+    const FAR_FUTURE = 4_102_444_800; // 00:00 UTC, 1 Jan 2100
+
+    expect(settledAt(GST_COMMENCEMENT)).not.toThrow();
+    expect(settledAt(GST_COMMENCEMENT - 1)).toThrow(/settled_at/);
+    expect(settledAt(FAR_FUTURE)).not.toThrow();
+    expect(settledAt(FAR_FUTURE + 1)).toThrow(/settled_at/);
+  });
+
+  it("accepts every timestamp the fixture actually carries", () => {
+    const rows = parseSettlements(rawText("settlements.json"));
+    expect(rows).toHaveLength(58);
+    expect(rows.every((r) => r.settled_at > 1_600_000_000 && r.settled_at < 2_000_000_000)).toBe(true);
+  });
+});
+
+/**
+ * Backlog finding 5. Statement money is RUPEES. The same figures given in paise
+ * inflate the invoice a hundredfold, and nothing about a scaled number is wrong
+ * on its face — so the check has to come from the document itself. `val` is the
+ * invoice total GSTN publishes alongside the lines, and it is the only
+ * cross-check a single statement carries.
+ */
+describe("the invoice's declared total is cross-checked against its lines", () => {
+  const withInvoice = (over: Record<string, unknown>) => {
+    const s = rawStatement();
+    Object.assign(s.docdata.b2b[0].inv[0] as Record<string, unknown>, over);
+    return s;
+  };
+
+  it("catches line items given in paise under a rupee invoice total", () => {
+    // The finding, exactly: ×100 on the lines and nothing else. Every field is
+    // a finite number, every head is present, and the invoice reports 100× the
+    // tax the merchant was actually charged.
+    const inPaise = withInvoice({
+      items: [{ num: 1, rt: 18, txval: 664945, igst: 0, cgst: 59846, sgst: 59846, cess: 0 }],
+    });
+
+    // Asserted on `.val declares`, not on /val/: `txval` contains "val" and
+    // every money guard's message ends in "rupees", so the loose regex would
+    // have been satisfied by an entirely different check firing.
+    expect(() => parseStatement(inPaise)).toThrow(/\.val declares/);
+    expect(() => parseStatement(inPaise)).toThrow(/RUPEES/);
+  });
+
+  it("rejects any invoice whose lines do not add up to its declared total", () => {
+    expect(() => parseStatement(withInvoice({ val: 9999.99 }))).toThrow(/val/);
+    // A line dropped in transit is the same failure in the other direction.
+    expect(() =>
+      parseStatement(
+        withInvoice({ items: [{ num: 1, rt: 18, txval: 100, igst: 0, cgst: 9, sgst: 9, cess: 0 }] }),
+      ),
+    ).toThrow(/val/);
+  });
+
+  it("requires `val`, because without it nothing can be cross-checked", () => {
+    const noVal = rawStatement();
+    delete (noVal.docdata.b2b[0].inv[0] as Partial<Record<"val", number>>).val;
+    expect(() => parseStatement(noVal)).toThrow(/\.val must be a finite number/);
+  });
+
+  it("counts cess towards the declared total", () => {
+    // Cess is a real head on a real invoice and it is inside `val`. Ignoring it
+    // would reject a well-formed statement that happens to carry one.
+    expect(() =>
+      parseStatement(
+        withInvoice({
+          val: 7856.37,
+          items: [{ num: 1, rt: 18, txval: 6649.45, igst: 0, cgst: 598.46, sgst: 598.46, cess: 10 }],
+        }),
+      ),
+    ).not.toThrow();
+  });
+
+  it("allows the rounding-off line an invoice is entitled to", () => {
+    // A tax invoice may round its total to the nearest rupee, so the tolerance
+    // is a rupee — four orders of magnitude short of a unit error.
+    // Pinned on both sides, to the paise. A tolerance loose enough to be
+    // arbitrary is not a check, and one quietly tightened later would start
+    // rejecting invoices that round their total, which is legal.
+    expect(() => parseStatement(withInvoice({ val: 7846.37 + 1 }))).not.toThrow();
+    expect(() => parseStatement(withInvoice({ val: 7846.37 - 1 }))).not.toThrow();
+    expect(() => parseStatement(withInvoice({ val: 7846.37 + 1.01 }))).toThrow(/\.val declares/);
+    expect(() => parseStatement(withInvoice({ val: 7846.37 - 1.01 }))).toThrow(/\.val declares/);
+  });
+
+  it("still totals the fixture to the locked numbers", () => {
+    const batch = matchBatch({
+      settlements: parseSettlements(rawText("settlements.json")),
+      statement: parseStatement(rawText("gstr2b-072026.json")),
+      period: "072026",
+      mode: "exact+fuzzy",
+    });
+    expect(batch.rollup.gstr2bInvoiceTaxPaise).toBe(119692);
+  });
+});
+
+/**
+ * Backlog finding 7. `extractItems` compares `count` against the rows present,
+ * and its own comment says a short read is the one failure that yields a
+ * well-formed batch with records missing from it — but an envelope that simply
+ * omits `count` skipped the comparison entirely.
+ */
+describe("recon envelope — an unverifiable count", () => {
+  it("refuses a collection that declares no count", () => {
+    // The message has to say which failure this is: "declares count undefined
+    // but carries 1 items" would also match /count/, and did — the assertion
+    // was passing on a message about a mismatch rather than about the absence.
+    expect(() => parseSettlements({ entity: "collection", items: [rawPayment()] })).toThrow(
+      /carries no `count`/,
+    );
+  });
+
+  it("still accepts a bare array, which claims no count to begin with", () => {
+    // The bare array is not an envelope with a missing field — it is a
+    // different shape, and Razorpay's own paging never produces it.
+    expect(parseSettlements([rawPayment()])).toHaveLength(1);
   });
 });

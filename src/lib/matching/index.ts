@@ -1,4 +1,4 @@
-import { priceAt, RATE_CELLS, TOLERANCE_PAISE } from "./rate-card";
+import { priceAt, RATE_CELLS, rupeesToPaise, TOLERANCE_PAISE } from "./rate-card";
 import type { RateCell } from "./rate-card";
 import type {
   BatchResult,
@@ -13,6 +13,22 @@ import type {
 
 export * from "./types";
 export * from "./rate-card";
+
+/**
+ * Razorpay's own GSTIN, as it appears as the supplier CTIN on the merchant's
+ * GSTR-2B.
+ *
+ * A merchant's 2B carries EVERY supplier who filed against their GSTIN — the
+ * landlord, the SaaS vendor, the courier — so "the Razorpay invoice" has to be
+ * picked out by supplier, not taken as the whole table. Summing the table put
+ * an unrelated vendor's tax into the ITC this product tells a merchant to
+ * claim. BUILD-LOG entry 26.
+ *
+ * A constant because the scope is one merchant and one gateway (PRD §2);
+ * `MatchInput.supplierGstin` overrides it for anyone reconciling a statement
+ * where Razorpay bills from a different state registration.
+ */
+export const RAZORPAY_SUPPLIER_GSTIN = "27AAGCR4375J1ZY";
 
 /**
  * The Detect layer. Deterministic by design — no LLM call ever happens here.
@@ -103,7 +119,8 @@ export function matchBatch(input: MatchInput): BatchResult {
     });
   }
 
-  const invoice = invoiceTotals(input.statement);
+  const supplier = razorpayInvoices(input.statement, input.supplierGstin ?? RAZORPAY_SUPPLIER_GSTIN);
+  const invoice = invoiceTotals(supplier);
   // Only records this period's invoice actually bills, and only the ones a rate
   // cell explained. Everything else is, by definition, the delta.
   const rolledUpTaxPaise = records
@@ -117,47 +134,77 @@ export function matchBatch(input: MatchInput): BatchResult {
       rolledUpTaxPaise,
       rollupDeltaPaise: invoice.gstr2bInvoiceTaxPaise - rolledUpTaxPaise,
     },
-    itc: itcVerdict(input.statement),
+    itc: itcVerdict(supplier),
+    period: input.period,
   };
 }
 
 /**
- * GSTN's verdict for the period. Ineligible if ANY document on the statement
- * says so — the conservative direction, because claiming credit the government
- * has marked unavailable is the error that costs the merchant, not the one that
- * costs them a question.
+ * The invoices Razorpay filed against this merchant for the period, and nothing
+ * else on the statement.
+ *
+ * An empty result is fatal rather than a zero invoice: a statement carrying no
+ * Razorpay line reconciles every settlement row against nothing, reports the
+ * government as having billed nothing, and leaves the merchant claiming credit
+ * for an invoice that is not there. That is the same nonsense an empty `b2b`
+ * table produces, reached from the other side — so it fails the same way.
  */
-function itcVerdict(statement: Gstr2bStatement): ItcVerdict {
-  const invoices = statement.docdata.b2b.flatMap((supplier) => supplier.inv);
+function razorpayInvoices(statement: Gstr2bStatement, supplierGstin: string) {
+  const invoices = statement.docdata.b2b
+    .filter((supplier) => supplier.ctin === supplierGstin)
+    .flatMap((supplier) => supplier.inv);
+
+  if (invoices.length === 0) {
+    throw new Error(
+      `GSTR-2B statement for ${statement.rtnprd} carries no invoice from supplier ${supplierGstin} — there is nothing to reconcile the settlements against`,
+    );
+  }
+
+  return invoices;
+}
+
+/**
+ * GSTN's verdict for the period. Ineligible if ANY of Razorpay's documents says
+ * so — the conservative direction, because claiming credit the government has
+ * marked unavailable is the error that costs the merchant, not the one that
+ * costs them a question.
+ *
+ * Scoped to the same invoices the rollup totals, and for the same reason: a
+ * verdict read off an unrelated supplier's blocked invoice writes off every
+ * rupee of Razorpay's, since `itcSplit` puts the whole invoice at risk when the
+ * credit is unavailable.
+ */
+function itcVerdict(invoices: SupplierInvoice[]): ItcVerdict {
   const blocked = invoices.filter((inv) => inv.itcavl !== "Y");
   const reason = blocked.map((inv) => inv.rsn).find((r) => r.trim().length > 0);
 
   return { available: blocked.length === 0, reason: reason ?? null };
 }
 
-/** Rupees in the statement, paise everywhere else. Converted once, here. */
-const rupeesToPaise = (rupees: number) => Math.round(rupees * 100);
+/** One invoice on the statement, as the two totalling helpers read it. */
+type SupplierInvoice = Gstr2bStatement["docdata"]["b2b"][number]["inv"][number];
 
 /**
- * The period's Razorpay invoice, totalled. Summed across every document rather
- * than read from `[0]`: the fixture carries exactly one line, but indexing the
- * first would silently discard anything else a real statement contained.
+ * The period's Razorpay invoice, totalled — Razorpay's invoices, scoped by the
+ * caller, never the whole `b2b` table.
+ *
+ * Summed across every document rather than read from `[0]`: the fixture carries
+ * exactly one line, but indexing the first would silently discard anything else
+ * Razorpay filed in the same period.
  *
  * Tax is always the SUM of the three heads. A Maharashtra merchant billed by
  * Razorpay's Maharashtra registration sees CGST+SGST; every other state sees
  * IGST. Keying on one field silently breaks for the other population.
  */
-function invoiceTotals(statement: Gstr2bStatement) {
+function invoiceTotals(invoices: SupplierInvoice[]) {
   let gstr2bInvoiceTxvalPaise = 0;
   let gstr2bInvoiceTaxPaise = 0;
 
-  for (const supplier of statement.docdata.b2b) {
-    for (const inv of supplier.inv) {
-      for (const line of inv.items) {
-        gstr2bInvoiceTxvalPaise += rupeesToPaise(line.txval);
-        gstr2bInvoiceTaxPaise +=
-          rupeesToPaise(line.cgst) + rupeesToPaise(line.sgst) + rupeesToPaise(line.igst);
-      }
+  for (const inv of invoices) {
+    for (const line of inv.items) {
+      gstr2bInvoiceTxvalPaise += rupeesToPaise(line.txval);
+      gstr2bInvoiceTaxPaise +=
+        rupeesToPaise(line.cgst) + rupeesToPaise(line.sgst) + rupeesToPaise(line.igst);
     }
   }
 
@@ -213,7 +260,7 @@ function classify(
  * IST is UTC+05:30 with no daylight saving — it has not changed since 1945 —
  * so a fixed offset is exact here and needs no timezone database.
  */
-const IST_OFFSET_SECONDS = 5 * 3600 + 30 * 60;
+export const IST_OFFSET_SECONDS = 5 * 3600 + 30 * 60;
 
 /**
  * A settlement timestamp as a GSTR-2B return period, `MMYYYY`.
@@ -226,7 +273,7 @@ const IST_OFFSET_SECONDS = 5 * 3600 + 30 * 60;
  * detect. Reading them in local time would make the verdict depend on where the
  * server happens to run. BUILD-LOG entry 13.
  */
-function periodOf(settledAt: number): string {
+export function periodOf(settledAt: number): string {
   const ist = new Date((settledAt + IST_OFFSET_SECONDS) * 1000);
   return `${String(ist.getUTCMonth() + 1).padStart(2, "0")}${ist.getUTCFullYear()}`;
 }

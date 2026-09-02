@@ -25,19 +25,30 @@ never a code change. Code either compiles or it doesn't, and the tests tell you 
 ## Preflight — run this before any slice, and stop if it fails
 
 Do these six things first, in order. They take about three minutes and they convert a silent
-all-night hang into an informative early failure.
+all-night hang into an informative early failure. **The order matters** — step 1 is first because
+it is the one that can kill the session outright, and it is worth nothing if it fires after you
+have already spent twenty minutes.
 
-1. `npm ci` (or `npm install`) — restore the lockfile, nothing new.
-2. `npm test` — expect **104 passing**. If not, stop and report; the tree was already broken.
-3. `npm run typecheck` and `npm run lint` — both clean.
-4. Create the branch for slice 1, make a trivial commit (append one dated line to
-   `docs/HANDOFF.md` saying the run started), and **push it immediately**. This proves git auth
-   works. If the push fails, stop — everything after this would be stranded.
-5. Start the dev server **in the background** and confirm `http://localhost:3000` answers.
-6. Call `resolve-library-id` on the Context7 connector once, to confirm MCP works at all.
+1. **Call `resolve-library-id` on the Context7 connector, before anything else.** This is a canary,
+   and its three outcomes are not the same thing — say which one you got.
+   - **It returns.** MCP is healthy; follow the documentation-first rule normally.
+   - **It asks permission.** This run is already over (see below). Nothing you can write will
+     rescue it, but it died in thirty seconds having wasted nothing, and the log will say why.
+   - **It errors** — `fetch failed`, a timeout, an auth error. The tool is *allowed* but the
+     sandbox cannot reach it. This is recoverable and you should **carry on**. Fall back to the
+     version-exact docs vendored in the repo: `node_modules/next/dist/docs/` for Next.js,
+     `docs/BLADE-NOTES.md` and `node_modules/@razorpay/blade/build/**/*.d.ts` for Blade, and the
+     shipped `.d.ts` files for anything else. Use WebSearch only after those. Note the failure in
+     `docs/HANDOFF.md` and keep going — do **not** guess at an API you could not look up.
+2. `npm ci` (or `npm install`) — restore the lockfile, nothing new.
+3. `npm test` — expect **195 passing**. If not, stop and report; the tree was already broken.
+4. `npm run typecheck` and `npm run lint` — both clean.
+5. Claim your slice in `docs/HANDOFF.md`, commit, and **push it immediately**. This proves git
+   auth works. If the push fails, stop — everything after this would be stranded.
+6. Start the dev server **in the background** and confirm `http://localhost:3000` answers.
 
-If steps 1-4 fail, **stop and report**. Do not try to repair the environment. If 5 or 6 fail, carry
-on — nothing in the queue strictly needs them.
+If steps 2-5 fail, **stop and report**. Do not try to repair the environment. If 6 fails, carry on
+— nothing in the queue strictly needs the browser.
 
 ## What MCP you have, and what you don't
 
@@ -63,9 +74,23 @@ Each of these has already cost this project real time. They are not hypothetical
 - `git rebase -i`, `git add -i`, or anything interactive.
 - Any command that prompts for a password, a confirmation, or a permission.
 
-**If anything asks you for permission or input: abandon that step immediately, write what happened
-in `docs/HANDOFF.md`, and continue with the next thing.** Never wait. Waiting is what cost eleven
-hours in BUILD-LOG entry 20.
+**A permission prompt is not an error you can handle — it is a crash.** You cannot abandon the
+step and move on, because the prompt blocks the whole session rather than failing the one tool
+call. There is no branch for you to take, and no note you can write. Earlier versions of this file
+told you to "abandon that step and continue"; that instruction was impossible to follow and it cost
+this project two full nights (BUILD-LOG entries 20 and 22).
+
+So the rule is preventative, and it is not aimed at you — it is aimed at whoever schedules you.
+Every tool this run may reach must be pre-approved **before the run is created**, in the routine's
+`allowed_tools`. Grant whole servers rather than picking tools: `mcp__context7` allows everything
+Context7 offers. Copy the name from a tool id a run actually called, not from the connector's
+display name in the UI — connectors show as "Context7" but register as `context7`, and
+`mcp__Context7` matches nothing. Note that a routine-level `allowed_tools` **overrides the
+repository's tracked `.claude/settings.json`** — a correct grant in the repo does not save you if
+the routine's own list is wrong.
+
+Your part is only step 1 of the preflight: prove MCP answers before you spend time on anything
+else.
 
 ## How to pick your work
 
@@ -83,7 +108,13 @@ For each slice:
    Another run may start while you are working; this is the only thing that stops it duplicating
    your slice. When you finish, set the status to `done`. If you abandon it, set it back to
    `not started` with a note saying why.
-1. `git checkout -b <branch>` off an up-to-date `main`.
+1. `git fetch`, then check whether the slice's branch already exists on the remote —
+   `git ls-remote --heads origin <branch>`. **A previous run's claim commit lives there**, on that
+   run's `main`, and cutting a fresh branch of the same name off today's `main` gives you a branch
+   that shares no history with it: the push is then rejected as non-fast-forward, after your work is
+   already committed. If it exists, `git checkout -b <branch> origin/<branch>` and `git merge main`.
+   If it does not, `git checkout -b <branch> main`. Either way, push with `-u` so divergence shows
+   up in `git status` rather than in a failed push.
 2. Build it. Follow TDD where a test can express the requirement.
 3. `npm test`, `npm run typecheck`, `npm run lint` — all must be clean.
 4. **Adversarial pass.** Mutate your own implementation in several places and confirm a test fails
@@ -92,7 +123,7 @@ For each slice:
    mutant that survives.
 5. Append a `docs/BUILD-LOG.md` entry **only if** something was wrong while its own tests passed,
    an assumption turned out false, or a decision got reverted. Use the five fields at the top of
-   that file, and include the guard. Next free number is **22**.
+   that file, and include the guard. Next free number is **28**.
 6. `git commit -m "..."` — Conventional Commits, short subject, plain language, no jargon.
 7. **`git push origin <branch>` immediately.** Do not batch pushes. Do not wait for the next slice.
 8. Rewrite the status section of `docs/HANDOFF.md`: which slice you finished, what is left, anything

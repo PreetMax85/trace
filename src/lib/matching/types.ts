@@ -85,6 +85,14 @@ export type MatchInput = {
   statement: Gstr2bStatement;
   period: string;
   mode: MatchMode;
+  /**
+   * Which supplier on the statement is Razorpay. Defaults to
+   * `RAZORPAY_SUPPLIER_GSTIN`; a merchant billed from another of Razorpay's
+   * state registrations passes theirs. It is never "all suppliers" — a 2B
+   * carries every vendor who filed against the merchant, and totalling them all
+   * bills the merchant's landlord to their payment-gateway reconciliation.
+   */
+  supplierGstin?: string;
 };
 
 /**
@@ -122,4 +130,11 @@ export type BatchResult = {
   records: MatchedRecord[];
   rollup: PeriodRollup;
   itc: ItcVerdict;
+  /**
+   * The filing period this batch reconciled, `MMYYYY`. Carried on the result
+   * because `matchBatch` has already refused to reconcile a period against
+   * another month's statement, and everything downstream should inherit that
+   * agreement rather than be told the period a second time and independently.
+   */
+  period: string;
 };

@@ -718,6 +718,64 @@ stack table is a set of claims, and claims get verified before anything is built
 
 ---
 
+## 22. A permission prompt that no instruction could survive
+
+**Believed.** Entry 20's guards had closed this. `.claude/settings.json` is tracked and grants
+`mcp__context7__resolve-library-id` explicitly, so the grant travels with the clone. The briefing
+tells the run, in bold, to abandon any step that asks for permission and continue. Two independent
+defences, both aimed at exactly this failure.
+
+**Broke.** Both overnight runs died on the first Context7 call, 2 minutes in, and hung until
+morning — about 12 hours between them, producing nothing but a slice-claim commit each.
+
+Two things were wrong at once, and each defeated one guard.
+
+The routine's `session_context.allowed_tools` listed `mcp__Context7`. The *shape* of that is
+right — a bare `mcp__<server>` prefix is the documented way to allow every tool on one server, and
+it is exactly what the tracked `.claude/settings.json` already used. The bug is one capital letter.
+The connector is *displayed* as "Context7", but a run registers it lowercase and calls
+`mcp__context7__resolve-library-id`. `mcp__Context7` matched nothing at all.
+
+So this was never an over-narrow allowlist — it was a whole-server grant with a typo, which fails
+identically to granting nothing. And because a routine-level `allowed_tools` **takes precedence
+over the repository's tracked `.claude/settings.json`**, the correct grant sitting in the clone
+never got a vote. The guard from entry 20 was right, and I disabled it myself by writing a
+misspelled list above it.
+
+The second failure is the more general one. The briefing's instruction — *"if anything asks for
+permission, abandon that step and continue"* — is not executable. A permission prompt does not
+fail a step and return control; it blocks the session. There is no branch for the model to take.
+An instruction cannot rescue a permission prompt, and writing one that reads as though it can is
+worse than writing nothing, because it makes the run look defended.
+
+**Caught by.** Preet asking to review the two branches. Both existed, both looked plausible in
+`git branch -r`, and both contained a single 4-line documentation commit. `list_runs` showed both
+sessions still `requires_action`; the logs showed the identical `permission prompt` line.
+
+**Would have cost.** It did cost: the entire overnight window, on a build with three days left.
+Nothing was lost, because the claim-and-push rule meant each run pushed before it stalled — that
+guard worked exactly as designed and is the only reason this is a lost night rather than a lost
+night plus a mystery.
+
+**Permanently changed.** Three things.
+
+The allowlist is written from the **tool id a run actually calls**, never from the connector's
+display name, and always lowercase. It grants whole servers by prefix and then repeats the
+specific ids underneath, so a mistake in one form is caught by the other. The briefing also now
+records that routine-level `allowed_tools` overrides tracked repo permissions, so the entry-20
+guard cannot be switched off from above without someone noticing.
+
+The MCP canary moves to **preflight step 1**, ahead of `npm ci`. A blocked tool is fatal to the
+whole session, so the only useful place to discover it is before anything else has been done. A run
+that dies in its first 30 seconds costs nothing and says exactly what is wrong in its log.
+
+And the briefing no longer claims a permission prompt can be handled. It says the opposite: a
+prompt ends the run, so every tool the run may reach must be pre-approved before it is scheduled.
+The general rule: **in an unattended run, treat a permission prompt as a crash, not an error.**
+Errors can be caught. Crashes have to be made impossible in advance.
+
+---
+
 ## The pattern (notes for the narrative — not final wording)
 
 Almost nothing crashed. **Every significant failure here was code or spec that was wrong while
@@ -738,3 +796,165 @@ The connection worth drawing: the PRD's own argument is that **verification capa
 generation speed, is the bottleneck**. This log is that argument demonstrated on ourselves. The
 product and the process are making the same claim — which is the useful kind of coincidence,
 because it's simply what happened.
+
+---
+
+## 23. The spec named a function that cannot do the job
+
+**Believed.** Investigate would classify through `generateObject` with a Zod enum, calling tools
+along the way to fetch refunds and order context. PRD §15.3 and the §9 architecture box both said
+so, in two places, since the spec was written.
+
+**Broke.** `generateObject` in AI SDK v7 accepts no `tools` parameter. It is a one-shot: prompt in,
+validated object out, no tool loop. The two commitments were never satisfiable together — an agent
+that cannot look anything up cannot investigate. Verified against the shipped signature at
+`node_modules/ai/dist/index.d.ts:7476`, not inferred.
+
+**Caught by.** Reading the shipped `.d.ts` before writing the call site, not by Context7. Context7
+returned a correct and current description of `generateObject`; a doc that describes what a function
+*does* has no reason to mention what it does *not* accept. Only the type signature is a complete
+statement. The failure would otherwise have surfaced as a compile error after the prompt, schema,
+gate and tools were all built around it.
+
+**Would have cost.** The obvious repair under deadline is two calls per record — `generateText` to
+gather evidence, `generateObject` to classify — which doubles input on all 54 records and takes the
+eval past the $5 the whole budget is built on (§9). The alternative repair, dropping the tools, would
+have silently deleted §15.1's reasoning trace from the product.
+
+**Permanently changed.** The call site uses `generateText` + `Output.object` + `stopWhen`, which
+validates against the same Zod schema in one conversation and exposes `toolCalls` for the trace. PRD
+§15.3 and the §9 diagram now name it, with the constraint recorded so nobody "restores" the spec.
+The general rule this project already had — documentation-first via Context7 — is amended in
+practice rather than in wording: Context7 for how an API is meant to be used, the version-exact
+`.d.ts` in `node_modules` for what it will actually accept. Neither alone was sufficient here.
+
+---
+
+## 24. A test that named its own subject wrongly and passed anyway
+
+**Believed.** `investigate` survives a tool that throws, and a test proved it: the mock model called
+a broken tool, the tool threw, and the run still returned a category. Green.
+
+**Broke.** The broken tool was named `explodes`, which is not on the read-only allowlist, so the
+permission boundary refused the whole call *before the model ever ran*. The test exercised the
+allowlist, not tool failure. It passed because both paths end at `UNEXPLAINED`, and the assertion
+only checked the category.
+
+**Caught by.** Strengthening the assertion from "lands on UNEXPLAINED" to "verdict is ACCEPTED"
+during the adversarial pass. The verdict is the only field that distinguishes the two paths. The
+mutation pass had not caught it either, because no mutation targeted a test that was measuring the
+wrong thing — mutation testing checks that tests fail when the code breaks, not that they test what
+they claim.
+
+Two smaller things surfaced in the same pass and belong here. First, three `sed` mutations silently
+failed to apply because the patterns were single-line and the code was multi-line; a no-op mutation
+reads exactly like a surviving mutant, i.e. like a test that holds. Second, two genuinely surviving
+mutants turned out to be unreachable defensive branches — a `parseJson(result.text)` fallback that
+could only ever yield `undefined`, and an error-payload branch shadowed by the cause-chain walk.
+Both were deleted rather than papered over with a test.
+
+**Would have cost.** A claim in the submission that the agent degrades gracefully when a lookup
+fails, with a green test behind it and no coverage of the case at all. The permission boundary would
+have looked doubly tested while one of its two tests was really testing it twice.
+
+**Permanently changed.** The broken-tool test now uses an allowlisted name, so it can only exercise
+tool failure, and asserts the verdict rather than the category. The mutation harness prints
+`(mutation applied)` or `(MUTATION DID NOT APPLY)` for every mutant by grepping for the mutated text
+before running the suite, so a no-op can no longer be misread as a passing test. Standing rule:
+when two code paths share an outcome, assert on the field that separates them, never the outcome.
+
+---
+
+## 25. A timestamp in the wrong unit moved a record into a filing period that does not exist
+
+**Believed.** `settled_at` was validated. Ingestion required it to be a safe integer, and the
+comment above the check said in as many words that an absent or fractional timestamp silently
+picks a filing period — so the field looked like one somebody had already thought about.
+
+**Broke.** Milliseconds are a safe integer. Razorpay returns seconds, but a payload from anywhere
+else — a hand-built fixture, a different SDK, a spreadsheet export — carries the same instant times
+a thousand, and every guard passed it through. `periodOf` then read it as a date roughly 54,000
+years out, which is not an error, just a different filing period. The record was billed against a
+GSTR-2B that does not exist, so it could never match: **one such row took the July batch from 38
+matched to 37 and the rollup delta from 34105 to 34645**, with nothing anywhere saying so.
+
+**Caught by.** Reading the guard rather than the tests. Every assertion about `settled_at` was
+about integers and fractions, and the class the comment claimed to cover — a wrongly scaled value —
+had no test at all.
+
+**Would have cost.** A demo where the headline number is 37/54 and the delta is ₹346.45, with no
+way to tell from the screen that anything is wrong. Both numbers are plausible. The exception queue
+would have carried a record whose only fault is that its clock was in another unit.
+
+**Permanently changed.** `requireEpochSeconds` in `src/lib/ingestion/guards.ts` bounds the value to
+a window with a domain meaning rather than an arbitrary one: GST commenced on 1 July 2017, so no
+settlement before it can appear on any GSTR-2B, and the ceiling is 1 January 2100. Milliseconds
+(~1.8e12), microseconds and nanoseconds all sit far above it. The error names the likely cause
+instead of saying "out of range". Both bounds are asserted at the exact boundary and one second
+outside it — an off-by-one on either survived the first mutation pass, because the window is 83
+years wide and nothing else in the suite came near an edge.
+
+---
+
+## 26. Every supplier on the statement was summed into "the Razorpay invoice"
+
+**Believed.** `invoiceTotals` walked `docdata.b2b` and summed it, with a comment explaining that
+summing beats indexing `[0]` because a real statement might carry more than one document. The
+reasoning was right and the scope was wrong.
+
+**Broke.** A merchant's GSTR-2B carries **every supplier who filed against their GSTIN** — the
+landlord, the SaaS vendor, the courier. So the table is not "Razorpay's invoice, possibly split
+across lines"; it is the whole month of purchases, and Razorpay is one row of it. Adding a single
+unrelated vendor turned July's invoice tax from **119692 into 1919692**. `itcVerdict` had the same
+scope and a worse consequence: any other supplier's `itcavl: "N"` marked the whole batch
+ineligible, and `itcSplit` then writes off every rupee of Razorpay's invoice as at risk.
+
+**Caught by.** Review of already-merged code, not by a test. The fixture carries exactly one
+supplier, so the dataset could never produce the failure — the assumption that made the bug and the
+data that would have caught it were the same choice.
+
+**Would have cost.** The product's central number. Trace tells a merchant how much input tax credit
+to claim; a claim inflated by an unrelated vendor's invoice is a wrong ITC claim, which is 18%
+annual interest under Section 50 of the CGST Act rather than a bug report.
+
+**Permanently changed.** Both totals are scoped to Razorpay's own CTIN
+(`RAZORPAY_SUPPLIER_GSTIN`, overridable per batch via `MatchInput.supplierGstin` for a merchant
+billed from another of Razorpay's state registrations). A statement carrying no Razorpay invoice
+throws rather than totalling zero — the filter's own failure mode, which would otherwise report the
+government as having billed nothing. The comparison is the **whole** GSTIN: mutation showed that
+comparing everything after the state code passed every test, and two registrations of one company
+differ only in those first two digits, so Razorpay's Karnataka invoice would have been summed into
+a Maharashtra reconciliation.
+
+---
+
+## 27. Three assertions in this slice's own tests passed for the wrong reason
+
+**Believed.** Each of the six fixes had a test that failed before it and passed after, which is the
+bar this project sets. That bar turns out to be necessary and not sufficient.
+
+**Broke.** Three of the new assertions could not tell their fix from something else firing.
+(1) The envelope test asserted `/count/`, but both branches say "count" — deleting the new
+"carries no `count`" guard still throws "declares count undefined but carries 1 items", so the
+test held on a message about a mismatch while claiming to be about an absence. (2) The unit-error
+test asserted `/val/` and `/rupees/i`, and **`txval` contains "val"** while every money guard's
+message ends in "rupees" — so any line-item check firing would have satisfied it. (3) The
+second-supplier test used a different company's CTIN, so it proved the filter compares *something*,
+not that it compares the state code.
+
+**Caught by.** The mutation pass, and only the parts of it aimed at boundaries rather than at
+whole branches. Deleting a guard outright was caught every time; narrowing one was not.
+
+**Would have cost.** Six findings reported as closed with tests that would keep passing through a
+later refactor that reopened them. The worst of the three is the `txval` substring, because it
+would have looked like coverage of the exact bug it does not cover.
+
+**Permanently changed.** Each assertion now names the field that separates the paths: `/carries no
+\`count\`/`, `/\.val declares/`, and a supplier CTIN identical to Razorpay's in every character but
+the state code. The `val` tolerance is pinned to the paise on both sides — widening it to 2× and
+narrowing it to 0.6× both survived the first pass. One surviving mutant was left alive
+deliberately: dropping `billedIn === period` from the rollup filter breaks nothing, because
+`classify` calls every out-of-period row TIMING before it looks at a fee, so MATCHED already
+implies in-period. It is an equivalent mutant, not a missing test, and the invariant it depends on
+is now asserted directly so that reordering the classifier fails a test rather than quietly moving
+another month's fees into this period's claimed credit.

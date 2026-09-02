@@ -1,18 +1,27 @@
-# Trace — handoff: build the screen
+# Trace — handoff: slices 1 and 3 are merged, the screen is next
 
-Written 1 Sep 2026, evening. The previous handoff (review the ingestion branch) is spent — that
-work is done. This file replaces it entirely.
+Written 2 Sep 2026, evening. **Slices 1 and 3 are both on `main` at `c7a078b`** — the six matcher
+fixes and the whole Investigate layer. `main`, `fix/matcher-edge-cases` and both their remotes are
+in sync, and the tree is green: **195 tests, typecheck and lint clean.**
+
+The next session takes **slice 2, the exception review screen** — the only thing standing between a
+working matcher and something a person can look at. Read the branch warning below before creating
+the branch; there is a trap in it that has already cost one push.
 
 ## Read this first
 
 `CLAUDE.md` and the pinned memories load automatically. **Do not re-derive them.** This file only
 carries what they don't.
 
-- `docs/PRD.md` — the spec. Read **§9 (architecture)** before writing any code, because it changed
-  today. Read **§7 (exception taxonomy)** and **§8 (output)** when you need them. Don't read all of it.
-- `docs/BUILD-LOG.md` — 19 entries, each a thing that was wrong while its own tests passed. Entries
-  **18, 19** are the newest and cover the ingestion layer.
-- `docs/VIDEO.md` — story and raw notes for the 5-minute demo. Untracked, local only.
+- `docs/PRD.md` — the spec. Read **§9 (architecture)** and **§15 (making the AI legible)** before
+  writing agent code. Read **§7 (exception taxonomy)** when you need it. Don't read all of it.
+- `docs/BUILD-LOG.md` — 27 entries, each a thing that was wrong while its own tests passed. **25**
+  (a timestamp in the wrong unit) and **26** (every supplier summed into Razorpay's invoice) are the
+  two live bugs slice 1 found in merged code; **27** is the pass that found three of slice 1's own
+  new assertions passing for the wrong reason, and is the most useful one to read.
+- `docs/NEXT-TASK.md` — the routine briefing: preflight, banned commands, the per-slice loop and
+  the slice definitions. Read it even as an interactive session; acceptance criteria live there and
+  are not duplicated here.
 
 ## Deadline
 
@@ -20,14 +29,104 @@ Applications close **5 September 2026**. Razorpay publishes no closing *time* or
 date comes from a recruiter's post, not the site. So **treat end of 4 September as the deadline**
 and don't spend the 5th. That leaves 2, 3 and 4 September.
 
+## The night of 1 Sep — read this before scheduling anything
+
+Two cloud routines fired (19:00Z and 22:30Z). Both passed preflight cleanly, claimed a slice,
+pushed the claim, and then **hung on a Context7 permission prompt within three minutes**. Neither
+wrote a line of code. Both sessions sat in `requires_action` until morning; approving the prompt
+woke them and they exited with `turns=0`, so nothing was recoverable.
+
+Cause: the routines' `allowed_tools` listed `mcp__Context7`, copied from the connector's display
+name. A run registers it lowercase and calls `mcp__context7__resolve-library-id`, so the grant
+matched nothing. A routine-level `allowed_tools` also **overrides** the repo's tracked
+`.claude/settings.json`, so the correct grant sitting in the clone never applied. Full write-up in
+BUILD-LOG 22.
+
+**Fixed on both routines** (`trig_01FVg9FSUUnv59n41RJKf1WG`, `trig_01WDfhGcZ4QKuUVW5k4fLqqe`):
+the allowlist now carries lowercase server prefixes and explicit tool ids, with the capitalised
+forms kept alongside. Both are spent one-shots (`enabled: false`), so firing one needs
+`RemoteTrigger action: "run"` or a fresh `run_once_at`.
+
+Two rules came out of this and are now in `docs/NEXT-TASK.md`:
+
+- The MCP canary is **preflight step 1**, ahead of `npm ci`. A blocked tool kills the whole
+  session, so the only useful place to find out is before anything else has been done.
+- **A permission prompt is a crash, not an error.** No instruction can tell a run to skip one —
+  the prompt blocks the session rather than failing the call. Everything a run may touch has to be
+  pre-approved before it is scheduled.
+
+The one guard that worked: claim-and-push-before-coding. It is why this is a legible failure
+rather than a mystery, and it stays.
+
+## The night of 2 Sep — the allowlist is fixed, the network is not
+
+The 04:31Z run got past the thing that killed 1 Sep. `mcp__context7__resolve-library-id` was
+**permitted** — no permission prompt, the call ran — so the lowercase allowlist fix works and
+BUILD-LOG 22 is closed. It failed one layer down instead:
+
+```
+TypeError: fetch failed
+proxy: connect_rejected — "gateway answered 403 to CONNECT" — host: context7.com:443
+```
+
+The sandbox's egress proxy denies `context7.com` outright. Same run, same moment:
+`api.github.com` → 200 and `registry.npmjs.org` → 200. So this is **not** the routine's
+`allowed_tools` and not an MCP problem — it is the **remote environment's network policy**, which
+lists the domains a session may reach. `context7.com` is not on it.
+
+**The fix is on the environment, not the routine:** add `context7.com` to the allowed domains
+(Claude Code on the web → the environment's network policy). Re-check by running the preflight
+canary; it answers or it doesn't, in about ten seconds.
+
+The run stopped there without claiming a slice, per the briefing's step-1 rule — no branch, no
+code, nothing to unwind. Slice 1 is still the first unclaimed slice.
+
+Worth knowing for whoever fixes this: `CONTEXT7_API_KEY` is not set in a cloud sandbox either, so
+once the domain is unblocked, lookups there are keyless and rate-limited per IP.
+
+Two other connectors were down in the same run, both expected: `blade` (stdio-only, can never
+reach a routine) and `razorpay` (needs an OAuth flow no unattended run can complete).
+
 ## State of the tree
 
 **Check `git log -3` before trusting anything in this section** — it is the part that goes stale
 first.
 
-As written, `main` carried the merged ingestion layer plus `c6089c6`, which installed Blade, the
-Vercel AI SDK, Zod and Playwright's Chromium, and tracked `.claude/settings.json` (the guard for
-BUILD-LOG 20). **104 tests pass, typecheck and lint clean, green under three timezones.**
+`main` carries everything built so far: the ingestion layer, Blade, the Vercel AI SDK, Zod,
+Playwright's Chromium, all of slice 3 (`c4a0d7a`) and all of slice 1 (`4f56c2c`). **195 tests pass,
+typecheck and lint clean.** `agent/ingestion-layer`, `feat/investigate-agent` and
+`fix/matcher-edge-cases` are all contained in `main` and can be deleted whenever.
+
+### Before you create a slice branch — read this
+
+The overnight routines claim a slice by committing to `docs/HANDOFF.md` and pushing the slice
+branch **before** writing code. That guard works and it stays. But a claim pushed on 1 September
+sits on 1 September's `main`, and a session that later runs `git checkout -b <same-name>` off a
+current `main` produces a branch that shares no history with it — so the push is rejected as
+non-fast-forward, after the work is already committed. That happened to slice 1 and cost a
+half-hour of unpicking; the merge that resolved it is `c7a078b`.
+
+**So: `git fetch` and check for a remote branch of that name before creating one.**
+
+```
+git ls-remote --heads origin feat/exception-review-screen
+```
+
+If it answers, adopt it rather than cutting a fresh one, and always set the upstream so `git
+status` warns you early instead of `git push` failing late:
+
+```
+git checkout -b feat/exception-review-screen origin/feat/exception-review-screen
+git merge main            # bring the claim branch up to today's main
+git push -u origin feat/exception-review-screen
+```
+
+If it does not answer, `git checkout -b <name> main` as usual, then `git push -u`.
+
+**`feat/exception-review-screen` currently holds exactly one stale claim commit (`116a36b`), on
+1 September's `main`.** It is the last of these traps left. Adopt it as above, or delete it with
+`git push origin --delete feat/exception-review-screen` and branch fresh — either is fine, but
+decide before you write code, not after.
 
 Everything the queue needs is installed and committed, so a scheduled run never has to install
 anything. `.npmrc` sets `legacy-peer-deps=true`, which Blade requires — its peer list contradicts
@@ -35,10 +134,14 @@ itself on every React version, and BUILD-LOG 21 records why.
 
 **Preet runs every `git` write himself.** Draft them, never attempt them. `git commit`, `git push`,
 `git reset`, `git checkout`, `git clean` and `rm` are denied in `.claude/settings.local.json`.
+Several commits then ONE push at the end of the block — do not repeat `git push` after every
+commit. The branch does have to be pushed before a scheduled routine fires or before he stops for
+the day, because routines clone from the remote and a stale `main` makes a run rediscover problems
+already fixed.
 
 ## Where the project stands
 
-**Built and merged on `main` — all of it:**
+**Built and merged on `main`:**
 
 - **Schema + migration** — `src/lib/audit/schema.ts`, `drizzle/0000_peaceful_winter_soldier.sql`.
   Three tables: `batches`, `records`, `actions`. All money is **integer paise**, never floats.
@@ -46,55 +149,55 @@ itself on every React version, and BUILD-LOG 21 records why.
   `gstr2b-072026.json`, `gstr2b-082026.json`, `expected.json`.
 - **Matcher** — `src/lib/matching/`. `matchBatch()` takes parsed settlement rows plus a parsed
   GSTR-2B statement and returns classified records, a period rollup and GSTN's ITC verdict.
-
 - **Ingestion** — `src/lib/ingestion/`: `parseSettlements`, `parseStatement`, `guards.ts`.
 - **Row mapping** — `src/lib/audit/rows.ts`: pure `BatchResult` → Drizzle rows.
 
-**Not built at all:** any UI, the three agent layers, deploy, the video.
+**Also merged:** the `ai_calls` table and the whole Investigate layer. See the slice 3 section
+below.
 
-## Decisions made 1 Sep — these are settled, don't relitigate
+**Not built at all:** any UI, the Explain and Act layers, the eval harness, deploy, the video.
 
-- **Inngest is cut.** Durable execution earns its cost on long, expensive or fan-out steps. Detect
-  is 54 records through pure functions in under 3 seconds and a re-run is byte-identical, so there
-  is nothing to resume. The pipeline is plain async functions; run state lives in the `batches` row.
-  The human-in-the-loop pause it was chosen for is `actions.confirmed_at` — a nullable column plus a
-  Confirm button, which is also the only version of that gate a demo can show on screen.
-- **Langfuse is cut.** `langfuse-vercel` is deprecated in its own README and the current SDK drops
-  spans on Vercel unless flushed explicitly — a *silent* failure. Replaced by an `ai_calls` table in
-  the same Postgres: for an audit product the trace **is** the audit trail. Stretch goal only.
-- **Sentry stays cut.** No production traffic to monitor.
-- **The AI is three agents, and the permission boundary is the story.** Investigate (may classify,
-  may not write) → Explain (read-only) → Act (drafts only, cannot send). Most multi-agent demos
-  cannot say what each agent is *forbidden* to do. Trace can, and it maps onto Razorpay's own bar
-  language that PRD §2 already quotes: bounded, explainable, gated.
-- **No LLM in the matching, ever.** A wrong ITC claim is not a bug, it is 18% annual interest under
-  Section 50 of the CGST Act. The deterministic core is the product's credibility, not a gap in it.
-
-## The work queue and its status
-
-`docs/NEXT-TASK.md` is the **routine briefing** — the queue, the preflight, the banned commands and
-the per-slice loop. It is written for an unattended run and is the same for every run. Read it if
-you are a scheduled run. If you are an interactive session, read it anyway: the slice definitions
-and acceptance criteria are there and are not duplicated here.
-
-**Run log.** Scheduled run started 22:31 UTC, 1 Sep 2026 (04:00 IST slot). Preflight steps 1-3 clean:
-`npm ci` restored the lockfile, 104 tests pass, typecheck and lint are both silent. The 19:02 UTC run
-had already claimed slice 1 on `fix/matcher-edge-cases` and pushed no code beyond the claim, so this
-run skipped it as the briefing requires and took slice 2.
-
-**Status board — every run updates this before it stops.**
+## Status board — every run updates this before it stops
 
 | # | Slice | Branch | Status |
 |---|---|---|---|
-| 1 | Backlog findings 3-8 | `fix/matcher-edge-cases` | in progress (claimed 19:02 UTC 1 Sep by the earlier run) |
-| 2 | The screen | `feat/exception-review-screen` | in progress (`feat/exception-review-screen`, started 22:35 UTC 1 Sep) |
-| 3 | `ai_calls` + Investigate + policy gate | `feat/investigate-agent` | not started |
-| 4 | `npm run eval` harness | `feat/investigate-agent` | not started |
-| 5 | §15.1 reasoning trace, §15.5 citations | — | **blocked until 2 and 3 are reviewed** |
+| 1 | Backlog findings 3-8 | `fix/matcher-edge-cases` | **done, merged into `main`** |
+| 2 | The screen | `feat/exception-review-screen` | not started |
+| 3 | `ai_calls` + Investigate + policy gate | `feat/investigate-agent` | **done, merged into `main`** |
+| 4 | `npm run eval` harness | `feat/investigate-agent` | not started — unblocked, slice 3 is on `main` |
+| 5 | §15.1 reasoning trace, §15.5 citations | — | blocked until 2 and 3 are reviewed |
 
-Slices 3 and 4 build against the AI SDK's **mock model**. There is no `ANTHROPIC_API_KEY` in the
-repo or in a sandbox, by design — Preet is loading $5 of credit separately, and the eval runs for
-real only once he has. Do not call the live API and do not ask for a key.
+`feat/exception-review-screen` holds **only** a slice-claim commit, no code — see the branch
+warning above before you touch it. Don't mistake it for work in progress.
+
+## Slice 3 — what was built, so it is not rebuilt
+
+All on `feat/investigate-agent`, all against the AI SDK's mock model. No API key was used and none
+is needed to run the tests.
+
+- **`ai_calls`** — `drizzle/0001_gorgeous_sandman.sql`, **applied to Neon**. Beyond the columns the
+  brief named it carries `layer` (three agents write here), `cache_read_tokens` / `cache_write_tokens`
+  (Anthropic bills cached input at 0.1x and a cache write at 1.25x, so one `input_tokens` column
+  would misreport cost by most of the caching saving), and `tool_calls` / `reason` for §15.1.
+- **`src/lib/agent/schema.ts`** — the Zod enum, read from `exceptionCategory.enumValues` so the
+  model's vocabulary and the column it writes to are one list.
+- **`src/lib/agent/prompt.ts`** — `SYSTEM_PROMPT` is a module constant and must stay one. It is
+  ~2,900 chars; **Claude Opus 5 will not cache a prefix under 512 tokens**, and under that limit
+  caching fails silently as a 10x bill rather than an error. A test guards the floor.
+- **`src/lib/agent/tools.ts`** — four read-only tools, reusing the matcher's own `priceAt` and
+  `periodOf` rather than reimplementing them.
+- **`src/lib/agent/policy.ts`** — the gate, plus the tool allowlist checked *before* the model call.
+- **`src/lib/agent/pricing.ts`** — cost in integer micro-USD, recomputable from the stored columns.
+- **`src/lib/agent/investigate.ts`** — the call site.
+
+**The one thing to know before touching it:** it uses `generateText` + `Output.object`, **not**
+`generateObject`. In AI SDK v7 `generateObject` accepts no `tools`, so the PRD's original wording
+was unimplementable. PRD §15.3 and the §9 diagram now say so; BUILD-LOG 23 records why. Do not
+"restore" it.
+
+Slice 4 (the `npm run eval` harness) is unblocked and small — it scores `investigate()` against
+`data/synthetic/expected.json`. It needs slice 3's code, so branch from `feat/investigate-agent`
+or merge that to `main` first.
 
 ## Database
 
@@ -102,23 +205,17 @@ real only once he has. Do not call the live API and do not ask for a key.
 migration successfully, and `npm run db:studio` opens against it. Don't re-provision; if a
 connection fails, check `.env` first.
 
-- `batches`, `records` and `actions` exist in the database. Any further schema change is a new
-  migration via `npm run db:generate` then `npm run db:migrate` — **never** `db:push`, which
-  bypasses the migration history that is already committed.
+- `batches`, `records` and `actions` exist. **`ai_calls` does not** — it is slice 3's first task.
 - The driver is `postgres-js` (`src/lib/audit/client.ts`), which speaks to any Postgres over a
-  `postgresql://` URL. Nothing in the code is provider-specific, so Neon and Supabase are
-  interchangeable and switching later costs one environment variable.
-- **Two connection strings, and they are not interchangeable.** Migrations need the *direct*
-  (unpooled) URL; the app on Vercel needs the *pooled* one, or serverless invocations exhaust the
-  connection limit. `.env.example` says so at the top.
-- **`ai_calls` does not exist yet.** PRD §15.4 requires it. Adding it is a new Drizzle migration:
-  batch id, record id, model, prompt version, input/output tokens, latency, computed cost, and the
-  verdict the policy gate returned. Generate it with `npm run db:generate`, don't hand-write SQL.
-- Deploy needs `DATABASE_URL` and `ANTHROPIC_API_KEY` set in Vercel's project settings too. Local
-  `.env` does not travel.
-- `ANTHROPIC_API_KEY` is **not set yet**. $5 of credit, with the console spending limit set to $5 so
-  overrun is impossible. PRD §9's cost section explains why $5 is enough: structured output, prompt
-  caching, `effort: "low"` and the Batch API take a full 54-record eval from ~$1.40 to ~$0.31.
+  `postgresql://` URL. Nothing is provider-specific, so switching later costs one env var.
+- **Two connection strings, not interchangeable.** Migrations need the *direct* (unpooled) URL; the
+  app on Vercel needs the *pooled* one, or serverless invocations exhaust the connection limit.
+  `.env.example` says so at the top.
+- Deploy needs `DATABASE_URL` and `ANTHROPIC_API_KEY` in Vercel's project settings. Local `.env`
+  does not travel.
+- `ANTHROPIC_API_KEY` is **not set, deliberately.** Preet will load $5 with the console spending
+  limit set to $5 so overrun is impossible, once there is something worth spending it on. Until
+  then: mock model only. Do not ask for a key and do not call the live API.
 
 ## Numbers that must never move
 
@@ -128,15 +225,15 @@ connection fails, check `.env` first.
 | July GSTR-2B invoice tax | 119692 | ₹1,196.92 |
 | Rollup of matched records | 85587 | ₹855.87 |
 | Rollup delta | 34105 | ₹341.05 |
-| **ITC claimable** (as of the fix above) | **98223** | ₹982.23 |
-| **ITC at risk** (as of the fix above) | **21469** | ₹214.69 |
+| **ITC claimable** | **98223** | ₹982.23 |
+| **ITC at risk** | **21469** | ₹214.69 |
 | August GSTR-2B invoice tax | 19530 | ₹195.30 |
 
 Breakdown: 30 `EXACT` / 8 `FUZZY` / 5 `TIMING` / 4 `REFUND_NETTED` / 4 `FEE_DEDUCTION` /
 3 `PARTIAL_PAYMENT` / 0 `UNEXPLAINED` = 54.
 
-At risk is now **exactly the four unexplained fee deductions** (21469). The refund half of the old
-delta (12636) moved to claimable, because Razorpay keeps its MDR on a refunded payment.
+At risk is **exactly the four unexplained fee deductions** (21469). The refund half of the old delta
+(12636) is claimable, because Razorpay keeps its MDR on a refunded payment.
 
 **For the video, one number is easy to say wrong:** the delta covers **11 flagged rows billed in
 July** (4 refunds, 4 unexplained fees, 3 failed retries), of which **8 carry tax**. The three
@@ -144,6 +241,17 @@ retries are zero-value. Say "eleven transactions" or "eight of them carrying tax
 
 ## Settled — do not reopen
 
+- **Inngest is cut.** 54 records through pure functions in under 3 seconds, byte-identical on
+  re-run — nothing to resume. Run state lives in the `batches` row. The human-in-the-loop pause is
+  `actions.confirmed_at`, a nullable column plus a Confirm button.
+- **Langfuse is cut.** `langfuse-vercel` is deprecated in its own README and the current SDK drops
+  spans on Vercel unless flushed explicitly — a *silent* failure. Replaced by `ai_calls` in the same
+  Postgres: for an audit product the trace **is** the audit trail.
+- **Sentry stays cut.** No production traffic to monitor.
+- **The AI is three agents, and the permission boundary is the point.** Investigate (may classify,
+  may not write) → Explain (read-only) → Act (drafts only, cannot send).
+- **No LLM in the matching, ever.** A wrong ITC claim is not a bug, it is 18% annual interest under
+  Section 50 of the CGST Act. The deterministic core is the product's credibility, not a gap in it.
 - Two-tier rate-cell matching. There is **no per-transaction invoice number** to join on; GSTR-2B
   carries one consolidated Razorpay invoice line per filing period.
 - **Five exception categories, locked.** `itcavl` is a batch-level *flag* (`ITC_INELIGIBLE`), not a
@@ -151,7 +259,7 @@ retries are zero-value. Say "eleven transactions" or "eight of them carrying tax
 - A netted refund triggers a **Section 34 credit note**, not an ITC reversal. Razorpay does not
   return its MDR on a refunded transaction, so that GST stays claimable.
 - The GSTR-2B schema in the fixture is real and verified against GSTN. **It is not GSTR-2A.**
-  `flprdr1`, `fldtr1` and `itm_det` are 2A-only and are rejected document-wide. `iamt`, `camt` and
+  `flprdr1`, `fldtr1` and `itm_det` are 2A-only and rejected document-wide. `iamt`, `camt` and
   `samt` are rejected **only inside a b2b line item** — real 2B uses them elsewhere (IMPG carries
   `iamt` against a bill of entry). BUILD-LOG 19.
 - `match_method` **is** the confidence tier. There is no `confidence` column and there won't be.
@@ -164,63 +272,69 @@ retries are zero-value. Say "eleven transactions" or "eight of them carrying tax
   BUILD-LOG 10.
 - Dataset counts are locked (PRD §13). Don't regenerate.
 
-## Owed
+## Backlog — all six fixed on `fix/matcher-edge-cases`
 
-**Nothing, if the doc commit has landed.** BUILD-LOG entries **20** (the Context7 permission
-incident that stalled the overnight run for eleven hours) and **21** (the Inngest and Langfuse
-cuts) are written. Entry 20's guard is that `.claude/settings.json` becomes **tracked**, so the
-Context7 grant travels with the clone into any cloud sandbox — that file must be in the same
-commit or the entry is not finished. `.claude/settings.local.json` is gitignored and stays that way.
+These were slice 1 and they are done: each has a test that failed before its fix and passes after,
+and every locked number above is unmoved. 195 tests pass, typecheck and lint clean. Findings 3 and
+4 were live bugs in already-merged code and are BUILD-LOG **25** and **26**; the adversarial pass
+is **27**. Next free BUILD-LOG number is **28**.
 
-`docs/VIDEO.md` should be added to `.gitignore` alongside `PLAN.md`, `PITCH.md`, `BRIEF.md` and
-`HANDOFF.md` — it is a local working doc, not part of the shipped repo.
+What each fix actually does, since the finding text describes the bug and not the remedy:
 
-## Backlog — real bugs, found in review, deliberately deferred
+3. **`settled_at` accepts milliseconds** — fixed. `requireEpochSeconds` bounds the value to
+   1 Jul 2017 (GST commencement) → 1 Jan 2100, so any millisecond, microsecond or nanosecond
+   value is refused by name rather than silently billed to a period that does not exist.
+4. **A second supplier in `docdata.b2b` was summed into "the Razorpay invoice"** — fixed. Both
+   `invoiceTotals` and `itcVerdict` are scoped to `RAZORPAY_SUPPLIER_GSTIN`, overridable per batch
+   via `MatchInput.supplierGstin`. A statement with no Razorpay invoice throws instead of totalling
+   zero. The comparison is the whole GSTIN, state code included.
+5. **Statement money given in paise** — guarded as far as a single statement allows. Every invoice
+   must now carry `val`, GSTN's own declared total, and its line items (cess included) must add up
+   to it within ₹1. That catches lines scaled by 100 under a rupee total. It does **not** catch a
+   uniformly scaled document — `val` in paise too is internally consistent, and nothing inside the
+   statement can see it; that one surfaces as a hundredfold rollup delta in front of a human, which
+   is the product's answer to it. Said plainly in the code comment rather than implied.
+6. **`toBatchRow` accepted a contradicting `meta.period` and an empty `merchantGstin`** — fixed.
+   `BatchResult` now carries the period it reconciled, and the mapping refuses a `meta` that
+   disagrees with it. Both fields are held to the same shapes ingestion holds the statement to.
+7. **An envelope with no `count`** — fixed. Refused outright, naming the absence; a bare array is
+   still accepted, because it is a different shape rather than an envelope missing a field.
+8. **The three buckets could fall short of `totalRecords`** — fixed. `toBatchRow` asserts
+   `exact + fuzzy + exceptions === totalRecords` and names all four numbers when it doesn't hold.
 
-None of these block the screen. Fix them when the screen is standing, cheapest first.
+## Making the AI legible — PRD §15, committed scope
 
-3. **`settled_at` accepts milliseconds.** A single row with a millisecond timestamp silently yields
-   37 matched and a delta of 34645 instead of 38 / 34105. Needs a range guard.
-4. **A second supplier in `docdata.b2b` is summed into "the Razorpay invoice."** One extra vendor
-   turns invoice tax 119692 into 1919692. `invoiceTotals` needs a supplier-CTIN filter. This is in
-   the already-merged matcher, not the branch.
-5. Statement money given in paise instead of rupees inflates the invoice 100× unguarded.
-6. `toBatchRow` accepts a `meta.period` that contradicts the statement, and an empty `merchantGstin`.
-7. An envelope with no `count` accepts truncation silently, despite a comment claiming otherwise.
-8. `matchedExact + matchedFuzzy + exceptions` can fall short of `totalRecords` with no runtime invariant.
-
-## Making the AI legible — now PRD §15, committed scope
-
-The five ideas that were floating on 1 Sep are **decided and written into `docs/PRD.md` §15**, each
-with a "done when" line. Read that section; don't re-derive it from here. In short: Investigate
-renders its tool calls and reasoning in the UI (15.1); the agent is scored against
+Five items, each with a "done when" line in the spec. Read that section; don't re-derive it here.
+Investigate renders its tool calls and reasoning in the UI (15.1); the agent is scored against
 `expected.json` for a real accuracy number (15.2); categories are constrained by a Zod enum at
 generation *and* by the policy gate behind it (15.3); the batch reports its own token count and
 rupee cost from `ai_calls` (15.4); Explain cites the records it used, as links (15.5).
 
-Build them **alongside** each layer, not as a cleanup pass at the end — 15.1 and 15.4 are nearly
-free while you are writing the Investigate call site, and expensive to retrofit afterwards.
-
-§15 also records what is deliberately *not* being added — no vector DB, no agent framework, no
-second model provider. Don't rediscover those.
+Build them **alongside** each layer, not as a cleanup pass — 15.1 and 15.4 are nearly free while
+writing the Investigate call site, and expensive to retrofit. §15 also records what is deliberately
+*not* being added: no vector DB, no agent framework, no second model provider.
 
 ## Loose ends
 
+- **The Blade MCP cannot be reached from a cloud routine at all** — it is stdio-only and has no
+  HTTP endpoint, so it can never appear in a routine's `allowed_tools`. (An earlier version of this
+  file said routines must list it. That was wrong.) Everything needed is cached in
+  **`docs/BLADE-NOTES.md`** (21 components, pulled 1 Sep against the lockfile version) plus
+  `.cursor/rules/frontend-blade-rules.mdc`. For anything not in those, read the shipped types in
+  `node_modules/@razorpay/blade/build/**/*.d.ts` — version-exact and compiler-enforced.
+- The Blade MCP refuses to serve docs until `create_blade_cursor_rules` has been called once. It
+  has been, and `.cursor/rules/frontend-blade-rules.mdc` is committed. Don't delete that file.
+- **Next.js ships its own docs in the repo** at `node_modules/next/dist/docs/`. For anything
+  Next-specific, read those first — version-exact and cheaper than a Context7 round-trip.
+- `CONTEXT7_API_KEY` is set locally but **not** in a cloud sandbox, so Context7 runs keyless and
+  IP-rate-limited there. If lookups throttle, say so rather than guessing at an API.
+- Cloud runs draw on the **same subscription usage** as an interactive session. Parallel agents
+  spend the budget faster; they do not add capacity. Worth weighing before fanning out.
 - The fixture generator is at `/tmp/trace-fixture-gen.mjs`, outside the repo, and `/tmp` may have
-  been cleared. Worth committing as `scripts/generate-fixture.mjs` if it survives — anyone asking
-  "is this data reproducible?" should be able to see that it is.
-- `docs/NEXT-TASK.md` was rewritten on 1 Sep and is **live** — it is the routine briefing for the
-  slice queue, written to stay true across runs. Don't edit it per-run; update the status board in
-  this file instead.
-- Two one-shot cloud routines from 30 Aug fired and are disabled (`trig_01LpejejykaVudvGaYGx9aDa`
-  build, `trig_016RmmwsLJb1v8BYh11rbGSR` review). Any routine must list the Context7 **and Blade**
-  MCP tools in its `allowed_tools`; the 30 Aug one did not, which is what caused the eleven-hour
-  stall in BUILD-LOG 20.
-- The Blade MCP refuses to serve any docs until `create_blade_cursor_rules` has been called once.
-  It has been, and `.cursor/rules/frontend-blade-rules.mdc` is committed — so a fresh clone is
-  fine. Don't delete that file.
-- `CONTEXT7_API_KEY` is set locally but almost certainly **not** in a cloud sandbox, so Context7 runs
-  keyless and IP-rate-limited there. If lookups throttle, say so rather than guessing at an API.
+  been cleared. Worth committing as `scripts/generate-fixture.mjs` if it survives.
+- `docs/VIDEO.md` should be added to `.gitignore` alongside `PLAN.md`, `PITCH.md` and `BRIEF.md`.
+  `HANDOFF.md` and `NEXT-TASK.md` are **tracked on purpose** — routines clone from the remote and
+  cannot read an untracked file.
 - Preet is not fluent in GST. Gloss every tax term in one or two sentences as it comes up, and say
   what was left out. Both are pinned memories that load automatically; repeated here because they
   matter more than anything else in this file.
