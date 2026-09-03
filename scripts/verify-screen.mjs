@@ -41,6 +41,33 @@ function recordedAnswers() {
   return JSON.parse(readFileSync("data/synthetic/explanations.json", "utf8"));
 }
 
+/**
+ * The actions the Act layer has drafted, if any (PRD §9, agent 3).
+ *
+ * Read for the same reason `recordedAnswers` is: an empty file is the honest
+ * state before `npm run act` has been run, and the cards must then say so
+ * rather than render blank. Both branches are asserted and the script prints
+ * which one it took, so a green run is never mistaken for coverage it did not
+ * have.
+ */
+/**
+ * The build id of the tree as it stands, or null when nothing has been built.
+ *
+ * Read fresh rather than captured at import: the point is to compare what is on
+ * disk now against what the server is answering with.
+ */
+function buildId() {
+  try {
+    return readFileSync(".next/BUILD_ID", "utf8").trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+function recordedDrafts() {
+  return JSON.parse(readFileSync("data/synthetic/drafts.json", "utf8"));
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** One record id per verdict, read from the fixture's own manifest. */
@@ -165,6 +192,23 @@ try {
   await send("Page.navigate", { url: TARGET_URL });
   await sleep(Number(process.env.WAIT_MS ?? 9000));
 
+  // The server has to be serving THIS build. `next start` refuses the port when
+  // an older server is still holding it, and that older server keeps answering
+  // — so every assertion below would grade a build that predates the change
+  // being verified. A stale run reporting OK is worse than no run at all, so
+  // the build id on disk has to appear in the page the browser actually loaded.
+  const builtId = buildId();
+  if (builtId !== null) {
+    const servedBuild = await evaluate(
+      `document.documentElement.outerHTML.includes(${JSON.stringify(builtId)})`,
+    );
+    if (servedBuild !== true) {
+      failures.push(
+        `the server is not serving this build (${builtId}) — stop the one already on the port and start it again`,
+      );
+    }
+  }
+
   const rows = await evaluate(`document.querySelectorAll('[role="row"]').length`);
   if (rows !== EXPECTED_ROWS) failures.push(`expected ${EXPECTED_ROWS} rows, found ${rows}`);
 
@@ -260,6 +304,23 @@ try {
         expectFlagged
           ? `${verdict}: flagged row ${id} shows no "What the agent did" section`
           : `${verdict}: matched row ${id} should have no "What the agent did" section`,
+      );
+      continue;
+    }
+
+    // PRD §9, agent 3. Only a flagged row has a next action; offering one on a
+    // clean row would invite a person to act where nothing is wrong. Scoped
+    // INSIDE the detail panel, never to the document: the cards are the third
+    // place on this page that renders a record id, and a page-wide search is
+    // exactly the mistake BUILD-LOG entry 30 records twice.
+    const hasActions = await evaluate(
+      `Boolean(document.querySelector('[data-testid="detail-panel"] [data-testid="action-cards"]'))`,
+    );
+    if (hasActions !== expectFlagged) {
+      failures.push(
+        expectFlagged
+          ? `${verdict}: flagged row ${id} offers no drafted action`
+          : `${verdict}: matched row ${id} should offer no drafted action`,
       );
       continue;
     }
@@ -368,6 +429,85 @@ try {
         console.log(`\n  Explain panel: citation ${cited} opened its row.`);
       }
     }
+  }
+
+  // PRD §9, agent 3 — the human gate. The detail panel is left showing the
+  // last flagged row the loop above opened, which is the one with cards.
+  const drafts = recordedDrafts();
+
+  const cards = await evaluate(`(() => {
+    const host = document.querySelector('[data-testid="detail-panel"] [data-testid="action-cards"]');
+    if (!host) return null;
+    // Scoped to the cards, never to the panel: the panel also holds the
+    // reasoning trace, so a panel-wide button count stops being a count of
+    // Confirm buttons the moment anything else in it gains one. BUILD-LOG 30.
+    const buttons = [...host.querySelectorAll('[data-testid^="confirm-"]')];
+    return {
+      text: host.innerText,
+      kinds: [...host.querySelectorAll('[data-testid^="action-"]')]
+        .map((el) => el.getAttribute("data-testid"))
+        .filter((id) => id !== "action-cards"),
+      confirmButtons: buttons.length,
+      allDisabled: buttons.length > 0 && buttons.every((b) => b.disabled),
+      hasGateWarning: Boolean(host.querySelector('[data-testid="draft-gate-warning"]')),
+    };
+  })()`);
+
+  if (cards === null) {
+    failures.push("the flagged row's detail panel shows no action cards");
+  } else if (drafts.length === 0) {
+    // Nothing drafted yet. The cards must SAY so rather than render three empty
+    // shells, which would read as "there is nothing to do here".
+    if (!cards.text.includes("No action has been drafted")) {
+      failures.push("with no recorded drafts, the action cards do not say so");
+    }
+    if (cards.confirmButtons !== 0) {
+      failures.push("a Confirm button is offered for a draft that does not exist");
+    }
+    console.log(`\n  Act layer: no drafts recorded yet, and the panel says so.`);
+  } else {
+    // Three kinds, one Confirm each. The count is the thing that silently goes
+    // wrong: a kind dropped from the map renders two cards and nothing errors.
+    if (cards.kinds.length !== 3) {
+      failures.push(`expected 3 drafted actions, found ${cards.kinds.length}`);
+    }
+    if (cards.confirmButtons !== 3) {
+      failures.push(`expected 3 Confirm buttons, found ${cards.confirmButtons}`);
+    }
+    // The gate has to be consequential: a draft it refused must not be
+    // confirmable. Asserted as a biconditional so neither half can pass alone.
+    if (cards.hasGateWarning !== cards.allDisabled) {
+      failures.push(
+        cards.hasGateWarning
+          ? "a draft the figure gate refused still offers an enabled Confirm button"
+          : "every Confirm button is disabled with no gate warning saying why",
+      );
+    }
+    console.log(
+      `\n  Act layer: ${cards.kinds.length} drafts, ${cards.confirmButtons} Confirm buttons` +
+        `${cards.hasGateWarning ? ", gated and disabled" : ", confirmable"}.`,
+    );
+  }
+
+  // The Confirm route, exercised WITHOUT writing anything: a body naming no
+  // record is rejected by validation before the database is ever reached, so
+  // this stays free and deterministic whether or not one is configured.
+  const confirmRoute = await evaluate(`(async () => {
+    const response = await fetch("/api/actions/confirm", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const payload = await response.json().catch(() => ({}));
+    return { status: response.status, error: payload.error ?? null };
+  })()`, true);
+
+  if (confirmRoute?.status !== 400) {
+    failures.push(
+      `POST /api/actions/confirm with no record answered ${confirmRoute?.status}, expected 400`,
+    );
+  } else if (typeof confirmRoute.error !== "string" || confirmRoute.error.length === 0) {
+    failures.push("POST /api/actions/confirm rejected the request without saying why");
   }
 
   for (const error of consoleErrors) failures.push(`console: ${error}`);
