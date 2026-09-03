@@ -731,6 +731,57 @@ configured, rather than answering without writing its `ai_calls` row. "Every Cla
 logged" (§15.4) is either true or it is marketing, and for an audit product an untraceable answer
 is worth less than no answer.
 
+### 15.6 Act checks its own figures, and the gate is what stops a confirmation
+
+Every drafted action states rupee figures a person may act on, so every rupee figure in a draft is
+checked against the record it was drafted from. Explain has to make sure every record an answer
+names is real; Act has to make sure every amount a draft states is one the record actually carries.
+
+**Done when:** a draft stating an amount the record does not carry is still shown, is annotated with
+that amount, and cannot be confirmed.
+
+*The figure gate.* `recordFigures` derives the closed set of amounts a draft about one record may
+state — its payment amount, its fee, the GST inside that fee, the fee net of that GST, the expected
+fee and tax from the resolved rate cell, and the two excesses. Prose is scanned for `₹` figures and
+the structured `amountPaise` fields are checked against the same set, so a gate cannot police the
+email while trusting the number that goes onto a return. A rupee amount with anything other than two
+decimal places is refused rather than rounded: `₹23.6` silently read as the record's `₹23.60` is
+exactly the drift the gate exists to catch. A voucher whose debits and credits disagree is refused
+in **both** directions (BUILD-LOG 31).
+
+*The gate is consequential, not decorative.* A refused draft renders, with the offending amounts
+named, and every Confirm button on it is disabled. The check runs again on the server on every
+confirmation — the disabled button is a courtesy to the person, the server check is the rule.
+Verdict `INVALID_FIGURE` is its own value in `ai_call_verdict`, distinct from `FAILED` on the same
+reasoning that separates `INVALID_CITATION`: an invented amount is a prompt problem and a call that
+returned nothing is an infrastructure one.
+
+**Three deviations from §9, recorded here rather than left to be rediscovered.**
+
+*Act holds no tools at all.* §9's diagram gives Investigate tools and leaves Act's unstated. Act
+drafts against ONE already-classified record whose every figure is rendered into its prompt
+deterministically, so there is nothing to look up — and holding no tools means "drafts only · cannot
+send" stops depending on which tools someone remembered to leave off an allowlist. It also keeps
+the gate fair: the prompt is rendered from the same `recordFigures` call the gate checks against, so
+the model can never be told it invented a figure its own instructions handed it.
+
+*Recorded only, with no live counterpart.* Unlike Explain, Act does not answer at runtime. Explain
+needs a live half because a question nobody anticipated cannot be pre-baked; the set of actions is
+closed — one record, three drafts — so recording all of them by `npm run act` into
+`data/synthetic/drafts.json` IS complete coverage rather than a sample. More decisively, a draft is
+a document a person confirms: the text on screen, the text approved and the text stored in
+`actions.draft` have to be the same bytes, and regenerating on view would make one record produce a
+different email every time it was opened. A recorded draft carries a fingerprint of the figures the
+record held when it was written, so a record that moves underneath a draft drops it rather than
+showing a stale amount.
+
+*No `actions` row exists before the click.* §9 describes the gate as `actions.confirmed_at IS NULL
+until a person clicks Confirm`. The column is nullable and means that, but nothing is written
+before the click: an unconfirmed draft lives in the committed drafts file, not in the database, so
+there is no null to write. The audit property is the stronger one either way — every row in
+`actions` was approved by a person, and confirming twice returns the existing row rather than
+recording a second approval of one decision.
+
 ### What is deliberately not being added
 
 Recorded so it is not rediscovered: no vector database (54 records fit in a single prompt — there is

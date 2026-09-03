@@ -1133,3 +1133,142 @@ unique identifier the moment a second component had a legitimate reason to print
 noting that the *only* reason this surfaced now is that the citation branch was exercised with a
 fixture rather than left until the data existed; a conditional assertion over an empty file would
 have reported success.
+
+---
+
+## 31. The double-entry check only caught one of the two ways a voucher can be wrong
+
+**Believed.** `applyActGate` verified the drafted Tally voucher balanced. Four tests covered the
+gate, one of them specifically asserting that an unbalanced voucher is refused, and all passed.
+
+**Broke.** `balances()` compared total debits against total credits with `===`, but nothing in the
+suite could tell that apart from `>=`. The one unbalanced fixture had debits **below** credits
+(₹24.00 against ₹28.32), so a mutation to `>=` still refused it and every test stayed green. A
+voucher posting **more** to the expense side than it took off the bank would have been accepted and
+offered for confirmation. The same pass found a second survivor: deleting the
+`Number.isSafeInteger` guard in `toPaise` changed nothing any test could see, even though a figure
+past 2^53 is reachable — the model can write one — and would have produced a silently wrong paise
+value.
+
+**Caught by.** The mutation pass over `figures.ts` and `policy.ts`, run before presenting the
+checkpoint. Seven of nine mutants died; these two survived. Both were checked for reachability
+first, and both were reachable, so both earned a test rather than a deletion.
+
+**Would have cost.** Nothing visible. An unbalanced voucher is refused by Tally on import, so the
+merchant would have found out at the point of posting a correction, with a draft this product told
+them was confirmed. The at-risk figure it was drafted from would have been right, which is the
+worst version — the number checks out and the entry does not.
+
+**Permanently changed.** `tests/act-policy.test.ts` now asserts the debits-exceed-credits direction
+explicitly, and `tests/act-figures.test.ts` asserts that an amount past the safe-integer range comes
+back as `paise: null` rather than a number. The general rule this is the second instance of: when a
+comparison has two failing directions, a fixture that only exercises one cannot distinguish `===`
+from an inequality.
+
+---
+
+## 32. A batch row that claimed 54 records with nothing underneath it
+
+**Believed.** The live Explain route's lazy parent creation was complete: it reused the latest
+`batches` row for the period or inserted one, and that was enough of an audit parent for an
+`ai_calls` row to attach to.
+
+**Broke.** It inserted the batch row alone. `batches.total_records` is written from the matcher and
+says 54, so a fresh database answering one live Explain question was left holding a row describing a
+run of 54 records with zero `records` rows under it. Nothing read `records`, so nothing failed and
+no test could have noticed. `actions.record_id` is a foreign key into `records`, so the Confirm
+button was the first thing that would ever have found out — and it would have found out as a
+foreign-key violation at the moment a person clicked, not before.
+
+**Caught by.** Reading the schema while deciding what `actions.record_id` should point at, before
+writing the Confirm route. Not by a test, and no test would have: the defect is an absence.
+
+**Would have cost.** The first Confirm on a deployment whose database had only ever served Explain
+would have failed with a 500 and no row written. Recoverable, but it fails at the one interaction
+the whole Act layer exists for.
+
+**Permanently changed.** `src/lib/audit/persist.ts` — one `ensureBatchWithRecords` helper, shared by
+both routes, that writes the batch and all 54 record rows in a single transaction and backfills the
+records for a batch that has none. The rule it encodes: a parent row whose own columns describe its
+children is not written without them, and the whole batch is written or none of it — a partial batch
+reads as a complete run that lost 53 rows.
+
+---
+
+## 33. The Act layer told merchants to edit a row the portal stopped letting them edit
+
+**Believed.** GSTR-3B Table 4's structure was settled by GSTN's 2022 advisory on the Table 4
+relabelling. The Act layer's flag was built on it: `INCLUDE` / `EXCLUDE` / `DEFER` against row
+`4A5` ("All other ITC"), the row GST on a gateway fee arrives in.
+
+**Broke.** The advisory is genuinely the right source for what the rows *are* — it is the
+instrument that restructured the table — but it says nothing about what a taxpayer may still
+*do* to them. Since the October 2025 tax period (CBIC Notification 16/2025) row `4A5` has been
+auto-populated from GSTR-2B according to the merchant's Invoice Management System actions.
+There is nothing there for a person to type over. Credit is given back by REVERSING it in
+4(B) — writing a smaller number over the claim only creates a 2B-to-3B mismatch the portal now
+validates against. So every one of the three actions was wrong on that row: `EXCLUDE` and
+`INCLUDE` describe edits the form does not offer, and `DEFER` describes a row-level hold that
+does not exist.
+
+**Caught by.** Nothing in the codebase — a question about research practice. The 2022 date was
+mentioned in passing, and the reply was: live web search, Context7 and Exa are all connected, so
+why lean on old consensus? Re-running the research turned up the October 2025 auto-population
+immediately. The failure was never the age of the source; it was answering *"what made this
+true?"* and never separately asking *"is it still true?"*
+
+Worth recording precisely, because a second claim did **not** survive the same check. Phase 2
+"hard-locking" of Table 4, widely reported as landing in the July 2026 tax period — which is the
+period this project reconciles — has **no traceable authorising instrument.** Phase 1 does:
+GSTN Advisory No. 606 of 7 June 2025 locked the outward-liability rows from July 2025. For Table
+4, contemporaneous trade sources published *after* the July 2026 return was due still say no
+advisory fixing a date could be found. The vocabulary was changed on the auto-population fact,
+which is notified and dated. It was **not** changed on the locking claim, which is not.
+
+**Would have cost.** The layer's whole promise is that a person can act on the draft. A merchant
+following it would have gone looking for an editable box that is not there, and the one who
+found a way to force the figure would have created exactly the mismatch that blocks a return.
+Worse, `EXCLUDE` on a `TIMING` record — a credit that simply lands on the following month's
+GSTR-2B — is advice to give up money the merchant is still owed.
+
+**Permanently changed.** Three things, in increasing order of durability:
+
+- `4A5` is **gone from the vocabulary**, so a draft naming it does not decode at all. The rows
+  that remain (`4B1`, `4B2`, `4D1`, `4D2`) are the ones a person still fills in by hand.
+- `NO_ENTRY` with a null row was added, because "nothing belongs on this return" is the correct
+  answer for a timing difference and there was previously no way to say it.
+- Each row admits exactly one action, and the gate checks the two halves against each other —
+  the same redundancy the voucher's debits-equal-credits check relies on. `tests/act-gstr3b.ts`
+  states that table independently of the map the code reads, and asserts it covers every row, so
+  a row added later without a decision about what may be done on it fails the suite.
+
+And the research rule, which is the one that generalises: **provenance and currency are two
+separate questions.** Finding the instrument that established a fact does not tell you whether
+it still holds. Run the second search, and say plainly which claims rest on a named instrument
+and which rest only on commentary.
+
+---
+
+## 34. The screen verification spent a run grading a build that no longer existed
+
+**Believed.** `npm run verify:screen` reports on the tree as it stands. Rebuild, restart the
+server, run the check.
+
+**Broke.** Killing the server by the pid of the `npx` wrapper leaves its `next-server` child
+alive and holding port 3000. The replacement then dies with `EADDRINUSE` — into a log file
+nobody reads — and the *old* server keeps answering. The check ran happily against a build
+compiled before the change being verified.
+
+**Caught by.** Luck, and only because the assertions happened to be sharp enough. The run
+reported `expected 3 drafted actions, found 0` while `data/synthetic/drafts.json` plainly held
+16. Had the change been one those assertions did not cover, the run would have printed OK.
+
+**Would have cost.** Far more than a wasted run. A green screen verification is the evidence
+this project uses to claim the UI works, and one that silently grades a stale build is worse
+than no check at all — it converts "not verified" into "verified", which is the one direction
+that cannot be recovered from by looking harder.
+
+**Permanently changed.** `scripts/verify-screen.mjs` now reads `.next/BUILD_ID` and asserts it
+appears in the page the browser actually loaded, failing with an instruction to stop the server
+already on the port. The guard was tested by pointing it at a deliberately wrong build id and
+confirming it fires, rather than by assuming it would.

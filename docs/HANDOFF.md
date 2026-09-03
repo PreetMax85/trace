@@ -1,11 +1,11 @@
-# Trace — handoff: the Explain layer is built; Act and deploy remain
+# Trace — handoff: the Act layer is built; deploy and the video remain
 
-Written 2 Sep 2026, late. **Slices 1 through 6 are done.** Slices 1–5 are on `main`; slice 6
-(Explain + PRD §15.5) is on **`feat/explain-layer`**.
+Written 2 Sep 2026, late. **Slices 1 through 7 are done.** Slices 1–6 are on `main` (slice 6 was
+fast-forwarded in on 2 Sep); slice 7 (Act + the human gate + PRD §15.6) is on **`feat/act-layer`**.
 
-The tree is green: **319 tests, typecheck, lint, `npm run build` and `npm run verify:screen`**.
+The tree is green: **411 tests, typecheck, lint, `npm run build` and `npm run verify:screen`**.
 
-What remains is the **Act layer, deploy and the video**. The Explain layer no longer needs a key to
+What remains is **deploy and the video**. The Explain layer no longer needs a key to
 be *visible* — six example answers are recorded and committed — but it does need one to be
 answered *live*, and no run has recorded them yet, so the file is still `[]`. See "What the key
 buys now".
@@ -39,12 +39,12 @@ on **3 Sep**. Until then: mock model only, and every layer still renders.
 | **Detect / matcher** | yes | never — deterministic by design, no LLM, ever |
 | **Investigate** (+ §15.1 trace) | yes | **once**, to generate `data/synthetic/investigations.json`. Static afterwards. |
 | **Explain** (+ §15.5 citations) | yes | **once** for the six example answers (`npm run explain`), then **at runtime** only for a question a person types |
-| **Act** (drafts) | no | at runtime, *unless* drafts for the 16 known exceptions are pre-generated and committed the way the other two are |
+| **Act** (+ §15.6 figure gate) | yes | **once**, to generate `data/synthetic/drafts.json` (`npm run act`). Static afterwards — there is no live Act route by design. |
 
-Both fixture files — `investigations.json` and `explanations.json` — are `[]` today. That is the
+All three fixture files — `investigations.json`, `explanations.json` and `drafts.json` — are `[]` today. That is the
 honest state, and every consumer treats it as normal: the trace panel falls back to the
-deterministic explanation, and the Explain panel says no answer has been recorded rather than
-inventing one.
+deterministic explanation, the Explain panel says no answer has been recorded rather than inventing
+one, and the action cards say no action has been drafted rather than showing three empty shells.
 
 ### The two runs to make the moment the key lands
 
@@ -53,7 +53,13 @@ npm run eval -- --limit=2          # ~4 cents, smoke test
 npm run eval -- --write-traces     # ~$0.25–0.30, fills investigations.json (§15.1)
 npm run explain -- --dry           # prints the six answers, writes nothing
 npm run explain                    # ~2 cents, fills explanations.json (§15.5)
+npm run act -- --dry               # prints 16 records' drafts, writes nothing
+npm run act                        # ~15-20 cents, fills drafts.json (§15.6)
 ```
+
+`npm run act` is the most expensive of the three: 16 records, three drafts each, and more output
+per call than either other layer. It refuses to overwrite the file if any record produced no draft,
+for the same reason `npm run explain` does.
 
 `npm run explain` refuses to overwrite the file if any question produced no answer, so a run cut
 short by a rate limit cannot leave "the agent failed" under a real question. Re-run it with
@@ -104,25 +110,93 @@ pre-generated answers? **Both, through one agent.** Preet chose this on 2 Sep.
 an empty answers file cannot look like passing coverage, plus an unconditional check that all 54
 rows carry the `row-<recordId>` anchor a citation scrolls to.
 
-### One migration was applied for this slice
+### Migrations
 
-`drizzle/0002_red_white_tiger.sql` adds `INVALID_CITATION` to the `ai_call_verdict` enum. **Preet
+`drizzle/0003_cuddly_korath.sql` adds `INVALID_FIGURE` to the `ai_call_verdict` enum for slice 7 and
+**has not been applied yet — run `npm run db:migrate`.** Nothing at runtime writes that value today
+(the bake does not touch Postgres, and Confirm writes `actions`, not `ai_calls`), so the app works
+without it; the schema and the database must not be left drifting apart regardless.
+
+`drizzle/0002_red_white_tiger.sql` adds `INVALID_CITATION` to the same enum. **Preet
 ran `npm run db:migrate` on 2 Sep.** It is a distinct verdict from `FAILED` for the same reason
 `COERCED_UNEXPLAINED` is: an answer that invented a record id is a prompt problem, and a call that
 returned nothing is an infrastructure one.
+
+
+## Slice 7 — Act, so it is not rebuilt
+
+- **`src/lib/act/figures.ts`** — `recordFigures` is the closed set of amounts a draft about one
+  record may state; `bindFigures` resolves every `₹` figure in the prose against it. A rupee amount
+  with anything but two decimal places is refused rather than rounded — `₹23.6` read as the
+  record's `₹23.60` is the exact drift this exists to catch. `feeNet` (fee less the GST inside it)
+  is in the set because a Tally voucher cannot be written without it.
+- **`src/lib/act/policy.ts`** — the gate. Prose figures AND the structured `amountPaise` fields are
+  checked against the same set, so it cannot police the email while trusting the number that goes on
+  a return. Double entry is checked in **both** directions (BUILD-LOG 31). The GSTR-3B flag's row and
+  its action are checked against each other on the same principle — each row admits exactly one
+  action, so the pair is deliberately redundant and a draft that disagrees with itself is refused
+  (BUILD-LOG 33). A refused draft is KEPT and shown; it just cannot be confirmed.
+- **`src/lib/act/schema.ts`** — the GSTR-3B vocabulary, and the one part of this slice that was
+  rebuilt after it was first written. A flag may point at `4B1`, `4B2`, `4D1` or `4D2` — the rows a
+  person still fills in by hand — or at **no row at all**, paired with `NO_ENTRY`, which is the
+  honest answer for a `TIMING` credit that lands on the following month's GSTR-2B. Row `4A5` is
+  deliberately **absent**: it has been auto-populated from GSTR-2B since the October 2025 tax period
+  (CBIC Notification 16/2025), so a draft asking a merchant to edit it would be advising an action
+  the form does not offer. Read BUILD-LOG 33 before touching this — including the part about which
+  claim was verified and which was not.
+- **`src/lib/act/prompt.ts`** — the prompt is rendered from the SAME `recordFigures` call the gate
+  allows from, and `tests/act-prompt.test.ts` asserts that property directly. If the two are ever
+  widened separately, that test fails rather than the model being blamed for a figure its own
+  instructions gave it.
+- **`src/lib/act/act.ts`** — the call site. **Act holds no tools at all**, so the boundary is a
+  prohibition rather than an allowlist and `unauthorisedActTools` refuses everything. Checked before
+  the model is called. Builds the `ai_calls` row without writing it, as the other two layers do.
+- **`src/lib/act/library.ts`** — a recorded draft stores a **fingerprint of the record's figures**,
+  not just its id, so a record whose fee moves drops its draft instead of showing a stale amount.
+- **`src/lib/act/confirm.ts`** — `confirmable()` is the server-side rule, and it hands back the
+  draft it checked so the caller cannot look up a different one. `draftForKind` stores ONE action in
+  `actions.draft`, never all three.
+- **`src/lib/audit/persist.ts`** — `ensureBatchWithRecords`, shared by both routes. Writes the batch
+  and all 54 record rows in one transaction, and backfills records for a batch that has none.
+  BUILD-LOG 32 is why.
+- **`src/app/api/actions/confirm/route.ts`** — the human gate. Confirming twice returns the existing
+  row rather than recording a second approval of one decision.
+- **`src/app/action-cards.tsx`** — three cards per flagged row. A gated draft shows its warning and
+  every Confirm button is disabled; `verify:screen` asserts those two as a **biconditional**, so
+  neither half can pass alone.
+
+`npm run verify:screen` first asserts the server is answering with the build now on disk, because
+a run that grades a stale server turns "not verified" into "verified" — BUILD-LOG 34. It then covers
+the cards in **two branches and prints which one it took**. Both were
+exercised by installing a fixture `drafts.json` — the empty branch, the accepted branch and the
+gated branch — because an empty file would otherwise make every card assertion pass vacuously. That
+is the lesson of BUILD-LOG 30, applied deliberately this time rather than after the fact.
+
+**The GSTR-3B vocabulary was re-verified in a real browser on 3 Sep**, on a fixture carrying all
+four shapes: an accepted flag on a row, an accepted `NO_ENTRY` with no row, a draft stating an
+invented figure, and a draft whose row and action disagree. The last two were refused by the server
+with `409` and their own reasons, and every Confirm button was disabled. The locked figures were
+re-read afterwards and had not moved: period `072026`, 54 records, 16 flagged, `itc_at_risk_paise`
+**21469**.
+
+**The write path was verified end to end in a real browser on 2 Sep**: clicking Confirm wrote one
+`batches` row (`total_records` 54, `itc_at_risk_paise` 21469), 54 `records` rows and one `actions`
+row holding only the confirmed email. The synthetic `actions` row was deleted afterwards and
+`drafts.json` restored to `[]`; the `batches` and `records` rows were left, because they are exactly
+what a real run writes.
 
 ## State of the tree
 
 **Check `git log -3` and `git ls-remote --heads origin` before trusting this section** — it is the
 part that goes stale first.
 
-`main` carries slices 1 through 5: the ingestion layer, the matcher, the audit schema, Blade, the
+`main` carries slices 1 through 6: the ingestion layer, the matcher, the audit schema, Blade, the
 Vercel AI SDK, Zod, Playwright's Chromium, the exception review screen, the Investigate agent and
-policy gate, the `npm run eval` harness and the §15.1 reasoning trace.
+policy gate, the `npm run eval` harness, the §15.1 reasoning trace, and the Explain layer with its
+§15.5 citation gate.
 
-**`feat/eval-harness` is contained in `main`** — an earlier version of this file said slices 4 and 5
-were unmerged; they are merged, and `origin/feat/eval-harness` is the same commit as `origin/main`.
-`feat/exception-review-screen` and `fix/matcher-edge-cases` are likewise contained in `main`.
+**`feat/eval-harness`, `feat/exception-review-screen`, `fix/matcher-edge-cases` and
+`feat/explain-layer` are all contained in `main`.** Slice 6 fast-forwarded in on 2 Sep.
 
 ### Before you create a slice branch — the trap, which still applies
 
@@ -146,8 +220,8 @@ not, `git checkout -b <name> main`. Always `git push -u` so `git status` warns y
 | 3 | `ai_calls` + Investigate + policy gate | `feat/investigate-agent` | **done, merged into `main`** |
 | 4 | `npm run eval` harness | `feat/eval-harness` | **done, merged into `main`** |
 | 5 | §15.1 reasoning trace | `feat/eval-harness` | **done, merged into `main`** |
-| 6 | Explain layer + §15.5 citations | `feat/explain-layer` | **done — not yet merged** |
-| 7 | Act layer (drafts only) | — | not started |
+| 6 | Explain layer + §15.5 citations | `feat/explain-layer` | **done, merged into `main`** |
+| 7 | Act layer + human gate + §15.6 | `feat/act-layer` | **done — not yet merged** |
 | 8 | Deploy + video | — | not started |
 
 ## Commands
@@ -159,8 +233,10 @@ not, `git checkout -b <name> main`. Always `git push -u` so `git status` warns y
   `-- --write-traces` also fills `investigations.json` for the §15.1 panel.
 - `npm run explain` — records the six example answers into `explanations.json` (§15.5).
   `-- --dry` prints without writing.
+- `npm run act` — records the three drafted actions for each of the 16 flagged records into
+  `drafts.json` (§15.6). `-- --dry` prints without writing.
 
-Both refuse to run without `ANTHROPIC_API_KEY` and say why. Neither writes to Postgres.
+All three refuse to run without `ANTHROPIC_API_KEY` and say why. None of them writes to Postgres.
 
 ## Database
 
@@ -190,7 +266,8 @@ applied. Don't re-provision; if a connection fails, check `.env` first.
 | August GSTR-2B invoice tax | 19530 | ₹195.30 |
 
 Breakdown: 30 `EXACT` / 8 `FUZZY` / 5 `TIMING` / 4 `REFUND_NETTED` / 4 `FEE_DEDUCTION` /
-3 `PARTIAL_PAYMENT` / 0 `UNEXPLAINED` = 54. Re-verified on 2 Sep after slice 6; all unmoved.
+3 `PARTIAL_PAYMENT` / 0 `UNEXPLAINED` = 54. Re-verified on 2 Sep after slice 7; all unmoved. The
+16 exceptions are exactly what `npm run act` drafts for.
 
 At risk is **exactly the four unexplained fee deductions** (21469). The refund half of the old delta
 (12636) is claimable, because Razorpay keeps its MDR on a refunded payment.
@@ -220,6 +297,13 @@ retries are zero-value. Say "eleven transactions" or "eight of them carrying tax
 - **The live Explain route will not answer off the record.** No database, no answer — a 503 with an
   explanation. "Every Claude call is logged" is either true or it is marketing.
 - **No second model provider.** BUILD-LOG 29 is the evidence, not just the policy.
+- **Act holds no tools, and does not run live.** Both are deliberate and both are argued in PRD
+  §15.6. Drafts are recorded once by `npm run act` because a draft is a document a person confirms:
+  what is shown, what is approved and what is stored have to be the same bytes.
+- **A refused draft is shown, not hidden.** The figure gate disables Confirm; it does not delete the
+  draft. A person needs to see what was written in order to assess it.
+- **`actions` rows exist only after a click.** No row is written unconfirmed — see §15.6 for why
+  that is stronger than §9's literal wording, not weaker.
 - Two-tier rate-cell matching; there is **no per-transaction invoice number** to join on.
 - **Five exception categories, locked.** `itcavl` is a batch-level flag, not a sixth category.
 - A netted refund triggers a **Section 34 credit note**, not an ITC reversal.
@@ -257,6 +341,28 @@ ahead of `npm ci`; and **a permission prompt is a crash, not an error** — ever
 must be pre-approved before it is scheduled.
 
 The guard that worked and stays: claim-and-push-before-coding.
+
+## Open decisions — pick these up next
+
+Not bugs. Each is a judgement call that was deferred deliberately, with enough here to resume cold.
+
+1. **The Tally entry posts one "Input GST" ledger, not a CGST/SGST split.** A real Indian ledger
+   usually carries the two halves separately. One ledger was chosen because splitting means picking
+   a rounding rule for the half-paise, and inventing a statutory rounding rule is worse than not
+   splitting. Revisit only with a source for the rule; the voucher balances either way.
+2. **Real GSTR-2B JSON carries an `imsStatus` field that our fixture and `Gstr2bStatement` type do
+   not.** It records what the merchant did to the invoice in the Invoice Management System — accept,
+   reject or leave pending — and since October 2025 that action is what decides whether the credit
+   reaches GSTR-2B at all. Nothing breaks today, because the parser ignores unknown fields. But the
+   fixture claims to be a faithful 2B and currently is not.
+3. **The July 2026 locking of GSTR-3B Table 4 has no traceable instrument.** Widely reported, never
+   notified as far as could be found — see BUILD-LOG 33. Nothing in the code depends on it. If an
+   advisory does appear, the vocabulary already survives it; only the wording in the docs would need
+   a line.
+4. **A domain-fact audit across slices 1–6 has not been run.** Slice 7's vocabulary was rebuilt
+   after the tax rules behind it turned out to have moved. The same question has not been asked of
+   the earlier slices. The claims worth checking are listed in `docs/NEXT-TASK.md`; the exercise is
+   checking FACTS, not re-reviewing code, so start from the claim list and not from the diff.
 
 ## Loose ends
 

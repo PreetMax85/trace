@@ -220,6 +220,31 @@ the morning. If you reach this point, write that in `docs/HANDOFF.md` and finish
 
 If a change moves any of these, the change is wrong. Not the number.
 
+## Domain-fact audit — the claims worth re-checking
+
+Slice 7's GSTR-3B vocabulary was built on a source that was right about what the rows *are* and
+silent about what a taxpayer may still *do* to them, and had to be rebuilt (BUILD-LOG 33). The same
+question has not been asked of slices 1–6.
+
+This is an audit of FACTS, not a code review. Work from this list, not from the diff, and for each
+one answer both questions separately: what instrument established it, and has anything superseded
+that instrument since. Report which claims rest on a named, dated notification and which rest only
+on commentary — the difference is the whole point.
+
+| # | Claim in the code | Where it lives | Why it could have moved |
+|---|---|---|---|
+| 1 | The GSTR-2B JSON field names and nesting | `docs/PRD.md` §5, the synthetic fixture | Real 2B now carries `imsStatus`, which we do not model |
+| 2 | Razorpay charges 2% standard and 2.15% corporate | the rate card, the matcher | A published commercial rate, not a statute — it can change without notice |
+| 3 | The fee is inclusive of the GST inside it | `recordFigures`, the Tally entry | The arithmetic every figure on screen depends on |
+| 4 | Section 34 governs the credit-note obligation | the `REFUND_NETTED` category | Timing and the linkage to IMS have both been amended recently |
+| 5 | Section 16(4) is the time bar on availing credit | the `TIMING` category, `4D2` | The outer date moves with the financial year |
+| 6 | GSTR-2B is final once generated | the whole reconciliation premise | Reported as becoming a draft until GSTR-3B is filed |
+
+**Two cautions.** A fact that changes does not automatically mean the code is wrong — say what
+follows from it before changing anything. And if a change would move one of the locked numbers
+below, stop and ask; those are load-bearing and a moved number is far more likely to be a mistake
+than a discovery.
+
 ## Scope you may not expand
 
 `CLAUDE.md` carries the full list and it is loaded for you. The ones most likely to tempt you: five
