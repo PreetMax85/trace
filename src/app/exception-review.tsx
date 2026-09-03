@@ -26,6 +26,7 @@ import { formatRupees } from "@/lib/format/money";
 import type { ExceptionCategory } from "@/lib/matching";
 import type { ReviewBatch, ReviewRow } from "@/lib/review/batch";
 import { summariseToolValue, type InvestigationTrace } from "@/lib/review/trace";
+import { ActionCards } from "./action-cards";
 import { ExplainPanel } from "./explain-panel";
 
 /**
@@ -374,6 +375,16 @@ function Detail({ row, period }: { row: ReviewRow | null; period: string }): Rea
               <Badge color="information" emphasis="intense" size="medium">
                 Credit note review
               </Badge>
+            )}
+
+            {/* PRD §9, agent 3. Only exceptions get a drafted action: a row
+                that matched cleanly has no next step, and offering one would
+                invite a person to act where nothing is wrong. */}
+            {row.status === "EXCEPTION" && (
+              <>
+                <Divider />
+                <ActionCards recordId={row.recordId} recorded={row.draft} />
+              </>
             )}
           </Box>
         )}
