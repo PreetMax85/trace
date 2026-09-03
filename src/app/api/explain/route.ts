@@ -1,9 +1,8 @@
 import { anthropic } from "@ai-sdk/anthropic";
-import { desc, eq, and } from "drizzle-orm";
 import { MODEL_ID } from "@/lib/agent/pricing";
 import { explain } from "@/lib/explain/explain";
 import { createQuestionBudget, parseExplainRequest } from "@/lib/explain/request";
-import { MERCHANT_GSTIN, REVIEW_PERIOD, loadBatchAuditRow, loadReviewBatch } from "@/lib/review/batch";
+import { loadReviewBatch } from "@/lib/review/batch";
 
 /**
  * The live half of the Explain layer (PRD §9, agent 2).
@@ -75,7 +74,8 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    const batchId = await currentBatchId();
+    const { ensureBatchWithRecords } = await import("@/lib/audit/persist");
+    const batchId = await ensureBatchWithRecords();
     const batch = loadReviewBatch();
 
     const result = await explain({
@@ -107,38 +107,4 @@ export async function POST(request: Request): Promise<Response> {
     console.error("explain route failed", error);
     return failure(500, "That question could not be answered. The recorded examples still work.");
   }
-}
-
-/**
- * The `batches` row live answers are logged against, creating one if this
- * period has never been recorded.
- *
- * A batch row is one RUN — it carries `startedAt`, `completedAt` and
- * `processingTimeMs` — so reusing the latest one for the period is right:
- * the reconciliation is deterministic, and a fresh row per question would fill
- * the audit trail with runs nobody performed.
- */
-async function currentBatchId(): Promise<string> {
-  const { db, schema } = await import("@/lib/audit/client");
-
-  const existing = await db
-    .select({ id: schema.batches.id })
-    .from(schema.batches)
-    .where(
-      and(
-        eq(schema.batches.merchantGstin, MERCHANT_GSTIN),
-        eq(schema.batches.period, REVIEW_PERIOD),
-      ),
-    )
-    .orderBy(desc(schema.batches.startedAt))
-    .limit(1);
-
-  if (existing[0]) return existing[0].id;
-
-  const [inserted] = await db
-    .insert(schema.batches)
-    .values(loadBatchAuditRow())
-    .returning({ id: schema.batches.id });
-
-  return inserted.id;
 }

@@ -1,6 +1,6 @@
-import { toBatchRow } from "@/lib/audit/rows";
+import { toBatchRow, toRecordRows } from "@/lib/audit/rows";
 import { parseSettlements, parseStatement } from "@/lib/ingestion";
-import { matchBatch } from "@/lib/matching";
+import { RAZORPAY_SUPPLIER_GSTIN, matchBatch } from "@/lib/matching";
 import type {
   ExceptionCategory,
   MatchMethod,
@@ -12,6 +12,9 @@ import { applyExplainGate } from "@/lib/explain/policy";
 import type { AnswerSegment } from "@/lib/explain/citations";
 import type { ExplainVerdict } from "@/lib/explain/policy";
 import { EXAMPLE_QUESTIONS, explanationFor, parseExplanations } from "@/lib/explain/library";
+import { draftFor, parseDrafts, type RecordedDraft } from "@/lib/act/library";
+import type { ActContext, ActRecord } from "@/lib/act/prompt";
+import draftsJson from "../../../data/synthetic/drafts.json";
 import explanationsJson from "../../../data/synthetic/explanations.json";
 import investigationsJson from "../../../data/synthetic/investigations.json";
 import julyStatementJson from "../../../data/synthetic/gstr2b-072026.json";
@@ -72,6 +75,13 @@ export type ReviewRow = {
    * no model.
    */
   trace: InvestigationTrace | null;
+  /**
+   * The three actions drafted for this record (PRD §9, agent 3), or null when
+   * no run has drafted for it — or when the record's figures have moved since
+   * one did. Null is the normal state without an API key, which is why the
+   * action cards treat an absent draft as ordinary rather than as an error.
+   */
+  draft: RecordedDraft | null;
 };
 
 /** The four figures across the top, plus what they are qualified by. */
@@ -90,6 +100,13 @@ export type ReviewHeader = {
   /** GSTN's own verdict on the invoice, and its free-text reason. */
   itcAvailable: boolean;
   itcReason: string | null;
+  /**
+   * Who billed this period and under which invoice number. Carried because a
+   * drafted CA email is not actionable without them — an accountant asked to
+   * query a fee needs the document it was billed on.
+   */
+  supplierGstin: string;
+  invoiceNumber: string;
 };
 
 /**
@@ -132,9 +149,10 @@ export type ReviewBatch = {
  */
 function reconcile() {
   const settlements = parseSettlements(settlementsJson);
+  const statement = parseStatement(julyStatementJson);
   const result = matchBatch({
     settlements,
-    statement: parseStatement(julyStatementJson),
+    statement,
     period: REVIEW_PERIOD,
     mode: "exact+fuzzy",
   });
@@ -147,7 +165,33 @@ function reconcile() {
     period: REVIEW_PERIOD,
   });
 
-  return { settlements, result, batch };
+  return { settlements, result, batch, invoice: razorpayInvoice(statement) };
+}
+
+/**
+ * Razorpay's invoice for the period, by its number.
+ *
+ * Read from the SAME statement the matcher reconciled against and filtered by
+ * the same supplier GSTIN, so the invoice a drafted email tells an accountant to
+ * query is provably the invoice the figures came from. A 2B carries every
+ * vendor who filed against the merchant; taking the first line here would put
+ * the landlord's invoice number in a payment-gateway query.
+ */
+function razorpayInvoice(statement: ReturnType<typeof parseStatement>) {
+  const supplier = statement.docdata.b2b.find(
+    (entry) => entry.ctin === RAZORPAY_SUPPLIER_GSTIN,
+  );
+  const invoice = supplier?.inv[0];
+
+  // `matchBatch` has already refused a statement with no Razorpay invoice, so
+  // reaching here means the two disagree about which supplier is Razorpay.
+  if (!supplier || !invoice) {
+    throw new Error(
+      `GSTR-2B for ${statement.rtnprd} carries no invoice from ${RAZORPAY_SUPPLIER_GSTIN}`,
+    );
+  }
+
+  return { supplierGstin: supplier.ctin, invoiceNumber: invoice.inum };
 }
 
 /**
@@ -164,8 +208,23 @@ export function loadBatchAuditRow() {
   return reconcile().batch;
 }
 
+/**
+ * The `batches` row AND the 54 `records` rows this reconciliation earns.
+ *
+ * The record rows are a function of the batch id, which does not exist until
+ * the batch row is inserted — hence the callback rather than a second array.
+ * They come as a pair because writing one without the other leaves a batch row
+ * claiming 54 records with nothing under it, which is an audit trail that
+ * misstates itself on the one row a person reads as the summary of the run.
+ */
+export function loadAuditRows() {
+  const { result, batch } = reconcile();
+
+  return { batch, recordsFor: (batchId: string) => toRecordRows(result, batchId) };
+}
+
 export function loadReviewBatch(): ReviewBatch {
-  const { settlements, result, batch } = reconcile();
+  const { settlements, result, batch, invoice } = reconcile();
 
   // A recon row carries the payment amount and when it settled; a classified
   // record carries the verdict. The table needs both, and they join on the
@@ -176,6 +235,11 @@ export function loadReviewBatch(): ReviewBatch {
   // `npm run eval -- --write-traces`. Empty until one has been run, which is
   // why every consumer treats an absent trace as normal rather than as an error.
   const traces = parseTraces(investigationsJson);
+
+  // The drafted actions, exported from a real run by `npm run act`. Empty until
+  // one has been run, and a draft whose record has moved since is dropped by
+  // `draftFor` rather than shown against figures it no longer matches.
+  const drafts = parseDrafts(draftsJson);
 
   const rows = result.records.map((record): ReviewRow => {
     const item = byId.get(record.recordId);
@@ -210,6 +274,7 @@ export function loadReviewBatch(): ReviewBatch {
       ...base,
       explanation: explainRow(base, REVIEW_PERIOD),
       trace: traces.get(record.recordId) ?? null,
+      draft: draftFor(record.recordId, base, drafts),
     };
   });
 
@@ -259,6 +324,7 @@ export function loadReviewBatch(): ReviewBatch {
       rollupDeltaPaise: result.rollup.rollupDeltaPaise,
       itcAvailable: result.itc.available,
       itcReason: result.itc.reason,
+      ...invoice,
     },
     rows,
     examples,
@@ -277,4 +343,48 @@ function required(value: number | undefined, field: string): number {
   }
 
   return value;
+}
+
+/**
+ * The period and invoice a drafted action names (PRD §9, agent 3).
+ *
+ * Built from the header the screen renders, so an email that tells an
+ * accountant which invoice to query names the one the figures on screen came
+ * from.
+ */
+export function actContext(header: ReviewHeader): ActContext {
+  return {
+    period: header.period,
+    merchantGstin: header.merchantGstin,
+    supplierGstin: header.supplierGstin,
+    invoiceNumber: header.invoiceNumber,
+  };
+}
+
+/**
+ * One review row as the Act layer receives it.
+ *
+ * A narrowing rather than a copy: Act is handed the record's identifiers,
+ * figures and the classification another layer already made, and nothing else.
+ * The explanation, the reasoning trace and any previously recorded draft are
+ * deliberately absent — a draft written against a previous draft would drift
+ * from the record with nothing to catch it.
+ */
+export function toActRecord(row: ReviewRow): ActRecord {
+  return {
+    recordId: row.recordId,
+    settlementId: row.settlementId,
+    orderId: row.orderId,
+    amountPaise: row.amountPaise,
+    feePaise: row.feePaise,
+    taxPaise: row.taxPaise,
+    expectedFeePaise: row.expectedFeePaise,
+    expectedTaxPaise: row.expectedTaxPaise,
+    status: row.status,
+    category: row.category,
+    rateCell: row.rateCell,
+    billedIn: row.billedIn,
+    settledAt: row.settledAt,
+    creditNoteReview: row.creditNoteReview,
+  };
 }

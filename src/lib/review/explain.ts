@@ -31,7 +31,7 @@ export type RecordExplanation = {
  * (see the note at the top of the file). Withholding the agent's output at the
  * type level means it cannot come to depend on one by accident.
  */
-type ClassifiedRow = Omit<ReviewRow, "explanation" | "trace">;
+type ClassifiedRow = Omit<ReviewRow, "explanation" | "trace" | "draft">;
 
 export function explainRow(row: ClassifiedRow, period: string): RecordExplanation {
   switch (row.category) {
