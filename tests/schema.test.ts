@@ -98,6 +98,7 @@ describe("ai_calls", () => {
       // that invented a record id is a prompt problem and a call that returned
       // nothing is an infrastructure one. PRD Section 15.5.
       "INVALID_CITATION",
+      "INVALID_FIGURE",
     ]);
   });
 

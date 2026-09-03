@@ -1,0 +1,1 @@
+ALTER TYPE "public"."ai_call_verdict" ADD VALUE 'INVALID_FIGURE';

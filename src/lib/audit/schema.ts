@@ -182,6 +182,19 @@ export const aiCallVerdict = pgEnum("ai_call_verdict", [
    * inventing citations would hide inside the rate-limit noise.
    */
   "INVALID_CITATION",
+  /**
+   * Act drafted an action that states a rupee figure the record it was drafted
+   * from does not carry, so the figure gate refused to let it be confirmed
+   * (PRD §9, agent 3).
+   *
+   * Its own value rather than a flavour of `FAILED`, on exactly the reasoning
+   * that separates `INVALID_CITATION` above: an invented AMOUNT is a PROMPT
+   * problem and a call that returned nothing is an INFRASTRUCTURE one. It is
+   * also distinct from `INVALID_CITATION` because the two say different things
+   * about what went wrong — a wrong record id is a broken link, a wrong amount
+   * is a number somebody would have put on a tax return.
+   */
+  "INVALID_FIGURE",
 ]);
 
 /** Which of the three layers made the call. */
