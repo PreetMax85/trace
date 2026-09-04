@@ -1402,3 +1402,93 @@ is already recorded and clean and re-running it costs money for no gain. It is w
 
 **The rule.** When a fix is found for a class of failure, ask which OTHER callers share the class
 before closing it. The retry was correct, tested and commented in slice 4; it just never travelled.
+
+---
+
+## 37. Every check graded the numbers; nobody checked whether the page said what it was
+
+**Believed.** The screen was finished. It rendered 54 records with correct figures, every verdict
+opened its own explanation, the human gate refused the draft it was supposed to refuse, and
+`npm run verify:screen` passed against the deployed site along with 430 unit tests, typecheck and
+lint. It had been reviewed and shipped on that basis.
+
+**Broke.** A first-time reader could not tell what any of it was. The product's name appeared
+nowhere on the page — only in `metadata.title`, which is the browser tab. There was no header, no
+statement of what was being reconciled or against what, no mention that the data is synthetic, and
+no link to the source. Four more things came out of the same look, none of which any test could
+see: the server was sending HTML with styled-components class names and **no rules to match them**,
+so every load painted unstyled for a second or two until the client bundle booted; at 390px the
+document was 752px wide and the whole body scrolled sideways; an unknown URL returned Next's bare
+default 404 with no styling and no way back; there was no `error.tsx`, so a client-side throw fell
+through to Next's default crash screen; and a shared link unfurled as plain text with no preview
+card. The README, now the front door of a public repository, still carried a placeholder where the
+live URL should be and listed three layers instead of four — it omitted **Investigate** entirely,
+which is the layer with the strongest evidence behind it.
+
+**Caught by.** Preet, reading the deployed site as a stranger would: *"Where exactly is the project
+name Trace visible on this frontend on the page? For someone, for any CA coming here… how will he
+know what is this project exactly doing?"* Nothing automated surfaced any of it. The remaining six
+came from deliberately breaking things afterwards — requesting a URL that does not exist, shrinking
+the viewport to a phone, and reading the server's raw HTML instead of the settled DOM.
+
+**Would have cost.** The unstyled flash is the expensive one: it is the first two seconds of every
+visit, and a page that arrives as raw HTML reads as broken before anything else is looked at. The rest
+compounds it — a viewer who cannot tell what the screen is has no reason to trust the figures on
+it, and on a phone the page is unusable regardless.
+
+**Permanently changed.**
+
+- **The FOUC has a root cause and a fix, not a workaround.** `compiler.styledComponents: true` in
+  `next.config.ts` enables the SWC transform only; it extracts nothing. Next's own documented
+  three-step setup — a `ServerStyleSheet` registry, `useServerInsertedHTML`, a client component
+  wrapping the tree — is now in `src/app/styled-components-registry.tsx`, verified against
+  `node_modules/next/dist/docs/01-app/02-guides/css-in-js.md` and against the installed
+  styled-components 5.3.11 rather than the 6.x the doc is written for.
+- **`verify:screen` now grades legibility, not only correctness.** It asserts the product name is
+  on the page, that the orientation names GSTR-2B, Razorpay and input tax credit, that four layers
+  are listed (three was the README's exact mistake), that the test-data notice and footer render,
+  that an unknown URL 404s with the product's own page, and that the document is not wider than the
+  viewport at 390px.
+- **The FOUC assertion fetches the server's raw HTML, not the DOM.** This is the guard that
+  matters, because it is the one the old script could not have held: by the time a DOM exists the
+  client bundle has booted and injected every rule, so a DOM check passes whether or not the server
+  sent any CSS. The assertion is conditional in the right direction — if the HTML carries `sc-`
+  class names it must also carry `data-styled` rules — so it fails on the actual defect rather than
+  on a stylistic choice.
+- **Two of the new assertions were wrong on the first try, and both were caught by attacking
+  them rather than by running them.** The 404 check originally asserted that the page carried the
+  product's name — which Next's *default* not-found page also does, because it renders inside the
+  root layout and therefore inside the new header. It would have passed with no `not-found.tsx` at
+  all. It now asserts on the copy this project wrote and on the absence of Next's own string, and
+  that phrase was checked against the home page to confirm it appears on one and not the other.
+  The rule: when two paths share an outcome, assert on the field that separates them.
+- **Adding anything above the table broke the row-click checks, and the failure looked like the
+  bug the script exists to catch.** The script clicked at viewport coordinates inside a
+  3200px-tall window that happened to fit all 54 rows; the orientation block pushed the last rows
+  past it, so the TIMING row got a click at a y-position resolving to something else and reported
+  as "did not open its detail panel". Every cell is now scrolled into view before its position is
+  read, which does not depend on the page's height.
+- **The link preview pointed at localhost, and only an adversarial pass found it.** `metadataBase`
+  was resolved from `VERCEL_PROJECT_PRODUCTION_URL`, falling back to `http://localhost:3000`. That
+  variable exists only when "Enable access to System Environment Variables" is on in the Vercel
+  project settings — and when it is off it is *absent*, not wrong, so the fallback would have put
+  `http://localhost:3000/opengraph-image` into the `og:image` of the live page. Every shared link
+  would have resolved to the reader's own machine, which is precisely what the preview card was
+  added to prevent, and no build log would have mentioned it. Localhost is now reachable only when
+  `NODE_ENV` is not production; otherwise a written-down production URL is used. `verify:screen`
+  asserts the `og:image` does not contain "localhost" outside a dev server, and that assertion was
+  proved by reintroducing the old fallback, rebuilding, and watching it fail. The general shape
+  worth remembering: **a fallback that is merely wrong rather than missing fails silently.**
+- **The error boundary was reasoned about, then actually triggered.** `retry` (not the older
+  `reset`) was confirmed as the prop name by reading `next/dist/client/components/error-boundary.js`
+  in the installed package, which was correct but is not the same as watching the page render. A
+  temporary throw behind a query string proved it: the crash page renders inside the site chrome and
+  `retry()` runs without a TypeError. Worth noting for next time — a throw during *render* on a
+  statically prerendered page fails the BUILD rather than reaching the boundary, so the probe has to
+  be gated on something only true in the browser.
+- **The rule this generalises to.** Verifying work against its acceptance criteria is a different
+  question from whether a stranger can tell what it is, and passing the first says nothing about
+  the second. A correct-and-illegible screen and a correct-and-legible one are indistinguishable
+  from inside the criteria. So: check the front doors nobody on the team ever opens — the README,
+  the browser tab, the unfurled link, the 404 — and watch the first two seconds of a load rather
+  than the settled page.

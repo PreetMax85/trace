@@ -1,10 +1,13 @@
 # Trace — handoff: it is deployed and live; the video remains
 
-Written 2 Sep 2026, late; rewritten 4 Sep after the deploy. **Slices 1 through 9 are done and all
-of them are on `main`** — slice 7 (Act + the human gate + PRD §15.6) merged on 3 Sep, slice 8 (the
-domain-fact audit and the 4B2 routing fix) on 4 Sep.
+Written 2 Sep 2026, late; rewritten 4 Sep after the deploy, and again the same day after the page
+chrome landed. **Slices 1 through 9 are done and on `main`** — slice 7 (Act + the human gate +
+PRD §15.6) merged on 3 Sep, slice 8 (the domain-fact audit and the 4B2 routing fix) on 4 Sep.
+**Slice 10 (page chrome and the first-time-viewer fixes) is finished on `feat/page-chrome` and is
+NOT yet merged.**
 
-The tree is green: **430 tests, typecheck, lint, `npm run build` and `npm run verify:screen`**.
+The tree is green on that branch: **430 tests, typecheck, lint, `npm run build` and
+`npm run verify:screen`** — the last of which now also grades whether the page says what it is.
 
 **It is deployed and live at https://trace-zeta-three.vercel.app/.** What remains is the **video**.
 All three AI layers have their output recorded and committed — 16 investigations, 6 example
@@ -19,8 +22,9 @@ carries what they don't.
 - `docs/PRD.md` — the spec. Read **§9 (architecture)** and **§15 (making the AI legible)** before
   writing agent code. Read **§7 (exception taxonomy)** when you need it. Don't read all of it.
   §15.5 now records how Explain actually ships, including two deviations from §9.
-- `docs/BUILD-LOG.md` — 36 entries, each a thing that was wrong while its own tests passed. **Next
-  free number is 37.** Read **30** before touching `scripts/verify-screen.mjs`, **29** before
+- `docs/BUILD-LOG.md` — 37 entries, each a thing that was wrong while its own tests passed. **Next
+  free number is 38.** Read **37** before touching the page chrome or the styling setup, **30**
+  before touching `scripts/verify-screen.mjs`, **29** before
   touching anything model-provider-shaped, **28** before touching the table, **27** for how a
   passing test can be aimed at the wrong thing.
 - `docs/NEXT-TASK.md` — the routine briefing: preflight, banned commands, the per-slice loop.
@@ -42,17 +46,13 @@ spent**; the one run still owed (`npm run act`) is another ~$0.45.
 | **Explain** (+ §15.5 citations) | yes | **once** for the six example answers (`npm run explain`), then **at runtime** only for a question a person types |
 | **Act** (+ §15.6 figure gate) | yes | **once**, to generate `data/synthetic/drafts.json` (`npm run act`). Static afterwards — there is no live Act route by design. |
 
-**`investigations.json` (16 traces) and `explanations.json` (6 answers) were recorded on 3 Sep and
-are committed.** The eval scored **16/16, 100% agreement** with the deterministic verdict on its
-first real run.
+The eval scored **16/16, 100% agreement** with the deterministic verdict on its first real run.
 
-**`drafts.json` is still `[]`, and that is deliberate.** The first `npm run act --dry` returned
-`NO_ENTRY` on all sixteen records — wrong for the four `FEE_DEDUCTION` rows, which carry the whole
-₹214.69 at-risk figure. BUILD-LOG 35 has the diagnosis. The prompt and gate were fixed on 4 Sep
-(`ACT_PROMPT_VERSION` is now `act-v3`), and **`npm run act` has not been re-run since.** Until it
-is, the action cards correctly say no action has been drafted rather than showing three empty
-shells. One record, `pay_aCKSAMew6U0eQ6`, also came back FAILED in that run and has not been
-diagnosed; the bake refuses to write a partial file, so it must succeed before anything lands.
+**All three files are recorded and committed:** `investigations.json` (16), `explanations.json`
+(6) and `drafts.json` (16). The Act run that produced the drafts was made after the `act-v3` prompt
+and gate fix — the earlier run returned `NO_ENTRY` on all sixteen records, which was wrong for the
+four `FEE_DEDUCTION` rows carrying the whole ₹214.69 at-risk figure. BUILD-LOG 35 has that
+diagnosis. Nothing further needs the key except a live question typed on the deployed site.
 
 ### The two runs to make the moment the key lands
 
@@ -249,6 +249,71 @@ The verification left real rows in the audit tables — 2 `ai_calls` and 1 `acti
 automated testing on 4 Sep. They are genuine records of genuine calls, so they were left in place
 rather than deleted out of an audit trail.
 
+## The first-time-viewer pass — found and fixed 4 Sep
+
+The deployed site was correct and illegible. Every item below passed the whole gate — 430 tests,
+typecheck, lint, `verify:screen` — because the gate only ever asked whether the figures were right.
+None of it asked what somebody who has never seen this project understands. **All of it is now
+fixed on `feat/page-chrome`.** BUILD-LOG 37 carries the full account; this is the shape of it and
+what to look at if any of it regresses.
+
+| # | What was wrong | Fixed by |
+|---|---|---|
+| 1 | 1–2s of unstyled HTML on every load: the server sent `sc-` class names with zero `data-styled` rules | `src/app/styled-components-registry.tsx` |
+| 2 | The product's name appeared only in the browser tab | `src/app/site-header.tsx`, `site-shell.tsx`, `site-footer.tsx` |
+| 3 | No statement of what the screen is or that the data is synthetic | `src/app/orientation.tsx` |
+| 4 | At 390px the whole body scrolled sideways (752px document) | `minWidth` on the table column, and `wordBreak` on the trace text |
+| 5 | An unknown URL got Next's bare default | `src/app/not-found.tsx` |
+| 6 | No `error.tsx`, so a throw fell through to Next's crash screen | `src/app/error.tsx` |
+| 7 | A shared link unfurled as plain text | `src/app/opengraph-image.tsx` + `openGraph` metadata |
+| 8 | `README.md` had a placeholder for the live URL and omitted the Investigate layer | rewritten |
+| 9 | Confirm buttons had no pending state, inviting a second click | `isLoading` in `action-cards.tsx` |
+| 10 | `body` kept its 8px user-agent margin, so `100vh` always overflowed | `src/app/global-style.tsx` |
+| 11 | `og:image` fell back to `http://localhost:3000` in a production build | fallback order in `src/app/layout.tsx` |
+
+Two things worth knowing before touching any of it:
+
+- **`compiler.styledComponents: true` in `next.config.ts` is necessary and NOT sufficient.** It
+  turns on the SWC transform and extracts nothing. The registry is the part that makes styles ship
+  in the server's HTML, and it must wrap `<Providers>` — Blade's styles are generated inside it.
+- **The overflow at 390px had two causes, not one.** The table column's `minWidth: 720px` was the
+  obvious one. The second only appeared with a flagged row's detail panel open: the reasoning
+  trace renders tool inputs and outputs as one unbroken string of ids with no spaces, which set a
+  598px floor inside a 310px column. Both are fixed; `wordBreak="break-word"` is the second.
+
+### `verify:screen` now grades legibility too
+
+Seven new assertions, all in `scripts/verify-screen.mjs`: the product name is on the page, the
+orientation names GSTR-2B / Razorpay / input tax credit, four layers are listed, the test-data
+notice and footer render, an unknown URL gets this project's 404 rather than Next's, the `og:image`
+does not point at localhost outside a dev server, and the document is not wider than the viewport at
+390px.
+
+**Every one of them has been made to fail on purpose**, by pointing the run at a page without the
+orientation, by renaming the header and footer test ids, by reintroducing the localhost fallback,
+and — for the styles and the overflow — by the genuine failures that were there before the fix. A
+new assertion is not coverage until it has gone red once.
+
+The FOUC assertion fetches the **server's raw HTML**, not the DOM. That is the whole point of it:
+by the time a DOM exists the client bundle has injected every rule, so a DOM check passes whether
+or not the server sent any CSS.
+
+### How to find the next one, since the tests cannot
+
+The gate checks correctness and will keep passing while a new crop accumulates. What actually
+surfaces them is cheap and manual:
+
+- **Open it as somebody who has never seen it.** Does it say what it is, who it is for, and what to
+  do first? Read only what is on the screen, not what you know.
+- **Break it deliberately.** Visit a URL that does not exist. Resize to 390px. Throttle the network.
+  These are one command each and each one found something above.
+- **Watch the first two seconds, not the steady state.** Every check we had ran against a settled
+  page, which is exactly why the unstyled flash survived all of them.
+- **Look at the front doors you do not open.** The README, the browser tab, the unfurled link, the
+  404. All of them are somebody's first contact and none of them had ever been looked at.
+- **When you add an assertion, check it can fail.** Two of the six above were wrong on the first
+  try — see BUILD-LOG 37. A green new test is not evidence until you have seen it go red.
+
 ## Status board — every run updates this before it stops
 
 | # | Slice | Branch | Status |
@@ -262,7 +327,8 @@ rather than deleted out of an audit trail.
 | 7 | Act layer + human gate + §15.6 | `feat/act-layer` | **done, merged into `main`** (3 Sep) |
 | 8 | Domain-fact audit + the routing fix | `chore/domain-fact-audit` | **done** (4 Sep) |
 | 9 | Deploy to Vercel | — | **done, live** (4 Sep) |
-| 10 | Video | — | not started |
+| 10 | Page chrome + the first-time-viewer fixes | `feat/page-chrome` | **done, not yet merged** (4 Sep) |
+| 11 | Video | — | not started |
 
 ## Commands
 
@@ -477,6 +543,14 @@ Not bugs. Each is a judgement call that was deferred deliberately, with enough h
   spend the budget faster; they do not add capacity.
 - `tsx` is a direct devDependency (`npm run eval` and `npm run explain` need it).
 - The fixture generator was at `/tmp/trace-fixture-gen.mjs`, outside the repo, and is probably gone.
+- **`docs/NEXT-TASK.md` carries two stale numbers** — it expects 195 passing tests (there are 430)
+  and says the next BUILD-LOG number is 28 (it is 38). A scheduled run reading it halts at
+  preflight. The file says "Do not edit it", so it has been left alone; it needs Preet's say-so.
+- **`bakeAnswers` in the Explain layer still has the missing-retry gap `bakeDrafts` had.** Known,
+  deliberately not fixed — nothing needs to re-run it before the deadline.
+- **A stale `next start` may be holding port 3000.** It keeps answering with whatever build was on
+  disk when it started, so `verify:screen` against `localhost:3000` can grade the wrong tree. The
+  script's build-id check catches this and says so; run on another port rather than killing it.
 - Preet is not fluent in GST. Gloss every tax term in one or two sentences as it comes up, and say
   what was left out. Both are pinned memories; repeated here because they matter more than anything
   else in this file.
