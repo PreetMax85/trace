@@ -250,6 +250,15 @@ try {
       if (!row) return null;
       const cell = row.querySelectorAll('td,[role="cell"],[role="gridcell"]')[${column}];
       if (!cell) return null;
+      // Brought into view before its position is read. A mouse event is
+      // dispatched at viewport coordinates, so a row below the fold gets a
+      // click at a y the browser resolves to whatever is actually there —
+      // which reports as "the row did not open" and looks exactly like the
+      // click bug this script exists to catch. It used to be masked by a
+      // 3200px-tall viewport that happened to fit every row; adding anything
+      // above the table pushed the last ones out and broke it. Scrolling is
+      // the fix, because it does not depend on the page's height.
+      cell.scrollIntoView({ block: "center", behavior: "instant" });
       // The deepest element that actually paints text — what a finger lands on.
       const leaf = [...cell.querySelectorAll('*')]
         .filter((el) => el.children.length === 0 && el.textContent.trim().length > 0)
@@ -510,6 +519,159 @@ try {
     failures.push("POST /api/actions/confirm rejected the request without saying why");
   }
 
+  // ---------------------------------------------------------------------------
+  // The first-time-viewer checks.
+  //
+  // Everything above grades whether the numbers are right. None of it could
+  // tell a correct screen from an unreadable one, which is exactly how this
+  // shipped with the product's name nowhere on the page, the body scrolling
+  // sideways on a phone, and a second of unstyled HTML on every load. These
+  // assert the things whose absence is invisible to someone who already knows
+  // what they are looking at.
+  // ---------------------------------------------------------------------------
+
+  // Trace says what it is, on the page itself and not only in the browser tab.
+  const chrome = await evaluate(`(() => {
+    const header = document.querySelector('[data-testid="site-header"]');
+    const orientation = document.querySelector('[data-testid="orientation"]');
+    return {
+      headerText: header?.innerText ?? "",
+      orientationText: orientation?.innerText ?? "",
+      hasFooter: Boolean(document.querySelector('[data-testid="site-footer"]')),
+      hasTestDataNotice: Boolean(document.querySelector('[data-testid="test-data-notice"]')),
+      layers: document.querySelector('[data-testid="layer-strip"]')?.children.length ?? 0,
+    };
+  })()`);
+
+  if (!chrome?.headerText.includes("Trace")) {
+    failures.push("the page does not carry the product name");
+  }
+  // The name alone is not orientation. A reader who has never seen this has to
+  // be told what it reconciles, or the table below is a data dump.
+  for (const word of ["GSTR-2B", "Razorpay", "input tax credit"]) {
+    if (!chrome?.orientationText.includes(word)) {
+      failures.push(`the page never says what it does — "${word}" appears nowhere in the orientation`);
+    }
+  }
+  // Four layers, named. Three is the old README's mistake: it listed Detect,
+  // Explain and Act and silently dropped Investigate.
+  if (chrome?.layers !== 4) {
+    failures.push(`expected 4 named layers, found ${chrome?.layers}`);
+  }
+  // Stated up front, not discovered. A visitor who works out on their own that
+  // the figures are synthetic was misled until the moment they worked it out.
+  if (!chrome?.hasTestDataNotice) failures.push("the page does not say it runs on test data");
+  if (!chrome?.hasFooter) failures.push("the page has no footer");
+
+  // The styles have to be IN the server's HTML.
+  //
+  // Fetched raw rather than read off the DOM: by the time the DOM exists the
+  // client bundle has booted and styled-components has injected everything, so
+  // a DOM check passes whether or not the server sent any CSS at all. That is
+  // precisely the bug — the server was sending `sc-` class names with no rules
+  // to match them, and the page sat unstyled for a second or two until React
+  // took over. Nothing that grades the settled page can see it.
+  const ssr = await evaluate(`(async () => {
+    const html = await (await fetch(location.href, { cache: "no-store" })).text();
+    return {
+      styledClasses: /class="[^"]*\bsc-/.test(html),
+      styledRules: html.includes("data-styled"),
+      namesProduct: html.includes("Trace"),
+    };
+  })()`, true);
+
+  if (ssr?.styledClasses && !ssr.styledRules) {
+    failures.push(
+      "the server HTML carries styled-components class names but no rules — the page will paint unstyled until the client bundle boots",
+    );
+  }
+  if (!ssr?.namesProduct) {
+    failures.push("the server HTML never names the product, so a crawler or a link preview sees nothing");
+  }
+
+  // The link preview must not point at whoever built the page.
+  //
+  // `metadataBase` is resolved at BUILD time from an environment variable that
+  // exists only when Vercel's system variables are switched on for the project.
+  // When it is missing the value is absent rather than wrong, so a production
+  // build silently emitted `http://localhost:3000/opengraph-image` — a card
+  // that resolves to the reader's own machine, which is exactly what the card
+  // was added to prevent. Nothing in a build log would have said so.
+  //
+  // Only meaningful against a production build; a dev server is honestly on
+  // localhost, so the check is skipped there rather than failed.
+  const preview = await evaluate(`(async () => {
+    const html = await (await fetch(location.href, { cache: "no-store" })).text();
+    const image = html.match(/property="og:image" content="([^"]+)"/)?.[1] ?? null;
+    return { image, isDev: Boolean(document.querySelector("nextjs-portal")) };
+  })()`, true);
+
+  if (preview?.image === null) {
+    failures.push("the page declares no og:image, so a shared link has no preview");
+  } else if (!preview.isDev && preview.image.includes("localhost")) {
+    failures.push(`og:image points at ${preview.image} — a shared link would resolve to the reader's own machine`);
+  }
+
+  // A URL that does not exist gets our own page, not Next's bare default.
+  //
+  // Asserted on the copy this project wrote, NOT on whether the product name
+  // appears. The name is the wrong field to test: Next renders its default
+  // not-found INSIDE the root layout, so the header — and with it "Trace" —
+  // is on the page either way, and the check would pass with no `not-found.tsx`
+  // at all. Two paths that share an outcome have to be separated on the field
+  // that differs, which is the copy itself.
+  const missing = await evaluate(`(async () => {
+    const response = await fetch("/no-such-page", { cache: "no-store" });
+    const html = await response.text();
+    return {
+      status: response.status,
+      ours: html.includes("There is nothing at this address"),
+      nextDefault: html.includes("This page could not be found"),
+    };
+  })()`, true);
+
+  if (missing?.status !== 404) {
+    failures.push(`an unknown URL answered ${missing?.status}, expected 404`);
+  } else if (!missing.ours || missing.nextDefault) {
+    failures.push("an unknown URL still gets Next's default 404 rather than this project's");
+  }
+
+  // Nothing scrolls the page sideways on a phone.
+  //
+  // Last, because it resizes the viewport. A wide table is fine; a wide BODY is
+  // not, and the two are indistinguishable until you measure the document
+  // against the window. Measured at 390px, an iPhone's CSS width.
+  //
+  // `mobile: false` deliberately. With mobile emulation on, Chrome applies the
+  // page's viewport meta and its own shrink-to-fit, and `window.innerWidth`
+  // came back as 638 rather than the 390 that was asked for — so the assertion
+  // would have been comparing the document against a width nobody chose. A
+  // plain narrow window asks the same question with nothing in between.
+  await send("Emulation.setDeviceMetricsOverride", {
+    width: 390,
+    height: 844,
+    deviceScaleFactor: 1,
+    mobile: false,
+  });
+  await sleep(1200);
+
+  const narrow = await evaluate(`({
+    docWidth: document.documentElement.scrollWidth,
+    viewport: window.innerWidth,
+  })`);
+
+  if (narrow?.viewport !== 390) {
+    // A check that silently graded a different width than the one requested
+    // would pass for the wrong reason, which is worse than not running.
+    failures.push(`asked for a 390px viewport, measured ${narrow?.viewport}px`);
+  } else if (narrow.docWidth > narrow.viewport + 1) {
+    failures.push(
+      `at ${narrow.viewport}px the document is ${narrow.docWidth}px wide — the whole page scrolls sideways`,
+    );
+  } else {
+    console.log(`\n  Narrow viewport: ${narrow?.viewport}px, document ${narrow?.docWidth}px — no sideways scroll.`);
+  }
+
   for (const error of consoleErrors) failures.push(`console: ${error}`);
 } finally {
   ws?.close();
@@ -522,4 +684,6 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log(`\nOK — ${EXPECTED_ROWS} rows, every verdict opens its own explanation.`);
+console.log(
+  `\nOK — ${EXPECTED_ROWS} rows, every verdict opens its own explanation, and the page says what it is.`,
+);

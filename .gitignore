@@ -62,3 +62,8 @@ docs/VIDEO.md
 # certificates
 *.pem
 docs/BRIEF.md
+
+# screenshots written at the repo root when verifying a page in a browser.
+# the playwright mcp server puts a bare filename here rather than under
+# .playwright-mcp/, and none of them are worth keeping.
+/*.png
