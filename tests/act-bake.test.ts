@@ -63,6 +63,7 @@ const bake = (records: readonly ActRecord[], text = JSON.stringify(DRAFT)) =>
     context: CONTEXT,
     batchId: "11111111-1111-1111-1111-111111111111",
     delayMs: 0,
+    retries: 0,
     now: () => new Date("2026-09-03T10:00:00.000Z"),
   });
 
@@ -97,6 +98,7 @@ describe("bakeDrafts", () => {
       model: model(JSON.stringify(DRAFT)),
       records: [record("pay_A1"), record("pay_B2"), record("pay_C3")],
       context: CONTEXT,
+      retries: 0,
       batchId: "11111111-1111-1111-1111-111111111111",
       delayMs: 2000,
       sleep: async (ms) => {
@@ -133,5 +135,100 @@ describe("isCompleteDraftBake", () => {
 
   it("refuses an empty run, which would blank the file", () => {
     expect(isCompleteDraftBake([])).toBe(false);
+  });
+});
+
+/**
+ * A model that fails the first `failures` calls and succeeds afterwards, so a
+ * transient error can be exercised without waiting on a real provider.
+ */
+const flakyModel = (failures: number) => {
+  let calls = 0;
+  return new MockLanguageModelV4({
+    doGenerate: async () => {
+      calls += 1;
+      if (calls <= failures) throw new Error("Overloaded");
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify(DRAFT) }],
+        finishReason: { unified: "stop" as const, raw: undefined },
+        usage: {
+          inputTokens: { total: 900, noCache: 900, cacheRead: undefined, cacheWrite: undefined },
+          outputTokens: { total: 400, text: 400, reasoning: undefined },
+        },
+        warnings: [],
+      };
+    },
+  });
+};
+
+describe("bakeDrafts — a call that failed outright", () => {
+  const bakeWith = (model: MockLanguageModelV4, retries: number) =>
+    bakeDrafts({
+      model,
+      records: [record("pay_A1")],
+      context: CONTEXT,
+      batchId: "11111111-1111-1111-1111-111111111111",
+      delayMs: 0,
+      retries,
+      sleep: async () => {},
+      now: () => new Date("2026-09-03T10:00:00.000Z"),
+    });
+
+  it("is tried again, because a provider error is not a bad draft", async () => {
+    // Every run of `npm run act` lost one or two records, a DIFFERENT one each
+    // time, and a delay between calls did not help. `runEval` met the same
+    // thing in slice 4 and retries for it; the bakes never picked that up.
+    const out = await bakeWith(flakyModel(1), 2);
+
+    expect(out.drafts[0].verdict).toBe("ACCEPTED");
+    expect(out.retried).toBe(1);
+  });
+
+  it("gives up after the retries are spent and still reports the record", async () => {
+    const out = await bakeWith(flakyModel(99), 2);
+
+    expect(out.drafts[0].verdict).toBe("FAILED");
+    expect(out.retried).toBe(2);
+    expect(isCompleteDraftBake(out.drafts)).toBe(false);
+  });
+
+  it("counts the tokens a retry spent, or the run under-reports its own cost", async () => {
+    // The failed attempt itself reports nothing — `act()` zeroes the split on
+    // an error — so everything in the total comes from the retry. Drop the
+    // accounting inside the loop and a retried run claims to have cost nothing.
+    const out = await bakeWith(flakyModel(1), 2);
+
+    expect(out.inputTokens).toBe(900);
+    expect(out.outputTokens).toBe(400);
+    expect(out.costMicroUsd).toBeGreaterThan(0);
+  });
+
+  it("counts nothing as retried on a clean run", async () => {
+    const out = await bakeWith(flakyModel(0), 2);
+
+    expect(out.retried).toBe(0);
+  });
+
+  it("does not re-roll a draft the gate refused", async () => {
+    // A refused draft is a real answer the model got wrong, not a transient
+    // error. Re-rolling it would launder a genuine miss into a clean file —
+    // the same reasoning that stops `runEval` retrying COERCED_UNEXPLAINED.
+    const refused = JSON.stringify({
+      ...DRAFT,
+      gstr3bFlag: { ...DRAFT.gstr3bFlag, amountPaise: 999999 },
+    });
+    const out = await bakeDrafts({
+      model: model(refused),
+      records: [record("pay_A1")],
+      context: CONTEXT,
+      batchId: "11111111-1111-1111-1111-111111111111",
+      delayMs: 0,
+      retries: 2,
+      sleep: async () => {},
+      now: () => new Date("2026-09-03T10:00:00.000Z"),
+    });
+
+    expect(out.drafts[0].verdict).toBe("INVALID_FIGURE");
+    expect(out.retried).toBe(0);
   });
 });

@@ -18,8 +18,8 @@ carries what they don't.
 - `docs/PRD.md` — the spec. Read **§9 (architecture)** and **§15 (making the AI legible)** before
   writing agent code. Read **§7 (exception taxonomy)** when you need it. Don't read all of it.
   §15.5 now records how Explain actually ships, including two deviations from §9.
-- `docs/BUILD-LOG.md` — 35 entries, each a thing that was wrong while its own tests passed. **Next
-  free number is 36.** Read **30** before touching `scripts/verify-screen.mjs`, **29** before
+- `docs/BUILD-LOG.md` — 36 entries, each a thing that was wrong while its own tests passed. **Next
+  free number is 37.** Read **30** before touching `scripts/verify-screen.mjs`, **29** before
   touching anything model-provider-shaped, **28** before touching the table, **27** for how a
   passing test can be aimed at the wrong thing.
 - `docs/NEXT-TASK.md` — the routine briefing: preflight, banned commands, the per-slice loop.
@@ -354,6 +354,13 @@ The guard that worked and stays: claim-and-push-before-coding.
 ## Open decisions — pick these up next
 
 Not bugs. Each is a judgement call that was deferred deliberately, with enough here to resume cold.
+
+0. **`bakeAnswers` (Explain) has no retry, and `bakeDrafts` (Act) now does.** BUILD-LOG 36: one or
+   two calls in every sixteen fail transiently, a different one each time, and pacing does not
+   help. `runEval` has retried since slice 4; the two later bakes never picked it up. Act was
+   fixed on 4 Sep. Explain was NOT, because `explanations.json` is already recorded and clean and
+   re-running it costs money for no gain. If Explain ever has to be re-baked, port the retry first
+   — it is about ten lines, and `tests/act-bake.test.ts` has the tests to copy.
 
 1. **The Tally entry posts one "Input GST" ledger, not a CGST/SGST split.** A real Indian ledger
    usually carries the two halves separately. One ledger was chosen because splitting means picking

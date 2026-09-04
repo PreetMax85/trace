@@ -33,7 +33,21 @@ import { actContext, loadReviewBatch, toActRecord } from "@/lib/review/batch";
 /** Where the screen reads the recorded drafts from. */
 const DRAFTS_PATH = "data/synthetic/drafts.json";
 
-type Flags = { provider?: string; model?: string; delay?: number; dry?: boolean };
+/**
+ * A FAILED verdict is a call that produced nothing, not a draft the gate
+ * refused. Every real run lost one or two records to one — a different record
+ * each time, and pacing did not help. `runEval` has retried for this since
+ * slice 4. BUILD-LOG 36.
+ */
+const DEFAULT_RETRIES = 2;
+
+type Flags = {
+  provider?: string;
+  model?: string;
+  delay?: number;
+  retries?: number;
+  dry?: boolean;
+};
 
 function parseFlags(argv: readonly string[]): Flags {
   const flags: Flags = {};
@@ -52,14 +66,15 @@ function parseFlags(argv: readonly string[]): Flags {
       case "model":
         flags[name] = value;
         break;
-      case "delay": {
+      case "delay":
+      case "retries": {
         const parsed = Number(value);
         // Rejected rather than coerced: NaN would silently mean no pacing at
         // all, on the run where pacing was asked for.
         if (!Number.isSafeInteger(parsed) || parsed < 0) {
-          throw new Error(`act: --delay needs a whole number, got "${value}".`);
+          throw new Error(`act: --${name} needs a whole number, got "${value}".`);
         }
-        flags.delay = parsed;
+        flags[name] = parsed;
         break;
       }
       default:
@@ -95,6 +110,7 @@ async function main() {
     context: actContext(batch.header),
     batchId: randomUUID(),
     delayMs: flags.delay ?? 0,
+    retries: flags.retries ?? DEFAULT_RETRIES,
   });
 
   console.log("");
@@ -111,7 +127,8 @@ async function main() {
         `  tally   ${entry.draft.tallyEntry.voucherType}, ` +
           `${entry.draft.tallyEntry.lines.length} lines` +
           (entry.unbalanced ? " — DOES NOT BALANCE" : "") +
-          (entry.misfiled ? " — ROW AND ACTION DISAGREE" : ""),
+          (entry.misfiled ? " — ROW AND ACTION DISAGREE" : "") +
+          (entry.misrouted ? " — WRONG ROW FOR THIS CATEGORY" : ""),
       );
     }
     if (entry.unresolved.length > 0) {
@@ -126,7 +143,8 @@ async function main() {
   console.log(
     `${bake.inputTokens.toLocaleString("en-IN")} input · ` +
       `${bake.outputTokens.toLocaleString("en-IN")} output tokens` +
-      (choice.costIsMeaningful ? ` · $${dollars}` : " · cost unknown for this model"),
+      (choice.costIsMeaningful ? ` · $${dollars}` : " · cost unknown for this model") +
+      (bake.retried > 0 ? ` · ${bake.retried} retries` : ""),
   );
 
   if (flags.dry) {

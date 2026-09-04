@@ -1350,3 +1350,55 @@ Whether the portal still ACCEPTS an edit to 4A5 remains unnotified: the Table 4 
 no traceable instrument, unlike the Table 3.2 liability lock (GSTN Advisory No. 606, 7 June
 2025). The vocabulary does not depend on the answer, and both the code comment and the prompt now
 say what is directed rather than what is impossible.
+
+---
+
+## 36. A fix found in one layer was never carried into the other two
+
+**Believed.** `npm run act` losing one or two records to a `FAILED` verdict was a rate limit, and
+the file's own advice — "re-run, with --delay if this was a rate limit" — was the remedy.
+
+**Broke.** It was not a rate limit. Across four runs, one or two records failed every time and it
+was a **different record each time**: `pay_aCKSAMew6U0eQ6`, then `pay_2K4wAoIMaAkmAU` and
+`pay_0g2MGvCSGoyeQW`, then `pay_cOy8OKC0WYS2gq`. `--delay=2000` made no difference. A cap on output
+tokens was ruled out too: the ceiling is 4096 and the observed average is about 1,000 per record,
+four times the headroom.
+
+The failures are transient provider errors, and the project had **already established that** — in
+a different layer. `runEval` has retried a FAILED record with backoff since slice 4, and its own
+comment says why: "a rate limit arrives here looking exactly like a wrong answer". Slice 6's
+`bakeAnswers` and slice 7's `bakeDrafts` were both written afterwards, both call a model in a loop,
+and neither picked the retry up. `npm run act` therefore refused to write the file on every attempt,
+because one bad roll out of sixteen is enough to block a bake that — correctly — will not write a
+partial file.
+
+**Caught by.** Running it four times and reading which records failed. One failure looks like a bad
+record; four failures with no overlap between them is a property of the *calls*, not the records.
+The diagnosis cost nothing, but only because the run prints every record — a summary line saying
+"1 of 16 failed" would have hidden the one fact that identified it.
+
+**Would have cost.** Money and nerve, on a $5 budget with the deadline in hours. Each attempt is
+about ₹35 and has roughly even odds of being blocked by a single unlucky call, so the honest
+expected cost of re-rolling until clean is several more runs — and the temptation at that point is
+to weaken the guard that refuses to write a partial file, which is the one thing here worth
+keeping.
+
+**Permanently changed.**
+
+- `bakeDrafts` retries a `FAILED` record with the same backoff `runEval` uses, defaulting to 2
+  extra attempts, and reports `retried` so a clean run is distinguishable from a rescued one.
+- **Only `FAILED` is retried.** An `INVALID_FIGURE` is a real draft the gate refused, and
+  re-rolling it would launder a genuine miss into a clean file. A test asserts that directly —
+  mutating the condition to `!== "ACCEPTED"` kills it.
+- The retry counts its own tokens. This one was found by the mutation pass and by nothing else:
+  dropping the accounting inside the loop left the suite green while making a retried run report
+  that it had cost nothing, which on a fixed budget is the worst direction to be wrong in.
+- `scripts/act.ts` prints `misrouted` alongside `misfiled`. The routing check added in BUILD-LOG 35
+  was invisible in the one place a person actually reads the output.
+
+**Still open.** `bakeAnswers` (Explain) has the same gap and has not been changed, because its file
+is already recorded and clean and re-running it costs money for no gain. It is written down in
+`docs/HANDOFF.md` rather than fixed.
+
+**The rule.** When a fix is found for a class of failure, ask which OTHER callers share the class
+before closing it. The retry was correct, tested and commented in slice 4; it just never travelled.
