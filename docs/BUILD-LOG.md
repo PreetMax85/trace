@@ -1272,3 +1272,81 @@ that cannot be recovered from by looking harder.
 appears in the page the browser actually loaded, failing with an instruction to stop the server
 already on the port. The guard was tested by pointing it at a deliberately wrong build id and
 confirming it fires, rather than by assuming it would.
+
+---
+
+## 35. Sixteen drafts said "nothing is due", and the gate marked every one accepted
+
+**Believed.** The Act layer's GSTR-3B flag was finished. Entry 33 had rebuilt its vocabulary —
+`4A5` removed, `NO_ENTRY` added, each row admitting exactly one action, the pair checked against
+itself. 411 tests passed, and a browser run on a fixture carrying all four shapes confirmed the
+refusals worked.
+
+**Broke.** The first run against a real model returned `NO_ENTRY` on **all sixteen** flagged
+records, and the gate returned `ACCEPTED` for every one of them. The flag was doing nothing at
+all.
+
+Two separate faults, and the second is the one worth keeping:
+
+The prompt described the four usable rows ABSTRACTLY — "a permanent reversal", "a reclaimable
+reversal" — and never mapped an exception category onto one. `NO_ENTRY` was the only value
+given a worked case ("above all for a TIMING difference") and it came with a warning attached
+("reversing it is how a merchant loses money they were entitled to"). One vivid anchor, one
+deterrent, no mapping: the model generalised the anchor, which is the reasonable reading of what
+it was told.
+
+The gate could not see it. `filedCorrectly` asked whether the flag agreed with ITSELF, and
+`NO_ENTRY` beside a null row agrees with itself perfectly. Nothing asked whether it agreed with
+the RECORD. So sixteen wrong answers were self-consistent, and self-consistency was the whole
+test.
+
+`NO_ENTRY` is right for `TIMING`, `REFUND_NETTED` and `PARTIAL_PAYMENT`. It is wrong for
+`FEE_DEDUCTION`, and those four records carry the entire ₹214.69 at-risk figure — the number the
+product is built around.
+
+**Caught by.** Not a test. The bake was run for the first time with a real key and the output
+was read. Sixteen identical answers in a column is the kind of thing a person notices and a
+suite does not, because no assertion existed that could disagree with it.
+
+**Would have cost.** The whole of Razorpay's invoice tax auto-populates into 4A5, so the
+₹214.69 the merchant cannot substantiate is ALREADY claimed. "No entry is due" leaves it
+claimed. A merchant following the draft would have carried an unsupported claim into their
+return — which is the exact outcome the layer exists to prevent, reached by the layer itself.
+
+**Permanently changed.**
+
+- `GSTR3B_CATEGORY_ROW` maps each of the five categories to its row, typed against
+  `ExceptionCategory` so a sixth would fail to compile rather than route nowhere.
+- The gate gained `misrouted`, checked SEPARATELY from `misfiled`. They are different questions:
+  does the draft agree with itself, and does it agree with the record. Folding them together
+  would have hidden one behind the other.
+- The prompt's routing table is RENDERED from that same map, on the discipline `recordPrompt`
+  already used for figures: what the model is told and what the gate accepts are one statement,
+  so they cannot drift and leave the model blamed for following its own instructions.
+- `tests/act-gstr3b.test.ts` states the category-to-row table independently of the map, and
+  asserts it covers every category.
+- `confirmable()` refuses a misrouted draft. This one was found by the mutation pass and by
+  nothing else: deleting the check left the suite green, because every test aimed at routing
+  stopped at the gate and none followed it to the server-side rule. The test added for it holds
+  `misfiled` FALSE deliberately, and asserts on the clause only the routing refusal carries —
+  both refusals mention "a row", so a fixture with both flags set would have passed on the wrong
+  branch. Entry 27 again, in a new place.
+
+**And the research rule that produced the fix.** Entry 33 said provenance and currency are two
+questions. This adds a third: **check the citation says what you think it says.** Entry 33
+attributed 4A5's auto-population to "CBIC Notification 16/2025". That notification is real and
+is about something else — it appoints 1 October 2025 as the commencement date for certain
+Finance Act 2025 provisions, among them the Section 34(2) credit-note amendment. The October
+2025 date had been lifted from it and attached to the wrong fact.
+
+The conclusion held anyway, for a better reason. **CBIC Circular No. 170/02/2022-GST of 6 July
+2022** is the instrument: para 4.3(A) and para 4.4 direct that ineligible credit is given back by
+reversing it in 4(B) and never by editing 4(A), and the circular's own Annexure works this exact
+case — an inward supply auto-populated in 4A(5) that the registered person cannot establish was
+received is reversed in **4(B)(2)** (Note 3). Auto-population itself dates from December 2020,
+not 2025.
+
+Whether the portal still ACCEPTS an edit to 4A5 remains unnotified: the Table 4 ITC hard lock has
+no traceable instrument, unlike the Table 3.2 liability lock (GSTN Advisory No. 606, 7 June
+2025). The vocabulary does not depend on the answer, and both the code comment and the prompt now
+say what is directed rather than what is impossible.

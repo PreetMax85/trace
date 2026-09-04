@@ -18,8 +18,8 @@ carries what they don't.
 - `docs/PRD.md` — the spec. Read **§9 (architecture)** and **§15 (making the AI legible)** before
   writing agent code. Read **§7 (exception taxonomy)** when you need it. Don't read all of it.
   §15.5 now records how Explain actually ships, including two deviations from §9.
-- `docs/BUILD-LOG.md` — 30 entries, each a thing that was wrong while its own tests passed. **Next
-  free number is 31.** Read **30** before touching `scripts/verify-screen.mjs`, **29** before
+- `docs/BUILD-LOG.md` — 35 entries, each a thing that was wrong while its own tests passed. **Next
+  free number is 36.** Read **30** before touching `scripts/verify-screen.mjs`, **29** before
   touching anything model-provider-shaped, **28** before touching the table, **27** for how a
   passing test can be aimed at the wrong thing.
 - `docs/NEXT-TASK.md` — the routine briefing: preflight, banned commands, the per-slice loop.
@@ -31,8 +31,8 @@ Applications close **5 September 2026**. Razorpay publishes no closing *time* or
 
 ## What the key buys now
 
-`ANTHROPIC_API_KEY` is **not set**. Preet is loading $5 with the console spending limit set to $5
-on **3 Sep**. Until then: mock model only, and every layer still renders.
+`ANTHROPIC_API_KEY` is **set** as of 3 Sep, with a $5 console limit. About **$1.30 has been
+spent**; the one run still owed (`npm run act`) is another ~$0.45.
 
 | Layer | Built? | When the key is needed |
 |---|---|---|
@@ -41,10 +41,17 @@ on **3 Sep**. Until then: mock model only, and every layer still renders.
 | **Explain** (+ §15.5 citations) | yes | **once** for the six example answers (`npm run explain`), then **at runtime** only for a question a person types |
 | **Act** (+ §15.6 figure gate) | yes | **once**, to generate `data/synthetic/drafts.json` (`npm run act`). Static afterwards — there is no live Act route by design. |
 
-All three fixture files — `investigations.json`, `explanations.json` and `drafts.json` — are `[]` today. That is the
-honest state, and every consumer treats it as normal: the trace panel falls back to the
-deterministic explanation, the Explain panel says no answer has been recorded rather than inventing
-one, and the action cards say no action has been drafted rather than showing three empty shells.
+**`investigations.json` (16 traces) and `explanations.json` (6 answers) were recorded on 3 Sep and
+are committed.** The eval scored **16/16, 100% agreement** with the deterministic verdict on its
+first real run.
+
+**`drafts.json` is still `[]`, and that is deliberate.** The first `npm run act --dry` returned
+`NO_ENTRY` on all sixteen records — wrong for the four `FEE_DEDUCTION` rows, which carry the whole
+₹214.69 at-risk figure. BUILD-LOG 35 has the diagnosis. The prompt and gate were fixed on 4 Sep
+(`ACT_PROMPT_VERSION` is now `act-v3`), and **`npm run act` has not been re-run since.** Until it
+is, the action cards correctly say no action has been drafted rather than showing three empty
+shells. One record, `pay_aCKSAMew6U0eQ6`, also came back FAILED in that run and has not been
+diagnosed; the bake refuses to write a partial file, so it must succeed before anything lands.
 
 ### The two runs to make the moment the key lands
 
@@ -54,7 +61,7 @@ npm run eval -- --write-traces     # ~$0.25–0.30, fills investigations.json (�
 npm run explain -- --dry           # prints the six answers, writes nothing
 npm run explain                    # ~2 cents, fills explanations.json (§15.5)
 npm run act -- --dry               # prints 16 records' drafts, writes nothing
-npm run act                        # ~15-20 cents, fills drafts.json (§15.6)
+npm run act                        # ~45 cents, fills drafts.json (§15.6)
 ```
 
 `npm run act` is the most expensive of the three: 16 records, three drafts each, and more output
@@ -221,8 +228,9 @@ not, `git checkout -b <name> main`. Always `git push -u` so `git status` warns y
 | 4 | `npm run eval` harness | `feat/eval-harness` | **done, merged into `main`** |
 | 5 | §15.1 reasoning trace | `feat/eval-harness` | **done, merged into `main`** |
 | 6 | Explain layer + §15.5 citations | `feat/explain-layer` | **done, merged into `main`** |
-| 7 | Act layer + human gate + §15.6 | `feat/act-layer` | **done — not yet merged** |
-| 8 | Deploy + video | — | not started |
+| 7 | Act layer + human gate + §15.6 | `feat/act-layer` | **done, merged into `main`** (3 Sep) |
+| 8 | Domain-fact audit + the routing fix | `chore/domain-fact-audit` | **done** (4 Sep) |
+| 9 | Deploy + video | — | not started |
 
 ## Commands
 
@@ -234,7 +242,8 @@ not, `git checkout -b <name> main`. Always `git push -u` so `git status` warns y
 - `npm run explain` — records the six example answers into `explanations.json` (§15.5).
   `-- --dry` prints without writing.
 - `npm run act` — records the three drafted actions for each of the 16 flagged records into
-  `drafts.json` (§15.6). `-- --dry` prints without writing.
+  `drafts.json` (§15.6). `-- --dry` prints without writing. **Costs ~$0.45, not the ~$0.15–0.20
+  this file used to claim.** Measured 3 Sep on a dry run: 46,528 input / 15,037 output tokens.
 
 All three refuse to run without `ANTHROPIC_API_KEY` and say why. None of them writes to Postgres.
 
@@ -350,7 +359,15 @@ Not bugs. Each is a judgement call that was deferred deliberately, with enough h
    usually carries the two halves separately. One ledger was chosen because splitting means picking
    a rounding rule for the half-paise, and inventing a statutory rounding rule is worse than not
    splitting. Revisit only with a source for the rule; the voucher balances either way.
-2. **Real GSTR-2B JSON carries an `imsStatus` field that our fixture and `Gstr2bStatement` type do
+2. **UNVERIFIED — do not act on this without a source.** The claim that real GSTR-2B JSON carries
+   an `imsStatus` field could NOT be confirmed on 4 Sep; GSTN's schema sits behind
+   `developer.gstsystem.co.in`, which needs credentials, and no third-party GSP doc surfaces the
+   name. What IS confirmed from the IMS advisory is behavioural, not structural: rejected records
+   form an "ITC Rejected" section of GSTR-2B, and IMS action decides what reaches 2B at all. Do
+   not add a field to the fixture on a name nobody can source — inventing schema is how
+   BUILD-LOG 1 happened. Original wording follows.
+
+   **Real GSTR-2B JSON may carry an `imsStatus` field that our fixture and `Gstr2bStatement` type do
    not.** It records what the merchant did to the invoice in the Invoice Management System — accept,
    reject or leave pending — and since October 2025 that action is what decides whether the credit
    reaches GSTR-2B at all. Nothing breaks today, because the parser ignores unknown fields. But the
@@ -359,10 +376,39 @@ Not bugs. Each is a judgement call that was deferred deliberately, with enough h
    notified as far as could be found — see BUILD-LOG 33. Nothing in the code depends on it. If an
    advisory does appear, the vocabulary already survives it; only the wording in the docs would need
    a line.
-4. **A domain-fact audit across slices 1–6 has not been run.** Slice 7's vocabulary was rebuilt
-   after the tax rules behind it turned out to have moved. The same question has not been asked of
-   the earlier slices. The claims worth checking are listed in `docs/NEXT-TASK.md`; the exercise is
-   checking FACTS, not re-reviewing code, so start from the claim list and not from the diff.
+4. **The domain-fact audit has been run — 4 Sep. Do not re-run it.** All six claims in the
+   `NEXT-TASK.md` table were chased through two separate questions: what instrument established
+   this, and has anything superseded it. A seventh was added when the first real `npm run act`
+   returned `NO_ENTRY` on every record. Results:
+
+   | Claim | Rests on | Verdict |
+   |---|---|---|
+   | GSTR-3B row for an at-risk fee | **Circular 170/02/2022-GST, 6 Jul 2022** | code was WRONG — fixed, BUILD-LOG 35 |
+   | GSTR-2B is final once generated | **GSTN revised IMS advisory** | premise WRONG — see below |
+   | Section 34 credit note | **s.34(2) as amended, in force 1 Oct 2025** | moved; we survive |
+   | Section 16(4) time bar | s.16(4); 16(5)/(6) cover FY2017–21 only | correct, unchanged |
+   | Fee is inclusive of its GST | **Razorpay API reference** | correct, now sourced |
+   | Razorpay 2% / 2.15% | razorpay.com/pricing — a company page, not an instrument | matches |
+   | Real 2B carries `imsStatus` | **nothing** | UNVERIFIED — see item 2 |
+
+   Two things follow that are not yet done, both docs-only:
+
+   **GSTR-2B is a DRAFT, not a final statement.** GSTN's IMS advisory: a draft 2B is generated on
+   the 14th, the recipient may accept/reject/keep-pending "even after generation of GSTR-2B till
+   the filing of GSTR-3B", must click Recompute if they act after the 14th, and 2B is sequential —
+   a period's 2B is not generated until the previous period's GSTR-3B is filed. PRD §5 still
+   describes 2B as static and final. Nothing in the code depends on it and no number moves; the
+   fixture's `gendt` is already `14-08-2026`, which is the draft date. This makes the product's
+   position STRONGER, not weaker: the window between the 14th and the filing of GSTR-3B is exactly
+   when a merchant can still act, and that is the window Trace works in. Worth a paragraph in
+   PRD §5 and one line wherever the product is described.
+
+   **Section 34(2) gained a condition on 1 October 2025** (Finance Act 2025): a supplier may not
+   reduce output tax via a credit note unless the RECIPIENT has reversed the corresponding ITC.
+   The settled position — a netted refund raises a Section 34 credit note, not an ITC reversal —
+   is still right, and `REFUND_NETTED` correctly maps to no GSTR-3B row, because the merchant's
+   credit note is its own OUTWARD document and lands in Table 3. But the position is now
+   incomplete and PRD §7 should say so in a sentence.
 
 ## Loose ends
 
