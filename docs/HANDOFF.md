@@ -314,6 +314,65 @@ surfaces them is cheap and manual:
 - **When you add an assertion, check it can fail.** Two of the six above were wrong on the first
   try — see BUILD-LOG 37. A green new test is not evidence until you have seen it go red.
 
+### The second pass — verified 4 Sep, and what it turned up. NOTHING HERE IS FIXED YET.
+
+All eleven items in the table above were re-checked independently against a production build served
+on a fresh port, not against the source. **All eleven hold.** Nine of the new `verify:screen`
+assertions were made to fail on purpose by mutating the tree and rebuilding; the tenth (the unstyled
+flash) was proved from the server's raw HTML — with the registry removed it carries 47 `sc-` class
+names and zero `data-styled` rules, which is exactly the condition the assertion fires on.
+
+Two things the mutation pass established that are worth keeping:
+
+- **The 390px assertion catches the hard cause.** Removing the three `wordBreak="break-word"` props
+  and rebuilding turned the document to 630px inside a 390px window and the assertion fired. That is
+  the cause that only appears with a flagged row's detail panel open, so the check is measuring the
+  page in the state that matters, not a settled empty one.
+- **`minWidth="spacing.0"` at `exception-review.tsx:127` does nothing.** `overflowX="auto"` on the
+  same Box already makes `min-width: auto` resolve to 0 under CSS flexbox, and Blade's own
+  `TableSurface` sets `overflow-x: hidden` besides. Removing the prop and rebuilding left the
+  document at exactly 390px. The comment above it attributes the whole fix to `min-width: 0`, which
+  is not what the diff against `main` shows — the defect was an explicit `minWidth="720px"`.
+
+**Open findings, worst first. None of these is fixed.**
+
+1. **Nothing on this page can be operated by keyboard.** The one interaction the product has is
+   "click any row to see the working". Every `<td>` carries `tabindex="0"` and paints a focus ring,
+   so it advertises itself as interactive — but Enter does nothing and Space just scrolls the page.
+   A keyboard or screen-reader user gets 324 dead tab stops between the question box and the footer
+   and cannot open a single explanation. Blade's table takes no row-level keyboard handler; this
+   needs a real one.
+2. **At 320px the page scrolls sideways again.** `exception-review.tsx:259` puts `minWidth="320px"`
+   on the detail-panel column; with the shell's 16px of page padding that sets a 336px floor inside
+   a 320px window. It is the same defect as item 4 in the table above, surviving in the sibling
+   column that was never touched. `verify:screen` measures only 390px, so it passes. 320px is the
+   width WCAG 1.4.10 (Reflow) is written against, and it is a real iPhone SE.
+3. **There is no `<h1>`, and the heading order is scrambled** — h5, h4, then four h5s, then two h6s.
+   The product name in the header is a `<p>`. A screen reader's heading list therefore reads
+   "What this screen is / Exception review — July 2026 / ₹1,196.92 / ₹982.23 / ₹214.69 / 38/54",
+   four bare numbers with nothing saying what they are.
+4. **The repository's own front door is blank.** `github.com/PreetMax85/trace` has an empty About
+   description, no topics and no licence. The homepage URL is set and the README is good, but the
+   one line GitHub shows next to the repo name — and in every search result and link preview of the
+   repo — is empty. Following "Source on GitHub" from the site lands there.
+5. Smaller, in one list: the 54 Matched/Flagged pills are `role="status"`, so the page declares 54
+   live regions; the Open Graph card never says the data is synthetic, though the page itself is
+   careful to; `/favicon.ico` and `/robots.txt` both 404; and the Confirm button's pending state is
+   visual only — it disables correctly but carries no `aria-busy` and its label does not change.
+
+**Three weaknesses in the new assertions themselves**, all of which can fail but not on what they
+claim to test:
+
+- `layers !== 4` counts the DOM children of `[data-testid="layer-strip"]`. It never reads a name, so
+  renaming Investigate to anything at all still passes. The comment says the check exists because
+  three layers was the README's mistake; it would not catch that mistake in its actual form.
+- `hasTestDataNotice` and `hasFooter` are existence checks on a test id. An empty element with the
+  right `testID` passes both.
+- The console-error capture listens only for `Runtime.exceptionThrown`. A `console.error` — which is
+  how React reports a hydration mismatch or a missing key — is invisible to it, so "zero browser
+  console errors" rests on a check that cannot see the most likely kind. (There are none today;
+  Playwright reports a clean console. The gap is in the guard, not the page.)
+
 ## Status board — every run updates this before it stops
 
 | # | Slice | Branch | Status |
