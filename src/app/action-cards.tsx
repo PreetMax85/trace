@@ -189,14 +189,26 @@ function ActionCard({
 
           <Box display="flex" alignItems="center" justifyContent="space-between" gap="spacing.3">
             <Text variant="caption" size="small" color="surface.text.gray.muted">
-              {isConfirmed
-                ? `Approved${confirmedAt === null ? "" : ` ${confirmedAt.slice(0, 10)}`}. Nothing was sent.`
-                : "Draft — not sent, not filed."}
+              {isBusy
+                ? "Recording your approval…"
+                : isConfirmed
+                  ? `Approved${confirmedAt === null ? "" : ` ${confirmedAt.slice(0, 10)}`}. Nothing was sent.`
+                  : "Draft — not sent, not filed."}
             </Text>
+            {/*
+              `isLoading` matters more here than it looks. Confirming writes a
+              row to the database over the network, and without a spinner the
+              button sat unchanged for the whole round trip — so the honest
+              reading of the screen was that the click had not registered, and
+              the natural response was to click again. The handler already
+              refuses a second click while `busy` is set; this is the half that
+              tells the person why.
+            */}
             <Button
               variant="primary"
               size="small"
-              isDisabled={isConfirmed || isBlocked || isBusy}
+              isLoading={isBusy}
+              isDisabled={isConfirmed || isBlocked}
               onClick={onConfirm}
               testID={`confirm-${kind}`}
             >
