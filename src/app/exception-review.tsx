@@ -27,6 +27,7 @@ import type { ExceptionCategory } from "@/lib/matching";
 import type { ReviewBatch, ReviewRow } from "@/lib/review/batch";
 import { summariseToolValue, type InvestigationTrace } from "@/lib/review/trace";
 import { ActionCards } from "./action-cards";
+import { Orientation } from "./orientation";
 import { ExplainPanel } from "./explain-panel";
 
 /**
@@ -65,15 +66,19 @@ export function ExceptionReview({ batch }: { batch: ReviewBatch }): React.ReactE
   };
 
   return (
+    // The shell owns the page background and its full-viewport height now, so
+    // this claims neither: a main that took 100vh for itself left the footer
+    // below the fold on every screen.
     <Box
       as="main"
-      padding="spacing.7"
+      paddingX={{ base: "spacing.5", m: "spacing.7" }}
+      paddingY="spacing.7"
       display="flex"
       flexDirection="column"
       gap="spacing.6"
-      backgroundColor="surface.background.gray.subtle"
-      minHeight="100vh"
     >
+      <Orientation />
+
       <Box display="flex" flexDirection="column" gap="spacing.2">
         <Heading size="large">Exception review — {formatPeriod(header.period)}</Heading>
         <Text variant="caption" size="medium" color="surface.text.gray.muted">
@@ -110,7 +115,16 @@ export function ExceptionReview({ batch }: { batch: ReviewBatch }): React.ReactE
       <ExplainPanel examples={batch.examples} onCite={revealRecord} />
 
       <Box display="flex" gap="spacing.5" alignItems="flex-start" flexWrap="wrap">
-        <Box flex="1 1 720px" minWidth="720px">
+        {/*
+          `minWidth: 0` is what stops the whole document scrolling sideways on a
+          phone. The table's own `gridTemplateColumns` has an intrinsic minimum
+          of about 760px, and a flex item defaults to `min-width: auto`, so the
+          column refused to shrink below that and pushed the BODY wider than the
+          viewport — measured at 752px of document inside a 390px screen. With
+          the floor removed the column fits, and the table scrolls inside its own
+          box instead of taking the page with it.
+        */}
+        <Box flex="1 1 720px" minWidth="spacing.0" overflowX="auto">
           <Table
             data={data}
             showStripedRows={false}
@@ -428,10 +442,15 @@ function AgentTrace({ trace }: { trace: InvestigationTrace }): React.ReactElemen
               <Code size="small" isHighlighted={false}>
                 {call.toolName}
               </Code>
-              <Text size="xsmall" color="surface.text.gray.muted">
+              {/* A tool's input and output are summarised as one unbroken
+                  string of ids and figures with no spaces in it, so without an
+                  explicit break they set a minimum width for the whole panel
+                  and push the PAGE sideways on a narrow screen — measured at
+                  598px inside a 310px column. */}
+              <Text size="xsmall" color="surface.text.gray.muted" wordBreak="break-word">
                 asked {summariseToolValue(call.input)}
               </Text>
-              <Text size="xsmall" color="surface.text.gray.subtle">
+              <Text size="xsmall" color="surface.text.gray.subtle" wordBreak="break-word">
                 got {summariseToolValue(call.output)}
               </Text>
             </Box>
@@ -460,7 +479,7 @@ function Field({ label, value }: { label: string; value: string }): React.ReactE
       <Text variant="caption" size="small" color="surface.text.gray.muted">
         {label}
       </Text>
-      <Text size="small" weight="medium" textAlign="right">
+      <Text size="small" weight="medium" textAlign="right" wordBreak="break-word">
         {value}
       </Text>
     </Box>
