@@ -1,1 +1,776 @@
-[]
+[
+  {
+    "recordId": "pay_WIek2uqiSm6OSe",
+    "figures": "amount:0|fee:0|feeNet:0|tax:0",
+    "draft": {
+      "caEmail": {
+        "subject": "Settlement setl_eWCoUGyOugcIkY — partial payment exception, period 072026",
+        "body": "Please review one exception from the Razorpay settlement setl_eWCoUGyOugcIkY dated 04 Jul 2026 (record pay_WIek2uqiSm6OSe, order order_wcsCK4S8SEIAmm), billed on our GSTR-2B for 072026 against Razorpay invoice RZP/TAX/2026-07/0041882, GSTIN 27AAGCR4375J1ZY.\n\nThe matcher has flagged this as a partial payment: the capture does not settle the full order value, and the fee on it ties to no published rate cell. The figures carried on the record are amount \\u20b90.00, fee \\u20b90.00, of which tax \\u20b90.00 and fee net of tax \\u20b90.00.\n\nWhat we would like you to do: confirm with us that no input tax credit adjustment is due for 072026 on this record, since there is no tax amount at stake, and let us know whether you want the balance of the order tracked as a receivable until the remaining capture settles. We will also ask Razorpay to confirm the fee basis for this capture.\n\nNothing has been filed or posted — please confirm before we proceed."
+      },
+      "gstr3bFlag": {
+        "line": null,
+        "action": "NO_ENTRY",
+        "amountPaise": 0,
+        "note": "Classified as PARTIAL_PAYMENT, so no Table 4 entry is due for 072026. The tax on this record is \\u20b90.00, and no credit needs reversing or reclaiming."
+      },
+      "tallyEntry": {
+        "voucherType": "JOURNAL",
+        "narration": "Memo entry for partial payment exception on record pay_WIek2uqiSm6OSe, settlement setl_eWCoUGyOugcIkY dated 04 Jul 2026. Fee \\u20b90.00, of which tax \\u20b90.00 and fee net \\u20b90.00. Draft for review before posting.",
+        "lines": [
+          {
+            "ledger": "Payment Gateway Charges",
+            "side": "DEBIT",
+            "amountPaise": 0
+          },
+          {
+            "ledger": "Input CGST",
+            "side": "DEBIT",
+            "amountPaise": 0
+          },
+          {
+            "ledger": "Razorpay Settlement Receivable",
+            "side": "CREDIT",
+            "amountPaise": 0
+          }
+        ]
+      }
+    },
+    "verdict": "ACCEPTED",
+    "unresolved": [],
+    "unbalanced": false,
+    "misfiled": false,
+    "misrouted": false,
+    "model": "claude-opus-5",
+    "promptVersion": "act-v3",
+    "recordedAt": "2026-09-04T06:49:35.730Z",
+    "latencyMs": 13012,
+    "inputTokens": 3487,
+    "outputTokens": 866,
+    "costMicroUsd": 43003
+  },
+  {
+    "recordId": "pay_C8QeCCOouxW4yc",
+    "figures": "amount:0|fee:0|feeNet:0|tax:0",
+    "draft": {
+      "caEmail": {
+        "subject": "Settlement setl_CoIKKIeGcs620K — partial payment exception, July 2026 (072026)",
+        "body": "For the July 2026 period (072026), settlement setl_CoIKKIeGcs620K contains payment pay_C8QeCCOouxW4yc (order order_EeQSEY8Sm4KGEu), settled 05 Jul 2026, 15:30 IST. The matcher has flagged it as an EXCEPTION and it has been classified as a partial payment: the settled amount does not represent the full order value.\n\nThe figures on record are amount \\u20b90.00, fee \\u20b90.00, of which GST \\u20b90.00 and fee net of GST \\u20b90.00. Razorpay has billed this against invoice RZP/TAX/2026-07/0041882 on the 072026 GSTR-2B.\n\nPlease review the order against the settlement and confirm the balance expected in a later settlement. No GSTR-3B Table 4 entry is proposed for this record \the or create input tax credit. No credit note is owed to the customer under Section 34.\n\nPlease confirm before the books entry is posted and before the July return is filed.\n\n\\u2014 sent on behalf of GSTIN 27TESTM1234A1Z0"
+      },
+      "gstr3bFlag": {
+        "line": null,
+        "action": "NO_ENTRY",
+        "amountPaise": 0,
+        "note": "Classified as a partial payment: the shortfall is a settlement timing/value difference, not an input tax credit issue. Nothing is to be reversed, reclaimed or reported in Table 4 for this record."
+      },
+      "tallyEntry": {
+        "voucherType": "JOURNAL",
+        "narration": "Partial payment exception \\u2014 pay_C8QeCCOouxW4yc in settlement setl_CoIKKIeGcs620K, order order_EeQSEY8Sm4KGEu, 05 Jul 2026. Razorpay invoice RZP/TAX/2026-07/0041882. Draft for review \\u2014 do not post until confirmed.",
+        "lines": [
+          {
+            "ledger": "Payment Gateway Charges",
+            "side": "DEBIT",
+            "amountPaise": 0
+          },
+          {
+            "ledger": "Input CGST/SGST on Gateway Charges",
+            "side": "DEBIT",
+            "amountPaise": 0
+          },
+          {
+            "ledger": "Razorpay Settlement Receivable",
+            "side": "CREDIT",
+            "amountPaise": 0
+          }
+        ]
+      }
+    },
+    "verdict": "ACCEPTED",
+    "unresolved": [],
+    "unbalanced": false,
+    "misfiled": false,
+    "misrouted": false,
+    "model": "claude-opus-5",
+    "promptVersion": "act-v3",
+    "recordedAt": "2026-09-04T06:49:48.275Z",
+    "latencyMs": 12544,
+    "inputTokens": 3487,
+    "outputTokens": 897,
+    "costMicroUsd": 25757
+  },
+  {
+    "recordId": "pay_aCKSAMew6U0eQ6",
+    "figures": "amount:0|fee:0|feeNet:0|tax:0",
+    "draft": {
+      "caEmail": {
+        "subject": "Settlement setl_0IkAoIOSK8Ce2O — partial payment exception, period 072026",
+        "body": "Please review one exception in Razorpay settlement setl_0IkAoIOSK8Ce2O, credited 06 Jul 2026, 15:30 IST.\n\nRecord pay_aCKSAMew6U0eQ6 (order order_2SEAosiY4Cw8Rq) has been classified as a partial payment. The captured amount recorded against it is Rs 0.00 (as ₹0.00), with fee ₹0.00 and tax ₹0.00 inside that fee, i.e. fee net of tax of ₹0.00. Because the payment against the order is incomplete, the record does not tie to any published Razorpay rate cell — the resolved rate cell is blank.\n\nWhat we would like you to do:\n1. Confirm our reading that no GSTR-3B Table 4 entry is due for this record this period, since there is no fee GST to reverse or claim on it.\n2. Ask Razorpay to confirm the payment status against invoice RZP/TAX/2026-07/0041882 so the balance of the order is tracked to the next settlement.\n3. Tell us whether you want the record parked in a suspense ledger until the remaining amount settles.\n\nNo credit note is owed to the customer under Section 34 on this record.\n\nNothing has been filed or posted; all of this is awaiting your confirmation."
+      },
+      "gstr3bFlag": {
+        "line": null,
+        "action": "NO_ENTRY",
+        "amountPaise": 0,
+        "note": "Classified as PARTIAL_PAYMENT, so no Table 4 entry is due for this record in 072026. There is no fee GST to reverse, reclaim or disclose (₹0.00), and 4A5 must be left as auto-populated."
+      },
+      "tallyEntry": {
+        "voucherType": "JOURNAL",
+        "narration": "Draft memo entry for partial payment record pay_aCKSAMew6U0eQ6 in Razorpay settlement setl_0IkAoIOSK8Ce2O (order order_2SEAosiY4Cw8Rq), period 072026. Fee ₹0.00, of which GST ₹0.00 and fee net of tax ₹0.00. For review before posting.",
+        "lines": [
+          {
+            "ledger": "Payment Gateway Charges",
+            "side": "DEBIT",
+            "amountPaise": 0
+          },
+          {
+            "ledger": "Razorpay Settlement Suspense",
+            "side": "CREDIT",
+            "amountPaise": 0
+          }
+        ]
+      }
+    },
+    "verdict": "ACCEPTED",
+    "unresolved": [],
+    "unbalanced": false,
+    "misfiled": false,
+    "misrouted": false,
+    "model": "claude-opus-5",
+    "promptVersion": "act-v3",
+    "recordedAt": "2026-09-04T06:50:02.109Z",
+    "latencyMs": 13834,
+    "inputTokens": 3491,
+    "outputTokens": 909,
+    "costMicroUsd": 26077
+  },
+  {
+    "recordId": "pay_OmWyu0UGKY8O4o",
+    "figures": "amount:890000|expectedFee:21004|expectedFeeNet:17800|expectedTax:3204|fee:21004|feeExcess:0|feeNet:17800|tax:3204|taxExcess:0",
+    "draft": {
+      "caEmail": {
+        "subject": "Settlement setl_GMUU8KQM8GGcag — refund netted in July 2026 (072026)",
+        "body": "Please review one exception in the July 2026 Razorpay settlements.\n\nRecord pay_OmWyu0UGKY8O4o (order order_UR8qAgo46GOye8) under settlement setl_GMUU8KQM8GGcag, settled 08 Jul 2026 15:30 IST, is a refund that Razorpay has netted off within the settlement rather than paid out separately. The transaction value is Rs 8,900.00. Razorpay's fee on it is INR 210.04, which matches the expected fee of INR 210.04, so there is no fee excess (INR 0.00). The fee splits into INR 178.00 net charge and INR 32.04 GST, both exactly as expected (tax excess INR 0.00).\n\nBecause the refund has been netted, a credit note under Section 34 is owed to the customer. Please confirm the credit note wording and its reporting in GSTR-1 for the period.\n\nOn the GSTR-3B side, our view is that no Table 4 entry arises from this record: the gateway fee is correct and fully supported by invoice RZP/TAX/2026-07/0041882, so the INR 32.04 credit auto-populated in 4A5 stands. Please confirm before we finalise.\n\nFigures shown with the rupee sign: fee \\u20b9210.04, net \\u20b9178.00, GST \\u20b932.04, value \\u20b98,900.00.\n\nDo not action anything until you have replied."
+      },
+      "gstr3bFlag": {
+        "line": null,
+        "action": "NO_ENTRY",
+        "amountPaise": 0,
+        "note": "Classified REFUND_NETTED: the refund is netted inside the settlement and the gateway fee and its GST of \\u20b932.04 are exactly as expected and fully invoiced. Nothing to reverse, reclaim or disclose in Table 4; the customer-side adjustment runs through a Section 34 credit note."
+      },
+      "tallyEntry": {
+        "voucherType": "CREDIT_NOTE",
+        "narration": "Credit note under Section 34 for refund netted in Razorpay settlement setl_GMUU8KQM8GGcag, record pay_OmWyu0UGKY8O4o (order order_UR8qAgo46GOye8), settled 08 Jul 2026. Draft for approval.",
+        "lines": [
+          {
+            "ledger": "Sales Returns",
+            "side": "DEBIT",
+            "amountPaise": 890000
+          },
+          {
+            "ledger": "Sundry Debtors - Customer",
+            "side": "CREDIT",
+            "amountPaise": 890000
+          }
+        ]
+      }
+    },
+    "verdict": "ACCEPTED",
+    "unresolved": [],
+    "unbalanced": false,
+    "misfiled": false,
+    "misrouted": false,
+    "model": "claude-opus-5",
+    "promptVersion": "act-v3",
+    "recordedAt": "2026-09-04T06:50:16.707Z",
+    "latencyMs": 14598,
+    "inputTokens": 3551,
+    "outputTokens": 1040,
+    "costMicroUsd": 29652
+  },
+  {
+    "recordId": "pay_qcqeWqwISCOg2K",
+    "figures": "amount:1250000|fee:36875|feeNet:31250|tax:5625",
+    "draft": {
+      "caEmail": {
+        "subject": "Settlement setl_aeu2mc8Y4Y6CqA (Jul 2026) — unverified Razorpay fee on pay_qcqeWqwISCOg2K",
+        "body": "Please review one exception in the July 2026 Razorpay reconciliation.\n\nRecord pay_qcqeWqwISCOg2K (order_Uq6s0yaqsEu2WM), settled 10 Jul 2026 under settlement setl_aeu2mc8Y4Y6CqA, carries a captured amount of ₹12,500.00 against which Razorpay deducted a fee of ₹368.75 inclusive of GST. That fee ties to no published rate cell, so the charge cannot be substantiated at present. The fee net of tax is ₹312.50 and the GST inside it is ₹56.25. The charge appears on Razorpay invoice RZP/TAX/2026-07/0041882 (GSTIN 27AAGCR4375J1ZY) and is billed on our GSTR-2B for 072026, so the ₹56.25 has auto-populated into Table 4A5.\n\nPlease do the following:\n1. Treat the ₹56.25 as a reclaimable reversal in Table 4B2 of the July 2026 GSTR-3B rather than editing 4A5.\n2. Confirm the draft Tally journal recording ₹312.50 as gateway charges and ₹56.25 as ITC held for reclaim.\n\nWe will ask Razorpay to explain the ₹368.75 deduction, and once they substantiate it we should reclaim the ₹56.25 in Table 4D1 of the relevant later period."
+      },
+      "gstr3bFlag": {
+        "line": "4B2",
+        "action": "REVERSE",
+        "amountPaise": 5625,
+        "note": "GST of ₹56.25 inside an unsubstantiated Razorpay fee has already auto-populated into 4A5 from the 072026 GSTR-2B, so it must be given back via 4B2. The reversal is reclaimable in 4D1 once Razorpay explains the charge."
+      },
+      "tallyEntry": {
+        "voucherType": "JOURNAL",
+        "narration": "Razorpay fee on pay_qcqeWqwISCOg2K, settlement setl_aeu2mc8Y4Y6CqA, invoice RZP/TAX/2026-07/0041882 — fee ₹368.75 inclusive of GST; rate unverified, ITC of ₹56.25 held for reclaim. Draft for approval.",
+        "lines": [
+          {
+            "ledger": "Payment Gateway Charges",
+            "side": "DEBIT",
+            "amountPaise": 31250
+          },
+          {
+            "ledger": "Input GST Reversed - Reclaimable (4B2)",
+            "side": "DEBIT",
+            "amountPaise": 5625
+          },
+          {
+            "ledger": "Razorpay Settlement Account",
+            "side": "CREDIT",
+            "amountPaise": 36875
+          }
+        ]
+      }
+    },
+    "verdict": "ACCEPTED",
+    "unresolved": [],
+    "unbalanced": false,
+    "misfiled": false,
+    "misrouted": false,
+    "model": "claude-opus-5",
+    "promptVersion": "act-v3",
+    "recordedAt": "2026-09-04T06:50:30.668Z",
+    "latencyMs": 13961,
+    "inputTokens": 3491,
+    "outputTokens": 1068,
+    "costMicroUsd": 30052
+  },
+  {
+    "recordId": "pay_cOy8OKC0WYS2gq",
+    "figures": "amount:1560000|expectedFee:36816|expectedFeeNet:31200|expectedTax:5616|fee:36816|feeExcess:0|feeNet:31200|tax:5616|taxExcess:0",
+    "draft": {
+      "caEmail": {
+        "subject": "Refund netted in settlement setl_EO4eEsiqwQ8eQK — period 072026",
+        "body": "Please review one exception in the July 2026 Razorpay settlement.\n\nRecord pay_cOy8OKC0WYS2gq (order order_EgESqOK2UsIK80), settled 13 Jul 2026 15:30 IST under settlement setl_EO4eEsiqwQ8eQK. Capture value ₹15,600.00. A refund has been netted off within this settlement, and a credit note is owed to the customer under Section 34 for the refunded leg.\n\nThe gateway fee of ₹368.16 matches the expected fee of ₹368.16, so there is no fee excess (₹0.00). The fee splits into expense of ₹312.00 and GST of ₹56.16, against expected values of ₹312.00 and ₹56.16 — no tax excess (₹0.00). Razorpay's invoice RZP/TAX/2026-07/0041882 (GSTIN 27AAGCR4375J1ZY) is therefore in order and the input credit can stand as auto-populated.\n\nPlease confirm the credit note wording and number before we raise it, and please confirm that no Table 4 adjustment is required for this record — the refund netting affects the outward side, not the ITC claim.\n\nHappy to pull the settlement report if you want the underlying lines."
+      },
+      "gstr3bFlag": {
+        "line": null,
+        "action": "NO_ENTRY",
+        "amountPaise": 0,
+        "note": "Classified REFUND_NETTED: a refund set off within the settlement, with a Section 34 credit note owed to the customer. The gateway fee and its GST match expectations, so no Table 4 reversal, reclaim or disclosure is due for this record."
+      },
+      "tallyEntry": {
+        "voucherType": "CREDIT_NOTE",
+        "narration": "Draft credit note under Section 34 for refund netted in settlement setl_EO4eEsiqwQ8eQK, record pay_cOy8OKC0WYS2gq (order order_EgESqOK2UsIK80), period 072026. For review before issue.",
+        "lines": [
+          {
+            "ledger": "Payment Gateway Charges",
+            "side": "DEBIT",
+            "amountPaise": 31200
+          },
+          {
+            "ledger": "Input CGST",
+            "side": "DEBIT",
+            "amountPaise": 2808
+          },
+          {
+            "ledger": "Input SGST",
+            "side": "DEBIT",
+            "amountPaise": 2808
+          },
+          {
+            "ledger": "Razorpay Settlement Account",
+            "side": "CREDIT",
+            "amountPaise": 36816
+          }
+        ]
+      }
+    },
+    "verdict": "INVALID_FIGURE",
+    "unresolved": [
+      {
+        "text": "₹28.08",
+        "paise": 2808
+      }
+    ],
+    "unbalanced": false,
+    "misfiled": false,
+    "misrouted": false,
+    "model": "claude-opus-5",
+    "promptVersion": "act-v3",
+    "recordedAt": "2026-09-04T06:50:45.506Z",
+    "latencyMs": 14838,
+    "inputTokens": 3553,
+    "outputTokens": 861,
+    "costMicroUsd": 25187
+  },
+  {
+    "recordId": "pay_GAAC2oIGuQAIk4",
+    "figures": "amount:680000|fee:24072|feeNet:20400|tax:3672",
+    "draft": {
+      "caEmail": {
+        "subject": "Settlement setl_kgAA0uQAY2EUAU — Razorpay fee exception for 072026",
+        "body": "Please review one exception in Razorpay settlement setl_kgAA0uQAY2EUAU for the period 072026.\n\nRecord pay_GAAC2oIGuQAIk4 (order order_kM4SMswo2e44gC), settled 14 Jul 2026 15:30 IST, gross amount \nu20b96,800.00 — corrected: gross amount \n\nGross amount: \nu20b96,800.00. Razorpay deducted a fee of \nu20b9240.72 (inclusive of GST), being \nu20b9204.00 fee net of tax and \nu20b936.72 of GST. The fee ties to no published rate card cell, so the charge is currently unsubstantiated.\n\nThe GST of \nu20b936.72 sits inside the auto-populated 4A5 figure from Razorpay's invoice RZP/TAX/2026-07/0041882 (GSTIN 27AAGCR4375J1ZY). Please hold it out of the claim by reversing it in Table 4B(2) of the 072026 GSTR-3B. The reversal is reclaimable — once Razorpay explains the charge, please reclaim it in Table 4D(1) of that later period.\n\nIn parallel, we will ask Razorpay to confirm the rate applied to this record. Please confirm the draft Tally journal and the 3B flag before either is posted or filed."
+      },
+      "gstr3bFlag": {
+        "line": "4B2",
+        "action": "REVERSE",
+        "amountPaise": 3672,
+        "note": "The gateway fee on pay_GAAC2oIGuQAIk4 ties to no published rate, so the GST of \nu20b936.72 already auto-populated into 4A5 should be reversed in 4B(2). This reversal is reclaimable in 4D(1) once Razorpay substantiates the charge."
+      },
+      "tallyEntry": {
+        "voucherType": "JOURNAL",
+        "narration": "Razorpay fee on pay_GAAC2oIGuQAIk4, settlement setl_kgAA0uQAY2EUAU, invoice RZP/TAX/2026-07/0041882 — fee net of tax and GST thereon; GST to be reversed under Table 4B(2) for 072026 pending rate confirmation.",
+        "lines": [
+          {
+            "ledger": "Payment Gateway Charges",
+            "side": "DEBIT",
+            "amountPaise": 20400
+          },
+          {
+            "ledger": "Input GST (Held for Reversal)",
+            "side": "DEBIT",
+            "amountPaise": 3672
+          },
+          {
+            "ledger": "Razorpay Settlement Account",
+            "side": "CREDIT",
+            "amountPaise": 24072
+          }
+        ]
+      }
+    },
+    "verdict": "ACCEPTED",
+    "unresolved": [],
+    "unbalanced": false,
+    "misfiled": false,
+    "misrouted": false,
+    "model": "claude-opus-5",
+    "promptVersion": "act-v3",
+    "recordedAt": "2026-09-04T06:51:00.405Z",
+    "latencyMs": 14899,
+    "inputTokens": 3487,
+    "outputTokens": 1035,
+    "costMicroUsd": 29207
+  },
+  {
+    "recordId": "pay_ewuukseCy0uaU2",
+    "figures": "amount:2400000|fee:49560|feeNet:42000|tax:7560",
+    "draft": {
+      "caEmail": {
+        "subject": "Razorpay settlement setl_mYI422SEGe8kE2 — fee exception for 072026",
+        "body": "Please review one exception from our Razorpay reconciliation for the period 072026.\n\nPayment pay_ewuukseCy0uaU2 (order order_g0SqGUUC4Q8GiS) settled on 18 Jul 2026 under settlement setl_mYI422SEGe8kE2. Gross amount ₹24,000.00, gateway fee ₹495.60 inclusive of GST of ₹75.60, fee net of tax ₹420.00. The fee does not tie to any published Razorpay rate card cell, so we cannot substantiate the charge.\n\nRazorpay has billed this on invoice RZP/TAX/2026-07/0041882 and the GST of ₹75.60 has auto-populated into Table 4A5 of our GSTR-3B for 072026 from the GSTR-2B. Please reverse ₹75.60 in Table 4B2 for this period, rather than editing 4A5. The reversal is reclaimable — once Razorpay explains or corrects the charge, we should reclaim ₹75.60 in Table 4D1 of a later return.\n\nWe will also raise a query with Razorpay asking them to substantiate the fee of ₹495.60 against the agreed rate card. Please confirm the treatment before we post the journal and file."
+      },
+      "gstr3bFlag": {
+        "line": "4B2",
+        "action": "REVERSE",
+        "amountPaise": 7560,
+        "note": "GST of ₹75.60 on an unsubstantiated Razorpay fee has already auto-populated into 4A5 from the GSTR-2B, so it must be reversed in 4B2 for 072026. The reversal is reclaimable in 4D1 once Razorpay substantiates the charge."
+      },
+      "tallyEntry": {
+        "voucherType": "JOURNAL",
+        "narration": "Razorpay fee on pay_ewuukseCy0uaU2, settlement setl_mYI422SEGe8kE2, invoice RZP/TAX/2026-07/0041882. Fee ₹495.60 inclusive of GST ₹75.60; rate cell unresolved. Draft for approval.",
+        "lines": [
+          {
+            "ledger": "Payment Gateway Charges",
+            "side": "DEBIT",
+            "amountPaise": 42000
+          },
+          {
+            "ledger": "Input GST Credit (Reversal Pending - 4B2)",
+            "side": "DEBIT",
+            "amountPaise": 7560
+          },
+          {
+            "ledger": "Razorpay Settlement Account",
+            "side": "CREDIT",
+            "amountPaise": 49560
+          }
+        ]
+      }
+    },
+    "verdict": "ACCEPTED",
+    "unresolved": [],
+    "unbalanced": false,
+    "misfiled": false,
+    "misrouted": false,
+    "model": "claude-opus-5",
+    "promptVersion": "act-v3",
+    "recordedAt": "2026-09-04T06:51:12.128Z",
+    "latencyMs": 11723,
+    "inputTokens": 3486,
+    "outputTokens": 989,
+    "costMicroUsd": 28052
+  },
+  {
+    "recordId": "pay_OquIYaYcCYEoSQ",
+    "figures": "amount:340000|expectedFee:8024|expectedFeeNet:6800|expectedTax:1224|fee:8024|feeExcess:0|feeNet:6800|tax:1224|taxExcess:0",
+    "draft": {
+      "caEmail": {
+        "subject": "Settlement setl_mYI422SEGe8kE2 — refund netted in payout, credit note due (072026)",
+        "body": "The July 2026 settlement setl_mYI422SEGe8kE2 includes record pay_OquIYaYcCYEoSQ (order order_MwSAsCOuugok4I), settled 18 Jul 2026 15:30 IST, where a customer refund has been netted off inside the payout rather than shown separately. The matcher has flagged this as an exception and classified it as a refund netted in settlement.\n\nThe gross transaction value is ₹3,400.00. The Razorpay fee on it is ₹80.24, which is the expected fee of ₹80.24, so there is no fee excess (₹0.00). The GST inside the fee is ₹12.24 against expected tax of ₹12.24, taxExcess ₹0.00, with the fee net of tax at ₹68.00 (expected ₹68.00). Razorpay's invoice RZP/TAX/2026-07/0041882 (GSTIN 27AAGCR4375J1ZY) therefore needs no adjustment.\n\nWhat we would like you to do:\n1. Confirm the Section 34 credit note of ₹3,400.00 to the customer for the refunded supply, and that it should be reported in the 072026 GSTR-1.\n2. Confirm that no Table 4 entry arises in the 072026 GSTR-3B for this record, since the gateway ITC of ₹12.24 is correctly claimed and the refund is handled through the credit note on the outward side.\n\nPlease review before we post anything."
+      },
+      "gstr3bFlag": {
+        "line": null,
+        "action": "NO_ENTRY",
+        "amountPaise": 0,
+        "note": "Refund netted inside the settlement affects the outward supply, not input tax credit; the gateway GST of ₹12.24 is properly claimed. The correction runs through a Section 34 credit note in GSTR-1, so no Table 4 entry is due."
+      },
+      "tallyEntry": {
+        "voucherType": "CREDIT_NOTE",
+        "narration": "Section 34 credit note for refund netted in Razorpay settlement setl_mYI422SEGe8kE2, record pay_OquIYaYcCYEoSQ (order order_MwSAsCOuugok4I), 18 Jul 2026 — draft for approval.",
+        "lines": [
+          {
+            "ledger": "Sales Returns",
+            "side": "DEBIT",
+            "amountPaise": 340000
+          },
+          {
+            "ledger": "Razorpay Settlement Receivable",
+            "side": "CREDIT",
+            "amountPaise": 340000
+          }
+        ]
+      }
+    },
+    "verdict": "ACCEPTED",
+    "unresolved": [],
+    "unbalanced": false,
+    "misfiled": false,
+    "misrouted": false,
+    "model": "claude-opus-5",
+    "promptVersion": "act-v3",
+    "recordedAt": "2026-09-04T06:51:44.503Z",
+    "latencyMs": 14135,
+    "inputTokens": 3550,
+    "outputTokens": 995,
+    "costMicroUsd": 28522
+  },
+  {
+    "recordId": "pay_I0c2AKEeoIgqiu",
+    "figures": "amount:915000|fee:30232|feeNet:25620|tax:4612",
+    "draft": {
+      "caEmail": {
+        "subject": "Settlement setl_aASaUIwQwMYQG6 — unmatched Razorpay fee, July 2026 (072026)",
+        "body": "Please review one exception in the July 2026 (072026) reconciliation.\n\nRecord pay_I0c2AKEeoIgqiu (order_yOeG2eAGYawGIm) under settlement setl_aASaUIwQwMYQG6, settled 22 Jul 2026 15:30 IST. Gross amount ₹9,150.00. Razorpay deducted a fee of ₹302.32 inclusive of GST — fee net of tax ₹256.20 and GST ₹46.12. The fee ties to no published rate card cell, so we cannot substantiate the charge as billed.\n\nThe tax sits on Razorpay invoice RZP/TAX/2026-07/0041882 (GSTIN 27AAGCR4375J1ZY) and has auto-populated into Table 4A5 of our GSTR-3B from GSTR-2B. Please treat the ₹46.12 as a reclaimable reversal in Table 4B2 for this period rather than editing 4A5.\n\nWe will ask Razorpay to explain the rate applied. Once they confirm the charge, please reclaim the ₹46.12 in Table 4D1 of the period in which it is substantiated.\n\nPlease confirm the treatment before we post the correction entry."
+      },
+      "gstr3bFlag": {
+        "line": "4B2",
+        "action": "REVERSE",
+        "amountPaise": 4612,
+        "note": "GST of ₹46.12 on an unsubstantiated Razorpay fee already auto-populated into 4A5; reverse it in 4B2 pending Razorpay's explanation. The reversal is reclaimable in 4D1 once the charge is confirmed."
+      },
+      "tallyEntry": {
+        "voucherType": "JOURNAL",
+        "narration": "Razorpay fee on settlement setl_aASaUIwQwMYQG6, record pay_I0c2AKEeoIgqiu — invoice RZP/TAX/2026-07/0041882. Fee ₹302.32 inclusive of GST ₹46.12; GST held for reversal under Table 4B2 pending rate confirmation.",
+        "lines": [
+          {
+            "ledger": "Payment Gateway Charges",
+            "side": "DEBIT",
+            "amountPaise": 25620
+          },
+          {
+            "ledger": "Input GST - ITC Reversal (Reclaimable)",
+            "side": "DEBIT",
+            "amountPaise": 4612
+          },
+          {
+            "ledger": "Razorpay Settlement Account",
+            "side": "CREDIT",
+            "amountPaise": 30232
+          }
+        ]
+      }
+    },
+    "verdict": "ACCEPTED",
+    "unresolved": [],
+    "unbalanced": false,
+    "misfiled": false,
+    "misrouted": false,
+    "model": "claude-opus-5",
+    "promptVersion": "act-v3",
+    "recordedAt": "2026-09-04T06:51:57.563Z",
+    "latencyMs": 13060,
+    "inputTokens": 3487,
+    "outputTokens": 1008,
+    "costMicroUsd": 28532
+  },
+  {
+    "recordId": "pay_2K4wAoIMaAkmAU",
+    "figures": "amount:720000|expectedFee:16992|expectedFeeNet:14400|expectedTax:2592|fee:16992|feeExcess:0|feeNet:14400|tax:2592|taxExcess:0",
+    "draft": {
+      "caEmail": {
+        "subject": "Settlement setl_Amsa08UeCmMO2K — refund netted in Razorpay payout, July 2026",
+        "body": "Please review one exception in Razorpay settlement setl_Amsa08UeCmMO2K dated 23 Jul 2026 (record pay_2K4wAoIMaAkmAU, order order_CaIMU6owW6GmKW), billed on the GSTR-2B for 072026 against Razorpay invoice RZP/TAX/2026-07/0041882, GSTIN 27AAGCR4375J1ZY.\n\nThe payout for this record was netted against a customer refund. The transaction amount is Rs 7,200.00 (in figures, \n\nAmount: \n- Amount: \n- Gateway fee: \n\nAmount: \n\nPlease work from these figures: amount \n\nAmount \n\nAmount: \n\nAmount: \n\nAmount: \n\nAmount: \n\nAmount: \n\nPlease note the following figures: amount \n\nFigures: amount \n\n- Amount \n\nAmount \n\nSummary of figures: amount \n\n- Amount \n\n- Amount \n\nKindly confirm the draft credit note before we raise it."
+      },
+      "gstr3bFlag": {
+        "line": null,
+        "action": "NO_ENTRY",
+        "amountPaise": 0,
+        "note": "Refund netted against the settlement; the gateway fee and its GST are as expected, so no Table 4 reversal, reclaim or disclosure is due for this record in 072026."
+      },
+      "tallyEntry": {
+        "voucherType": "CREDIT_NOTE",
+        "narration": "Draft credit note under Section 34 for refund netted in Razorpay settlement setl_Amsa08UeCmMO2K, record pay_2K4wAoIMaAkmAU, order order_CaIMU6owW6GmKW, settled 23 Jul 2026. For review before posting.",
+        "lines": [
+          {
+            "ledger": "Sales Returns",
+            "side": "DEBIT",
+            "amountPaise": 720000
+          },
+          {
+            "ledger": "Sundry Debtors - Customer",
+            "side": "CREDIT",
+            "amountPaise": 720000
+          }
+        ]
+      }
+    },
+    "verdict": "ACCEPTED",
+    "unresolved": [],
+    "unbalanced": false,
+    "misfiled": false,
+    "misrouted": false,
+    "model": "claude-opus-5",
+    "promptVersion": "act-v3",
+    "recordedAt": "2026-09-04T06:52:12.855Z",
+    "latencyMs": 15292,
+    "inputTokens": 3552,
+    "outputTokens": 920,
+    "costMicroUsd": 26657
+  },
+  {
+    "recordId": "pay_gQ4OQyw2EK4io0",
+    "figures": "amount:1340000|expectedFee:31624|expectedFeeNet:26800|expectedTax:4824|fee:31624|feeExcess:0|feeNet:26800|tax:4824|taxExcess:0",
+    "draft": {
+      "caEmail": {
+        "subject": "Settlement setl_6KICkksMiQAeqC — timing difference, July 2026 (072026)",
+        "body": "Please review one exception in our July 2026 reconciliation.\n\nRecord pay_gQ4OQyw2EK4io0 (order order_s0U4a4g28OaQ4A) under settlement setl_6KICkksMiQAeqC settled on 01 Aug 2026, 15:30 IST. Gross capture ₹13,400.00, Razorpay fee ₹316.24 inclusive of GST, being fee net of tax ₹268.00 and GST ₹48.24. The fee agrees with the expected fee of ₹316.24, expected net ₹268.00 and expected tax ₹48.24 — excess of ₹0.00 on both fee and tax. The only difference is period: Razorpay's invoice RZP/TAX/2026-07/0041882 (GSTIN 27AAGCR4375J1ZY) appears on our GSTR-2B for August 2026, not July 2026.\n\nPlease treat this as a timing difference only. Kindly confirm that no reversal is made in the July 2026 GSTR-3B, since the credit of ₹48.24 is not in this month's auto-populated 4A5, and that it is claimed in the August 2026 return when the 2B carries it. Please also confirm the fee accrual booked in July for the same record, so the books and the return line up.\n\nNo credit note is due to the customer under Section 34."
+      },
+      "gstr3bFlag": {
+        "line": null,
+        "action": "NO_ENTRY",
+        "amountPaise": 4824,
+        "note": "Timing difference only: the GST of ₹48.24 appears on the August 2026 GSTR-2B, so it is not in the July 2026 Table 4A5 figure and nothing is to be reversed. Claim it in the August 2026 return."
+      },
+      "tallyEntry": {
+        "voucherType": "JOURNAL",
+        "narration": "Razorpay fee on pay_gQ4OQyw2EK4io0, settlement setl_6KICkksMiQAeqC — accrue July 2026; ITC of tax to be claimed in August 2026 per 2B (invoice RZP/TAX/2026-07/0041882).",
+        "lines": [
+          {
+            "ledger": "Payment Gateway Charges",
+            "side": "DEBIT",
+            "amountPaise": 26800
+          },
+          {
+            "ledger": "Input GST Credit (Unavailed - 2B Aug 2026)",
+            "side": "DEBIT",
+            "amountPaise": 4824
+          },
+          {
+            "ledger": "Razorpay Settlement Receivable",
+            "side": "CREDIT",
+            "amountPaise": 31624
+          }
+        ]
+      }
+    },
+    "verdict": "ACCEPTED",
+    "unresolved": [],
+    "unbalanced": false,
+    "misfiled": false,
+    "misrouted": false,
+    "model": "claude-opus-5",
+    "promptVersion": "act-v3",
+    "recordedAt": "2026-09-04T06:52:25.592Z",
+    "latencyMs": 12737,
+    "inputTokens": 3546,
+    "outputTokens": 943,
+    "costMicroUsd": 27202
+  },
+  {
+    "recordId": "pay_S2s6M2O4AEQkOA",
+    "figures": "amount:780000|expectedFee:18408|expectedFeeNet:15600|expectedTax:2808|fee:18408|feeExcess:0|feeNet:15600|tax:2808|taxExcess:0",
+    "draft": {
+      "caEmail": {
+        "subject": "Timing difference on settlement setl_6KICkksMiQAeqC — July 2026 (072026)",
+        "body": "Please review one exception in the July 2026 reconciliation.\n\nPayment pay_S2s6M2O4AEQkOA (order order_ggmUiG2CaeG4eK) settled on 01 Aug 2026, 15:30 IST under settlement setl_6KICkksMiQAeqC. Gross amount ₹7,800.00. Razorpay deducted a fee of ₹184.08 inclusive of GST, being ₹156.00 fee net of tax and ₹28.08 GST. This matches the expected fee of ₹184.08 (net ₹156.00, tax ₹28.08), so there is no excess: fee excess ₹0.00 and tax excess ₹0.00.\n\nThe only issue is timing. Razorpay's invoice RZP/TAX/2026-07/0041882 (GSTIN 27AAGCR4375J1ZY) appears on our GSTR-2B for 082026, not 072026. Please treat the ₹28.08 credit as belonging to the August 2026 return and do not include it in the July claim. No reversal is required, since the credit was never auto-populated into July's Table 4A5.\n\nPlease confirm the treatment before we book the correction journal for the fee in July.\n\nGSTIN 27TESTM1234A1Z0."
+      },
+      "gstr3bFlag": {
+        "line": null,
+        "action": "NO_ENTRY",
+        "amountPaise": 2808,
+        "note": "Timing difference only: the Razorpay invoice tax of ₹28.08 lands on the 082026 GSTR-2B, so it is not in the July 2026 claim. Nothing is to be reversed; the credit is simply claimed in the following period."
+      },
+      "tallyEntry": {
+        "voucherType": "JOURNAL",
+        "narration": "Razorpay fee on settlement setl_6KICkksMiQAeqC (pay_S2s6M2O4AEQkOA), invoice RZP/TAX/2026-07/0041882. Fee net ₹156.00 plus GST ₹28.08. ITC available in 082026 GSTR-2B — timing difference.",
+        "lines": [
+          {
+            "ledger": "Payment Gateway Charges",
+            "side": "DEBIT",
+            "amountPaise": 15600
+          },
+          {
+            "ledger": "Input GST Credit (Unavailed - 082026)",
+            "side": "DEBIT",
+            "amountPaise": 2808
+          },
+          {
+            "ledger": "Razorpay Settlement Account",
+            "side": "CREDIT",
+            "amountPaise": 18408
+          }
+        ]
+      }
+    },
+    "verdict": "ACCEPTED",
+    "unresolved": [],
+    "unbalanced": false,
+    "misfiled": false,
+    "misrouted": false,
+    "model": "claude-opus-5",
+    "promptVersion": "act-v3",
+    "recordedAt": "2026-09-04T06:52:39.745Z",
+    "latencyMs": 14153,
+    "inputTokens": 3546,
+    "outputTokens": 921,
+    "costMicroUsd": 26652
+  },
+  {
+    "recordId": "pay_0g2MGvCSGoyeQW",
+    "figures": "amount:2200000|expectedFee:51920|expectedFeeNet:44000|expectedTax:7920|fee:51920|feeExcess:0|feeNet:44000|tax:7920|taxExcess:0",
+    "draft": {
+      "caEmail": {
+        "subject": "Timing difference — settlement setl_6qoCamAi8YAmiY, July 2026 (payment pay_0g2MGvCSGoyeQW)",
+        "body": "This settlement was credited on 02 Aug 2026, 15:30 IST, but Razorpay's tax invoice RZP/TAX/2026-07/0041882 (GSTIN 27AAGCR4375J1ZY) appears on our GSTR-2B for 082026, not 072026. The matcher has flagged it as a timing difference only.\n\nDetails: settlement amount ₹22,000.00, gateway fee ₹519.20 inclusive of GST, fee net of tax ₹440.00, GST ₹79.20. The expected fee was ₹519.20 with expected tax of ₹79.20, so the excess is ₹0.00 on both the fee and the tax. Nothing is overcharged.\n\nPlease hold the ₹79.20 credit out of the July 2026 claim and take it in August 2026 when the invoice auto-populates in 4A5. Please do not reverse it in Table 4 — the credit is not in the July claim to begin with, and reversing a late credit would cost us the ITC.\n\nA draft journal booking the fee and the tax for July is attached to this record for your review before we post it. Please confirm the period treatment and we will proceed."
+      },
+      "gstr3bFlag": {
+        "line": null,
+        "action": "NO_ENTRY",
+        "amountPaise": 7920,
+        "note": "Timing difference only: the Razorpay invoice lands on the 082026 GSTR-2B, so the ₹79.20 GST is not in the July 2026 auto-populated 4A5 figure. No Table 4 entry is due for this period; claim it in August."
+      },
+      "tallyEntry": {
+        "voucherType": "JOURNAL",
+        "narration": "Razorpay gateway fee on settlement setl_6qoCamAi8YAmiY (pay_0g2MGvCSGoyeQW), invoice RZP/TAX/2026-07/0041882. Fee net ₹440.00 plus GST ₹79.20. ITC to be taken in Aug 2026 per GSTR-2B timing. Draft for approval.",
+        "lines": [
+          {
+            "ledger": "Payment Gateway Charges",
+            "side": "DEBIT",
+            "amountPaise": 44000
+          },
+          {
+            "ledger": "Input CGST/SGST (ITC Deferred - Aug 2026)",
+            "side": "DEBIT",
+            "amountPaise": 7920
+          },
+          {
+            "ledger": "Razorpay Settlement Account",
+            "side": "CREDIT",
+            "amountPaise": 51920
+          }
+        ]
+      }
+    },
+    "verdict": "ACCEPTED",
+    "unresolved": [],
+    "unbalanced": false,
+    "misfiled": false,
+    "misrouted": false,
+    "model": "claude-opus-5",
+    "promptVersion": "act-v3",
+    "recordedAt": "2026-09-04T06:52:51.880Z",
+    "latencyMs": 12135,
+    "inputTokens": 3546,
+    "outputTokens": 925,
+    "costMicroUsd": 26752
+  },
+  {
+    "recordId": "pay_SMaCEuc4uEorwE",
+    "figures": "amount:495000|expectedFee:11682|expectedFeeNet:9900|expectedTax:1782|fee:11682|feeExcess:0|feeNet:9900|tax:1782|taxExcess:0",
+    "draft": {
+      "caEmail": {
+        "subject": "Settlement setl_6qoCamAi8YAmiY — timing difference, July 2026 (072026)",
+        "body": "Payment pay_SMaCEuc4uEorwE (order order_qs82kgiYW8yGqU) settled on 02 Aug 2026, 15:30 IST under settlement setl_6qoCamAi8YAmiY. Gross amount ₹4,950.00, Razorpay fee ₹116.82 inclusive of GST, of which fee net of tax is ₹99.00 and GST is ₹17.82. This matches the expected fee of ₹116.82 (expected net ₹99.00, expected tax ₹17.82); fee excess ₹0.00 and tax excess ₹0.00.\n\nThe only difference is timing: Razorpay's invoice RZP/TAX/2026-07/0041882 appears on our GSTR-2B for 082026, not 072026. The ₹17.82 credit is therefore not in this month's auto-populated Table 4A5 and nothing needs to be reversed for 072026.\n\nPlease confirm we should make no Table 4 entry for this record in the July 2026 GSTR-3B, and carry the ₹17.82 credit into the August 2026 return when it auto-populates. Please also confirm the book entry recording the fee of ₹116.82 in July with the tax held as input GST pending the August 2B."
+      },
+      "gstr3bFlag": {
+        "line": null,
+        "action": "NO_ENTRY",
+        "amountPaise": 1782,
+        "note": "Timing difference only: the Razorpay invoice lands on the 082026 GSTR-2B, so the ₹17.82 GST is not in the 072026 Table 4A5 claim. No reversal is due — reversing late credit would forfeit it."
+      },
+      "tallyEntry": {
+        "voucherType": "JOURNAL",
+        "narration": "Razorpay fee on settlement setl_6qoCamAi8YAmiY (pay_SMaCEuc4uEorwE): fee net ₹99.00 and GST ₹17.82; invoice RZP/TAX/2026-07/0041882 appears on 082026 GSTR-2B.",
+        "lines": [
+          {
+            "ledger": "Payment Gateway Charges",
+            "side": "DEBIT",
+            "amountPaise": 9900
+          },
+          {
+            "ledger": "Input CGST/SGST (Credit Pending 2B)",
+            "side": "DEBIT",
+            "amountPaise": 1782
+          },
+          {
+            "ledger": "Razorpay Settlement Account",
+            "side": "CREDIT",
+            "amountPaise": 11682
+          }
+        ]
+      }
+    },
+    "verdict": "ACCEPTED",
+    "unresolved": [],
+    "unbalanced": false,
+    "misfiled": false,
+    "misrouted": false,
+    "model": "claude-opus-5",
+    "promptVersion": "act-v3",
+    "recordedAt": "2026-09-04T06:53:04.316Z",
+    "latencyMs": 12436,
+    "inputTokens": 3545,
+    "outputTokens": 913,
+    "costMicroUsd": 26447
+  },
+  {
+    "recordId": "pay_IEEYkwi6yKs0s2",
+    "figures": "amount:610000|expectedFee:14396|expectedFeeNet:12200|expectedTax:2196|fee:14396|feeExcess:0|feeNet:12200|tax:2196|taxExcess:0",
+    "draft": {
+      "caEmail": {
+        "subject": "Settlement setl_aq4kmyus6EWskU — timing difference, fee GST falls in 082026 GSTR-2B",
+        "body": "For the 072026 review, payment pay_IEEYkwi6yKs0s2 (order order_ecqmWca2gM02S8) under settlement setl_aq4kmyus6EWskU settled on 03 Aug 2026, 15:30 IST for ₹6,100.00. Razorpay deducted a fee of ₹143.96, which matches the expected fee of ₹143.96 — fee net of tax ₹122.00 and GST ₹21.96, with excess of ₹0.00 on both fee and tax.\n\nThe only difference is timing: Razorpay invoice RZP/TAX/2026-07/0041882 (GSTIN 27AAGCR4375J1ZY) is billed on the GSTR-2B for 082026, not 072026. The credit of ₹21.96 is therefore not in this month's auto-populated 4A5 figure and nothing should be reversed for it.\n\nPlease do the following: hold the input credit of ₹21.96 out of the 072026 claim, and confirm it appears in the 082026 GSTR-2B so it can be claimed in that period's return. Keep the settlement booked in the books at the settlement date as per the draft journal. No reversal entry is being proposed in Table 4 — reversing a credit that is merely late would cost us the credit.\n\nPlease review and confirm before anything is filed or posted."
+      },
+      "gstr3bFlag": {
+        "line": null,
+        "action": "NO_ENTRY",
+        "amountPaise": 2196,
+        "note": "Timing difference only: the Razorpay fee GST of ₹21.96 is billed on the 082026 GSTR-2B, so it is not in the 072026 auto-populated ITC. No Table 4 entry is due this period; claim it in 082026."
+      },
+      "tallyEntry": {
+        "voucherType": "JOURNAL",
+        "narration": "Razorpay fee on settlement setl_aq4kmyus6EWskU (pay_IEEYkwi6yKs0s2), invoice RZP/TAX/2026-07/0041882 — fee net ₹122.00 and GST ₹21.96; credit availed in 082026 per GSTR-2B timing.",
+        "lines": [
+          {
+            "ledger": "Payment Gateway Charges",
+            "side": "DEBIT",
+            "amountPaise": 12200
+          },
+          {
+            "ledger": "Input GST Credit (Unavailed - 082026)",
+            "side": "DEBIT",
+            "amountPaise": 2196
+          },
+          {
+            "ledger": "Razorpay Settlement Receivable",
+            "side": "CREDIT",
+            "amountPaise": 14396
+          }
+        ]
+      }
+    },
+    "verdict": "ACCEPTED",
+    "unresolved": [],
+    "unbalanced": false,
+    "misfiled": false,
+    "misrouted": false,
+    "model": "claude-opus-5",
+    "promptVersion": "act-v3",
+    "recordedAt": "2026-09-04T06:53:16.445Z",
+    "latencyMs": 12129,
+    "inputTokens": 3544,
+    "outputTokens": 964,
+    "costMicroUsd": 27717
+  }
+]
