@@ -1,1 +1,1212 @@
-[]
+[
+  {
+    "recordId": "pay_WIek2uqiSm6OSe",
+    "model": "claude-opus-5",
+    "promptVersion": "investigate-v1",
+    "verdict": "ACCEPTED",
+    "category": "PARTIAL_PAYMENT",
+    "reason": "Order order_wcsCK4S8SEIAmm has two rows: a successful capture pay_4gaSMyqces2Qkk (149900 paise, fee 3538) and this zero-value row pay_WIek2uqiSm6OSe, a failed-then-retried attempt; only the successful capture is billable.",
+    "toolCalls": [
+      {
+        "toolName": "findOrderSiblings",
+        "input": {
+          "orderId": "order_wcsCK4S8SEIAmm"
+        },
+        "output": {
+          "siblings": [
+            {
+              "entityId": "pay_4gaSMyqces2Qkk",
+              "type": "payment",
+              "amountPaise": 149900,
+              "feePaise": 3538
+            },
+            {
+              "entityId": "pay_WIek2uqiSm6OSe",
+              "type": "payment",
+              "amountPaise": 0,
+              "feePaise": 0
+            }
+          ],
+          "count": 2,
+          "zeroValueCount": 1
+        }
+      },
+      {
+        "toolName": "priceAtPublishedRates",
+        "input": {
+          "amountPaise": 0,
+          "feePaise": 0
+        },
+        "output": {
+          "cells": [],
+          "tiedCells": [],
+          "note": "Nothing was captured, so no fee is expected and no rate cell can explain one."
+        }
+      }
+    ],
+    "latencyMs": 7286,
+    "inputTokens": 5833,
+    "outputTokens": 277,
+    "costMicroUsd": 13707
+  },
+  {
+    "recordId": "pay_C8QeCCOouxW4yc",
+    "model": "claude-opus-5",
+    "promptVersion": "investigate-v1",
+    "verdict": "ACCEPTED",
+    "category": "PARTIAL_PAYMENT",
+    "reason": "Order order_EeQSEY8Sm4KGEu has two rows: this zero-value failed attempt (pay_C8QeCCOouxW4yc) and the successful capture pay_GQiwcS8koSo6mm for 249900 paise with 5898 fee; only the latter is billable.",
+    "toolCalls": [
+      {
+        "toolName": "findOrderSiblings",
+        "input": {
+          "orderId": "order_EeQSEY8Sm4KGEu"
+        },
+        "output": {
+          "siblings": [
+            {
+              "entityId": "pay_C8QeCCOouxW4yc",
+              "type": "payment",
+              "amountPaise": 0,
+              "feePaise": 0
+            },
+            {
+              "entityId": "pay_GQiwcS8koSo6mm",
+              "type": "payment",
+              "amountPaise": 249900,
+              "feePaise": 5898
+            }
+          ],
+          "count": 2,
+          "zeroValueCount": 1
+        }
+      },
+      {
+        "toolName": "priceAtPublishedRates",
+        "input": {
+          "amountPaise": 0,
+          "feePaise": 0
+        },
+        "output": {
+          "cells": [],
+          "tiedCells": [],
+          "note": "Nothing was captured, so no fee is expected and no rate cell can explain one."
+        }
+      }
+    ],
+    "latencyMs": 6739,
+    "inputTokens": 5834,
+    "outputTokens": 272,
+    "costMicroUsd": 13587
+  },
+  {
+    "recordId": "pay_aCKSAMew6U0eQ6",
+    "model": "claude-opus-5",
+    "promptVersion": "investigate-v1",
+    "verdict": "ACCEPTED",
+    "category": "PARTIAL_PAYMENT",
+    "reason": "Order order_2SEAosiY4Cw8Rq has two rows: this zero-value failed attempt (pay_aCKSAMew6U0eQ6, amount 0, fee 0) and the successful capture pay_SUCSC448Mk8gci of 87500 paise with fee 2065; only the latter is billable.",
+    "toolCalls": [
+      {
+        "toolName": "findOrderSiblings",
+        "input": {
+          "orderId": "order_2SEAosiY4Cw8Rq"
+        },
+        "output": {
+          "siblings": [
+            {
+              "entityId": "pay_aCKSAMew6U0eQ6",
+              "type": "payment",
+              "amountPaise": 0,
+              "feePaise": 0
+            },
+            {
+              "entityId": "pay_SUCSC448Mk8gci",
+              "type": "payment",
+              "amountPaise": 87500,
+              "feePaise": 2065
+            }
+          ],
+          "count": 2,
+          "zeroValueCount": 1
+        }
+      },
+      {
+        "toolName": "priceAtPublishedRates",
+        "input": {
+          "amountPaise": 0,
+          "feePaise": 0
+        },
+        "output": {
+          "cells": [],
+          "tiedCells": [],
+          "note": "Nothing was captured, so no fee is expected and no rate cell can explain one."
+        }
+      }
+    ],
+    "latencyMs": 8181,
+    "inputTokens": 5842,
+    "outputTokens": 281,
+    "costMicroUsd": 13852
+  },
+  {
+    "recordId": "pay_OmWyu0UGKY8O4o",
+    "model": "claude-opus-5",
+    "promptVersion": "investigate-v1",
+    "verdict": "ACCEPTED",
+    "category": "REFUND_NETTED",
+    "reason": "Fee of 21004 paise ties exactly to the STANDARD 2% cell on 890000 paise, and refund rfnd_si46yWo1IOGEWC fully reverses the payment (890000 paise, settled 2026-07-11) with no fee returned, so the MDR GST stays valid ITC while a Section 34 credit note is owed to the customer.",
+    "toolCalls": [
+      {
+        "toolName": "priceAtPublishedRates",
+        "input": {
+          "amountPaise": 890000,
+          "feePaise": 21004
+        },
+        "output": {
+          "cells": [
+            {
+              "cell": "STANDARD",
+              "ratePercent": 2,
+              "expectedFeePaise": 21004,
+              "expectedTaxPaise": 3204,
+              "differencePaise": 0,
+              "tiesWithinTolerance": true
+            },
+            {
+              "cell": "CORPORATE",
+              "ratePercent": 2.15,
+              "expectedFeePaise": 22579,
+              "expectedTaxPaise": 3444,
+              "differencePaise": -1575,
+              "tiesWithinTolerance": false
+            }
+          ],
+          "tiedCells": [
+            "STANDARD"
+          ],
+          "note": null
+        }
+      },
+      {
+        "toolName": "findOrderSiblings",
+        "input": {
+          "orderId": "order_UR8qAgo46GOye8"
+        },
+        "output": {
+          "siblings": [
+            {
+              "entityId": "pay_OmWyu0UGKY8O4o",
+              "type": "payment",
+              "amountPaise": 890000,
+              "feePaise": 21004
+            },
+            {
+              "entityId": "rfnd_si46yWo1IOGEWC",
+              "type": "refund",
+              "amountPaise": 890000,
+              "feePaise": 0
+            }
+          ],
+          "count": 2,
+          "zeroValueCount": 0
+        }
+      },
+      {
+        "toolName": "findRefundsForPayment",
+        "input": {
+          "paymentId": "pay_OmWyu0UGKY8O4o"
+        },
+        "output": {
+          "refunds": [
+            {
+              "entityId": "rfnd_si46yWo1IOGEWC",
+              "amountPaise": 890000,
+              "debitPaise": 890000,
+              "settlementId": "setl_Y6OqYKA8Q0O4e0",
+              "settledOn": "2026-07-11"
+            }
+          ],
+          "count": 1
+        }
+      },
+      {
+        "toolName": "resolveFilingPeriod",
+        "input": {
+          "settledAtUnixSeconds": 1783123200
+        },
+        "output": {
+          "period": "072026"
+        }
+      }
+    ],
+    "latencyMs": 8820,
+    "inputTokens": 6268,
+    "outputTokens": 422,
+    "costMicroUsd": 19507
+  },
+  {
+    "recordId": "pay_qcqeWqwISCOg2K",
+    "model": "claude-opus-5",
+    "promptVersion": "investigate-v1",
+    "verdict": "ACCEPTED",
+    "category": "FEE_DEDUCTION",
+    "reason": "Fee of 36875 paise on a 1250000 paise capture ties to neither published cell (STANDARD 29500, off by 7375; CORPORATE 31713, off by 5162) — an effective 2.95% rate — with no refunds or zero-value order siblings to explain it.",
+    "toolCalls": [
+      {
+        "toolName": "priceAtPublishedRates",
+        "input": {
+          "amountPaise": 1250000,
+          "feePaise": 36875
+        },
+        "output": {
+          "cells": [
+            {
+              "cell": "STANDARD",
+              "ratePercent": 2,
+              "expectedFeePaise": 29500,
+              "expectedTaxPaise": 4500,
+              "differencePaise": 7375,
+              "tiesWithinTolerance": false
+            },
+            {
+              "cell": "CORPORATE",
+              "ratePercent": 2.15,
+              "expectedFeePaise": 31713,
+              "expectedTaxPaise": 4838,
+              "differencePaise": 5162,
+              "tiesWithinTolerance": false
+            }
+          ],
+          "tiedCells": [],
+          "note": null
+        }
+      },
+      {
+        "toolName": "findOrderSiblings",
+        "input": {
+          "orderId": "order_Uq6s0yaqsEu2WM"
+        },
+        "output": {
+          "siblings": [
+            {
+              "entityId": "pay_qcqeWqwISCOg2K",
+              "type": "payment",
+              "amountPaise": 1250000,
+              "feePaise": 36875
+            }
+          ],
+          "count": 1,
+          "zeroValueCount": 0
+        }
+      },
+      {
+        "toolName": "findRefundsForPayment",
+        "input": {
+          "paymentId": "pay_qcqeWqwISCOg2K"
+        },
+        "output": {
+          "refunds": [],
+          "count": 0
+        }
+      }
+    ],
+    "latencyMs": 8223,
+    "inputTokens": 6039,
+    "outputTokens": 336,
+    "costMicroUsd": 16212
+  },
+  {
+    "recordId": "pay_cOy8OKC0WYS2gq",
+    "model": "claude-opus-5",
+    "promptVersion": "investigate-v1",
+    "verdict": "ACCEPTED",
+    "category": "REFUND_NETTED",
+    "reason": "Fee 36816 ties exactly to STANDARD 2% on 1560000 and settlement falls in 072026, but refund rfnd_8Gia2uAEIkEIse of 500000 (settled 2026-07-16) nets against this payment; the MDR GST stays valid ITC and a Section 34 credit note is owed to the customer.",
+    "toolCalls": [
+      {
+        "toolName": "priceAtPublishedRates",
+        "input": {
+          "amountPaise": 1560000,
+          "feePaise": 36816
+        },
+        "output": {
+          "cells": [
+            {
+              "cell": "STANDARD",
+              "ratePercent": 2,
+              "expectedFeePaise": 36816,
+              "expectedTaxPaise": 5616,
+              "differencePaise": 0,
+              "tiesWithinTolerance": true
+            },
+            {
+              "cell": "CORPORATE",
+              "ratePercent": 2.15,
+              "expectedFeePaise": 39577,
+              "expectedTaxPaise": 6037,
+              "differencePaise": -2761,
+              "tiesWithinTolerance": false
+            }
+          ],
+          "tiedCells": [
+            "STANDARD"
+          ],
+          "note": null
+        }
+      },
+      {
+        "toolName": "findOrderSiblings",
+        "input": {
+          "orderId": "order_EgESqOK2UsIK80"
+        },
+        "output": {
+          "siblings": [
+            {
+              "entityId": "pay_cOy8OKC0WYS2gq",
+              "type": "payment",
+              "amountPaise": 1560000,
+              "feePaise": 36816
+            },
+            {
+              "entityId": "rfnd_8Gia2uAEIkEIse",
+              "type": "refund",
+              "amountPaise": 500000,
+              "feePaise": 0
+            }
+          ],
+          "count": 2,
+          "zeroValueCount": 0
+        }
+      },
+      {
+        "toolName": "findRefundsForPayment",
+        "input": {
+          "paymentId": "pay_cOy8OKC0WYS2gq"
+        },
+        "output": {
+          "refunds": [
+            {
+              "entityId": "rfnd_8Gia2uAEIkEIse",
+              "amountPaise": 500000,
+              "debitPaise": 500000,
+              "settlementId": "setl_WEiSs0Oc6eM2ok",
+              "settledOn": "2026-07-16"
+            }
+          ],
+          "count": 1
+        }
+      },
+      {
+        "toolName": "resolveFilingPeriod",
+        "input": {
+          "settledAtUnixSeconds": 1784044800
+        },
+        "output": {
+          "period": "072026"
+        }
+      }
+    ],
+    "latencyMs": 8810,
+    "inputTokens": 6277,
+    "outputTokens": 417,
+    "costMicroUsd": 19427
+  },
+  {
+    "recordId": "pay_GAAC2oIGuQAIk4",
+    "model": "claude-opus-5",
+    "promptVersion": "investigate-v1",
+    "verdict": "ACCEPTED",
+    "category": "FEE_DEDUCTION",
+    "reason": "Fee of 24072 paise on a 680000 paise capture ties to neither published cell (STANDARD 16048, off by 8024; CORPORATE 17252, off by 6820), with no refunds and no sibling order rows — an unpublished rate was charged.",
+    "toolCalls": [
+      {
+        "toolName": "priceAtPublishedRates",
+        "input": {
+          "amountPaise": 680000,
+          "feePaise": 24072
+        },
+        "output": {
+          "cells": [
+            {
+              "cell": "STANDARD",
+              "ratePercent": 2,
+              "expectedFeePaise": 16048,
+              "expectedTaxPaise": 2448,
+              "differencePaise": 8024,
+              "tiesWithinTolerance": false
+            },
+            {
+              "cell": "CORPORATE",
+              "ratePercent": 2.15,
+              "expectedFeePaise": 17252,
+              "expectedTaxPaise": 2632,
+              "differencePaise": 6820,
+              "tiesWithinTolerance": false
+            }
+          ],
+          "tiedCells": [],
+          "note": null
+        }
+      },
+      {
+        "toolName": "findOrderSiblings",
+        "input": {
+          "orderId": "order_kM4SMswo2e44gC"
+        },
+        "output": {
+          "siblings": [
+            {
+              "entityId": "pay_GAAC2oIGuQAIk4",
+              "type": "payment",
+              "amountPaise": 680000,
+              "feePaise": 24072
+            }
+          ],
+          "count": 1,
+          "zeroValueCount": 0
+        }
+      },
+      {
+        "toolName": "findRefundsForPayment",
+        "input": {
+          "paymentId": "pay_GAAC2oIGuQAIk4"
+        },
+        "output": {
+          "refunds": [],
+          "count": 0
+        }
+      }
+    ],
+    "latencyMs": 10577,
+    "inputTokens": 6026,
+    "outputTokens": 326,
+    "costMicroUsd": 15897
+  },
+  {
+    "recordId": "pay_ewuukseCy0uaU2",
+    "model": "claude-opus-5",
+    "promptVersion": "investigate-v1",
+    "verdict": "ACCEPTED",
+    "category": "FEE_DEDUCTION",
+    "reason": "On the 2,400,000 paise capture settled 2026-07-18, the 49,560 paise fee ties to neither published cell (STANDARD 56,640, short 7,080; CORPORATE 60,888, short 11,328), with no refunds or sibling order rows — an unpublished rate was applied.",
+    "toolCalls": [
+      {
+        "toolName": "priceAtPublishedRates",
+        "input": {
+          "amountPaise": 2400000,
+          "feePaise": 49560
+        },
+        "output": {
+          "cells": [
+            {
+              "cell": "STANDARD",
+              "ratePercent": 2,
+              "expectedFeePaise": 56640,
+              "expectedTaxPaise": 8640,
+              "differencePaise": -7080,
+              "tiesWithinTolerance": false
+            },
+            {
+              "cell": "CORPORATE",
+              "ratePercent": 2.15,
+              "expectedFeePaise": 60888,
+              "expectedTaxPaise": 9288,
+              "differencePaise": -11328,
+              "tiesWithinTolerance": false
+            }
+          ],
+          "tiedCells": [],
+          "note": null
+        }
+      },
+      {
+        "toolName": "findOrderSiblings",
+        "input": {
+          "orderId": "order_g0SqGUUC4Q8GiS"
+        },
+        "output": {
+          "siblings": [
+            {
+              "entityId": "pay_ewuukseCy0uaU2",
+              "type": "payment",
+              "amountPaise": 2400000,
+              "feePaise": 49560
+            }
+          ],
+          "count": 1,
+          "zeroValueCount": 0
+        }
+      },
+      {
+        "toolName": "findRefundsForPayment",
+        "input": {
+          "paymentId": "pay_ewuukseCy0uaU2"
+        },
+        "output": {
+          "refunds": [],
+          "count": 0
+        }
+      }
+    ],
+    "latencyMs": 9014,
+    "inputTokens": 6029,
+    "outputTokens": 342,
+    "costMicroUsd": 16312
+  },
+  {
+    "recordId": "pay_OquIYaYcCYEoSQ",
+    "model": "claude-opus-5",
+    "promptVersion": "investigate-v1",
+    "verdict": "ACCEPTED",
+    "category": "REFUND_NETTED",
+    "reason": "Fee of 8024 ties exactly to the STANDARD 2% cell on 340000, and refund rfnd_42Ws8UEEWoAWyK reverses the full 340000 on 2026-07-21; Razorpay kept the MDR so the GST stays valid ITC, but a Section 34 credit note is owed to the customer.",
+    "toolCalls": [
+      {
+        "toolName": "priceAtPublishedRates",
+        "input": {
+          "amountPaise": 340000,
+          "feePaise": 8024
+        },
+        "output": {
+          "cells": [
+            {
+              "cell": "STANDARD",
+              "ratePercent": 2,
+              "expectedFeePaise": 8024,
+              "expectedTaxPaise": 1224,
+              "differencePaise": 0,
+              "tiesWithinTolerance": true
+            },
+            {
+              "cell": "CORPORATE",
+              "ratePercent": 2.15,
+              "expectedFeePaise": 8626,
+              "expectedTaxPaise": 1316,
+              "differencePaise": -602,
+              "tiesWithinTolerance": false
+            }
+          ],
+          "tiedCells": [
+            "STANDARD"
+          ],
+          "note": null
+        }
+      },
+      {
+        "toolName": "findOrderSiblings",
+        "input": {
+          "orderId": "order_MwSAsCOuugok4I"
+        },
+        "output": {
+          "siblings": [
+            {
+              "entityId": "pay_OquIYaYcCYEoSQ",
+              "type": "payment",
+              "amountPaise": 340000,
+              "feePaise": 8024
+            },
+            {
+              "entityId": "rfnd_42Ws8UEEWoAWyK",
+              "type": "refund",
+              "amountPaise": 340000,
+              "feePaise": 0
+            }
+          ],
+          "count": 2,
+          "zeroValueCount": 0
+        }
+      },
+      {
+        "toolName": "findRefundsForPayment",
+        "input": {
+          "paymentId": "pay_OquIYaYcCYEoSQ"
+        },
+        "output": {
+          "refunds": [
+            {
+              "entityId": "rfnd_42Ws8UEEWoAWyK",
+              "amountPaise": 340000,
+              "debitPaise": 340000,
+              "settlementId": "setl_uiO4scAm286qyQ",
+              "settledOn": "2026-07-21"
+            }
+          ],
+          "count": 1
+        }
+      }
+    ],
+    "latencyMs": 8289,
+    "inputTokens": 6160,
+    "outputTokens": 350,
+    "costMicroUsd": 17167
+  },
+  {
+    "recordId": "pay_I0c2AKEeoIgqiu",
+    "model": "claude-opus-5",
+    "promptVersion": "investigate-v1",
+    "verdict": "ACCEPTED",
+    "category": "FEE_DEDUCTION",
+    "reason": "Fee of 30232p on a 915000p capture ties to neither published cell (STANDARD 21594p, off by 8638p; CORPORATE 23214p, off by 7018p), with no refunds and no zero-value sibling under order_yOeG2eAGYawGIm — an unpublished rate was charged.",
+    "toolCalls": [
+      {
+        "toolName": "priceAtPublishedRates",
+        "input": {
+          "amountPaise": 915000,
+          "feePaise": 30232
+        },
+        "output": {
+          "cells": [
+            {
+              "cell": "STANDARD",
+              "ratePercent": 2,
+              "expectedFeePaise": 21594,
+              "expectedTaxPaise": 3294,
+              "differencePaise": 8638,
+              "tiesWithinTolerance": false
+            },
+            {
+              "cell": "CORPORATE",
+              "ratePercent": 2.15,
+              "expectedFeePaise": 23214,
+              "expectedTaxPaise": 3541,
+              "differencePaise": 7018,
+              "tiesWithinTolerance": false
+            }
+          ],
+          "tiedCells": [],
+          "note": null
+        }
+      },
+      {
+        "toolName": "findOrderSiblings",
+        "input": {
+          "orderId": "order_yOeG2eAGYawGIm"
+        },
+        "output": {
+          "siblings": [
+            {
+              "entityId": "pay_I0c2AKEeoIgqiu",
+              "type": "payment",
+              "amountPaise": 915000,
+              "feePaise": 30232
+            }
+          ],
+          "count": 1,
+          "zeroValueCount": 0
+        }
+      },
+      {
+        "toolName": "findRefundsForPayment",
+        "input": {
+          "paymentId": "pay_I0c2AKEeoIgqiu"
+        },
+        "output": {
+          "refunds": [],
+          "count": 0
+        }
+      }
+    ],
+    "latencyMs": 8339,
+    "inputTokens": 6027,
+    "outputTokens": 344,
+    "costMicroUsd": 16352
+  },
+  {
+    "recordId": "pay_2K4wAoIMaAkmAU",
+    "model": "claude-opus-5",
+    "promptVersion": "investigate-v1",
+    "verdict": "ACCEPTED",
+    "category": "REFUND_NETTED",
+    "reason": "Fee of 16992 ties exactly to the STANDARD 2% cell on 720000, and refund rfnd_uEC8gw4EG4oOiU of 250000 was netted (settled 2026-07-26); the MDR GST stays valid ITC but a Section 34 credit note is owed to the customer.",
+    "toolCalls": [
+      {
+        "toolName": "priceAtPublishedRates",
+        "input": {
+          "amountPaise": 720000,
+          "feePaise": 16992
+        },
+        "output": {
+          "cells": [
+            {
+              "cell": "STANDARD",
+              "ratePercent": 2,
+              "expectedFeePaise": 16992,
+              "expectedTaxPaise": 2592,
+              "differencePaise": 0,
+              "tiesWithinTolerance": true
+            },
+            {
+              "cell": "CORPORATE",
+              "ratePercent": 2.15,
+              "expectedFeePaise": 18266,
+              "expectedTaxPaise": 2786,
+              "differencePaise": -1274,
+              "tiesWithinTolerance": false
+            }
+          ],
+          "tiedCells": [
+            "STANDARD"
+          ],
+          "note": null
+        }
+      },
+      {
+        "toolName": "findOrderSiblings",
+        "input": {
+          "orderId": "order_CaIMU6owW6GmKW"
+        },
+        "output": {
+          "siblings": [
+            {
+              "entityId": "pay_2K4wAoIMaAkmAU",
+              "type": "payment",
+              "amountPaise": 720000,
+              "feePaise": 16992
+            },
+            {
+              "entityId": "rfnd_uEC8gw4EG4oOiU",
+              "type": "refund",
+              "amountPaise": 250000,
+              "feePaise": 0
+            }
+          ],
+          "count": 2,
+          "zeroValueCount": 0
+        }
+      },
+      {
+        "toolName": "findRefundsForPayment",
+        "input": {
+          "paymentId": "pay_2K4wAoIMaAkmAU"
+        },
+        "output": {
+          "refunds": [
+            {
+              "entityId": "rfnd_uEC8gw4EG4oOiU",
+              "amountPaise": 250000,
+              "debitPaise": 250000,
+              "settlementId": "setl_qMcmIA0cKKBCqq",
+              "settledOn": "2026-07-26"
+            }
+          ],
+          "count": 1
+        }
+      }
+    ],
+    "latencyMs": 8958,
+    "inputTokens": 6168,
+    "outputTokens": 342,
+    "costMicroUsd": 17007
+  },
+  {
+    "recordId": "pay_gQ4OQyw2EK4io0",
+    "model": "claude-opus-5",
+    "promptVersion": "investigate-v1",
+    "verdict": "ACCEPTED",
+    "category": "TIMING",
+    "reason": "Fee of 31624 ties exactly to the STANDARD 2% cell on 1340000 with no refunds or duplicate order rows; the T+2 settlement landed 2026-08-01, so its GST falls on the August 2026 GSTR-2B rather than the 072026 period.",
+    "toolCalls": [
+      {
+        "toolName": "priceAtPublishedRates",
+        "input": {
+          "amountPaise": 1340000,
+          "feePaise": 31624
+        },
+        "output": {
+          "cells": [
+            {
+              "cell": "STANDARD",
+              "ratePercent": 2,
+              "expectedFeePaise": 31624,
+              "expectedTaxPaise": 4824,
+              "differencePaise": 0,
+              "tiesWithinTolerance": true
+            },
+            {
+              "cell": "CORPORATE",
+              "ratePercent": 2.15,
+              "expectedFeePaise": 33996,
+              "expectedTaxPaise": 5186,
+              "differencePaise": -2372,
+              "tiesWithinTolerance": false
+            }
+          ],
+          "tiedCells": [
+            "STANDARD"
+          ],
+          "note": null
+        }
+      },
+      {
+        "toolName": "findOrderSiblings",
+        "input": {
+          "orderId": "order_s0U4a4g28OaQ4A"
+        },
+        "output": {
+          "siblings": [
+            {
+              "entityId": "pay_gQ4OQyw2EK4io0",
+              "type": "payment",
+              "amountPaise": 1340000,
+              "feePaise": 31624
+            }
+          ],
+          "count": 1,
+          "zeroValueCount": 0
+        }
+      },
+      {
+        "toolName": "findRefundsForPayment",
+        "input": {
+          "paymentId": "pay_gQ4OQyw2EK4io0"
+        },
+        "output": {
+          "refunds": [],
+          "count": 0
+        }
+      },
+      {
+        "toolName": "resolveFilingPeriod",
+        "input": {
+          "settledAtUnixSeconds": 1754006400
+        },
+        "output": {
+          "period": "082025"
+        }
+      }
+    ],
+    "latencyMs": 8236,
+    "inputTokens": 6143,
+    "outputTokens": 435,
+    "costMicroUsd": 19207
+  },
+  {
+    "recordId": "pay_S2s6M2O4AEQkOA",
+    "model": "claude-opus-5",
+    "promptVersion": "investigate-v1",
+    "verdict": "ACCEPTED",
+    "category": "TIMING",
+    "reason": "Fee of 18408 paise ties exactly to the published STANDARD 2% cell on 780000 paise (tax 2808), but the T+2 settlement landed 2026-08-01, so its GST appears on the August 2026 GSTR-2B rather than the 072026 period being reconciled; no refunds or sibling order rows exist.",
+    "toolCalls": [
+      {
+        "toolName": "priceAtPublishedRates",
+        "input": {
+          "amountPaise": 780000,
+          "feePaise": 18408
+        },
+        "output": {
+          "cells": [
+            {
+              "cell": "STANDARD",
+              "ratePercent": 2,
+              "expectedFeePaise": 18408,
+              "expectedTaxPaise": 2808,
+              "differencePaise": 0,
+              "tiesWithinTolerance": true
+            },
+            {
+              "cell": "CORPORATE",
+              "ratePercent": 2.15,
+              "expectedFeePaise": 19789,
+              "expectedTaxPaise": 3019,
+              "differencePaise": -1381,
+              "tiesWithinTolerance": false
+            }
+          ],
+          "tiedCells": [
+            "STANDARD"
+          ],
+          "note": null
+        }
+      },
+      {
+        "toolName": "findOrderSiblings",
+        "input": {
+          "orderId": "order_ggmUiG2CaeG4eK"
+        },
+        "output": {
+          "siblings": [
+            {
+              "entityId": "pay_S2s6M2O4AEQkOA",
+              "type": "payment",
+              "amountPaise": 780000,
+              "feePaise": 18408
+            }
+          ],
+          "count": 1,
+          "zeroValueCount": 0
+        }
+      },
+      {
+        "toolName": "findRefundsForPayment",
+        "input": {
+          "paymentId": "pay_S2s6M2O4AEQkOA"
+        },
+        "output": {
+          "refunds": [],
+          "count": 0
+        }
+      },
+      {
+        "toolName": "resolveFilingPeriod",
+        "input": {
+          "settledAtUnixSeconds": 1754005800
+        },
+        "output": {
+          "period": "082025"
+        }
+      }
+    ],
+    "latencyMs": 9043,
+    "inputTokens": 6139,
+    "outputTokens": 451,
+    "costMicroUsd": 19587
+  },
+  {
+    "recordId": "pay_0g2MGvCSGoyeQW",
+    "model": "claude-opus-5",
+    "promptVersion": "investigate-v1",
+    "verdict": "ACCEPTED",
+    "category": "TIMING",
+    "reason": "Fee of 51920 paise ties exactly to the published STANDARD 2% cell on 2200000 captured, with no refunds or duplicate order rows; the 2026-08-02 settlement (T+2) falls in the next filing period, so its GST lands on August's GSTR-2B rather than 072026.",
+    "toolCalls": [
+      {
+        "toolName": "priceAtPublishedRates",
+        "input": {
+          "amountPaise": 2200000,
+          "feePaise": 51920
+        },
+        "output": {
+          "cells": [
+            {
+              "cell": "STANDARD",
+              "ratePercent": 2,
+              "expectedFeePaise": 51920,
+              "expectedTaxPaise": 7920,
+              "differencePaise": 0,
+              "tiesWithinTolerance": true
+            },
+            {
+              "cell": "CORPORATE",
+              "ratePercent": 2.15,
+              "expectedFeePaise": 55814,
+              "expectedTaxPaise": 8514,
+              "differencePaise": -3894,
+              "tiesWithinTolerance": false
+            }
+          ],
+          "tiedCells": [
+            "STANDARD"
+          ],
+          "note": null
+        }
+      },
+      {
+        "toolName": "resolveFilingPeriod",
+        "input": {
+          "settledAtUnixSeconds": 1754073000
+        },
+        "output": {
+          "period": "082025"
+        }
+      },
+      {
+        "toolName": "findOrderSiblings",
+        "input": {
+          "orderId": "order_oQ88kygcqgYW6a"
+        },
+        "output": {
+          "siblings": [
+            {
+              "entityId": "pay_0g2MGvCSGoyeQW",
+              "type": "payment",
+              "amountPaise": 2200000,
+              "feePaise": 51920
+            }
+          ],
+          "count": 1,
+          "zeroValueCount": 0
+        }
+      },
+      {
+        "toolName": "findRefundsForPayment",
+        "input": {
+          "paymentId": "pay_0g2MGvCSGoyeQW"
+        },
+        "output": {
+          "refunds": [],
+          "count": 0
+        }
+      }
+    ],
+    "latencyMs": 8128,
+    "inputTokens": 6142,
+    "outputTokens": 445,
+    "costMicroUsd": 19452
+  },
+  {
+    "recordId": "pay_SMaCEuc4uEorwE",
+    "model": "claude-opus-5",
+    "promptVersion": "investigate-v1",
+    "verdict": "ACCEPTED",
+    "category": "TIMING",
+    "reason": "Fee of 11682 paise ties exactly to the STANDARD 2% cell on 495000 paise, with no refunds or duplicate order rows; the T+2 settlement on 2026-08-02 pushes its GST into the 082026 GSTR-2B rather than the 072026 period being reconciled.",
+    "toolCalls": [
+      {
+        "toolName": "priceAtPublishedRates",
+        "input": {
+          "amountPaise": 495000,
+          "feePaise": 11682
+        },
+        "output": {
+          "cells": [
+            {
+              "cell": "STANDARD",
+              "ratePercent": 2,
+              "expectedFeePaise": 11682,
+              "expectedTaxPaise": 1782,
+              "differencePaise": 0,
+              "tiesWithinTolerance": true
+            },
+            {
+              "cell": "CORPORATE",
+              "ratePercent": 2.15,
+              "expectedFeePaise": 12559,
+              "expectedTaxPaise": 1916,
+              "differencePaise": -877,
+              "tiesWithinTolerance": false
+            }
+          ],
+          "tiedCells": [
+            "STANDARD"
+          ],
+          "note": null
+        }
+      },
+      {
+        "toolName": "findOrderSiblings",
+        "input": {
+          "orderId": "order_qs82kgiYW8yGqU"
+        },
+        "output": {
+          "siblings": [
+            {
+              "entityId": "pay_SMaCEuc4uEorwE",
+              "type": "payment",
+              "amountPaise": 495000,
+              "feePaise": 11682
+            }
+          ],
+          "count": 1,
+          "zeroValueCount": 0
+        }
+      },
+      {
+        "toolName": "findRefundsForPayment",
+        "input": {
+          "paymentId": "pay_SMaCEuc4uEorwE"
+        },
+        "output": {
+          "refunds": [],
+          "count": 0
+        }
+      },
+      {
+        "toolName": "resolveFilingPeriod",
+        "input": {
+          "settledAtUnixSeconds": 1754073000
+        },
+        "output": {
+          "period": "082025"
+        }
+      }
+    ],
+    "latencyMs": 7841,
+    "inputTokens": 6133,
+    "outputTokens": 435,
+    "costMicroUsd": 19157
+  },
+  {
+    "recordId": "pay_IEEYkwi6yKs0s2",
+    "model": "claude-opus-5",
+    "promptVersion": "investigate-v1",
+    "verdict": "ACCEPTED",
+    "category": "TIMING",
+    "reason": "Fee of 14396 paise ties exactly to the STANDARD 2% cell on 610000 paise (tax 2196), with no refunds or sibling rows; settlement on 2026-08-03 (T+2) falls into the August filing period, so its GST appears after the 072026 period being reconciled.",
+    "toolCalls": [
+      {
+        "toolName": "priceAtPublishedRates",
+        "input": {
+          "amountPaise": 610000,
+          "feePaise": 14396
+        },
+        "output": {
+          "cells": [
+            {
+              "cell": "STANDARD",
+              "ratePercent": 2,
+              "expectedFeePaise": 14396,
+              "expectedTaxPaise": 2196,
+              "differencePaise": 0,
+              "tiesWithinTolerance": true
+            },
+            {
+              "cell": "CORPORATE",
+              "ratePercent": 2.15,
+              "expectedFeePaise": 15476,
+              "expectedTaxPaise": 2361,
+              "differencePaise": -1080,
+              "tiesWithinTolerance": false
+            }
+          ],
+          "tiedCells": [
+            "STANDARD"
+          ],
+          "note": null
+        }
+      },
+      {
+        "toolName": "findOrderSiblings",
+        "input": {
+          "orderId": "order_ecqmWca2gM02S8"
+        },
+        "output": {
+          "siblings": [
+            {
+              "entityId": "pay_IEEYkwi6yKs0s2",
+              "type": "payment",
+              "amountPaise": 610000,
+              "feePaise": 14396
+            }
+          ],
+          "count": 1,
+          "zeroValueCount": 0
+        }
+      },
+      {
+        "toolName": "findRefundsForPayment",
+        "input": {
+          "paymentId": "pay_IEEYkwi6yKs0s2"
+        },
+        "output": {
+          "refunds": [],
+          "count": 0
+        }
+      },
+      {
+        "toolName": "resolveFilingPeriod",
+        "input": {
+          "settledAtUnixSeconds": 1754159400
+        },
+        "output": {
+          "period": "082025"
+        }
+      }
+    ],
+    "latencyMs": 8356,
+    "inputTokens": 6133,
+    "outputTokens": 449,
+    "costMicroUsd": 19507
+  }
+]
