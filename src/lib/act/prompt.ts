@@ -6,9 +6,28 @@ import { recordFigures, type FigureSource } from "./figures";
 import {
   EMAIL_MAX_CHARS,
   GSTR3B_ACTIONS,
+  GSTR3B_CATEGORY_ROW,
   GSTR3B_LINES,
+  GSTR3B_ROW_ACTION,
   TALLY_VOUCHER_TYPES,
 } from "./schema";
+
+/**
+ * The category-to-row table as the model is shown it, rendered from the SAME
+ * map the gate checks against.
+ *
+ * Rendered rather than written out for the identical reason `recordPrompt`
+ * renders the figures from `recordFigures`: what the model is told and what the
+ * gate will accept have to be one statement of the rule. Written out by hand,
+ * the two drift, and the model gets blamed for following its own instructions.
+ */
+const CATEGORY_ROUTING = Object.entries(GSTR3B_CATEGORY_ROW)
+  .map(([category, line]) =>
+    line === null
+      ? `  ${category} — no row at all. Action ${GSTR3B_ACTIONS[3]}.`
+      : `  ${category} — row ${line}. Action ${GSTR3B_ROW_ACTION[line]}.`,
+  )
+  .join("\n");
 
 /**
  * One already-classified record, as the Act layer receives it.
@@ -66,14 +85,23 @@ Addressed to the merchant's chartered accountant, from the merchant. Name the se
 
 THE GSTR-3B FLAG
 GSTR-3B is the monthly summary return where the merchant claims input tax credit. Table 4 is the credit half of it.
-Row 4A5, "All other ITC", is where GST on a gateway fee arrives — and you may NOT point at it. The portal fills 4A5 from the merchant's GSTR-2B according to the actions they took in the Invoice Management System, so there is nothing there for a person to edit. Credit is given back by REVERSING it lower down, never by writing a smaller number over the claim.
+Row 4A5, "All other ITC", is where GST on a gateway fee arrives — and you may NOT point at it. The portal fills 4A5 from the merchant's GSTR-2B, and CBIC Circular 170/02/2022-GST directs that credit which should not be claimed is given back by REVERSING it lower down, never by writing a smaller number over the auto-populated figure. Editing 4A5 carries interest and a penalty, so a draft must never ask for it.
 The rows you may point at are the ones a person still fills in by hand:
   ${GSTR3B_LINES[0]} — REVERSE. A permanent reversal: credit given back and never taken again.
   ${GSTR3B_LINES[1]} — REVERSE. A reclaimable reversal: credit given back now and taken again later.
   ${GSTR3B_LINES[2]} — RECLAIM. Taking back something reversed under ${GSTR3B_LINES[1]} in an earlier period.
   ${GSTR3B_LINES[3]} — REPORT_ONLY. Credit that is not available at all, disclosed rather than claimed.
 Use the action listed against the row you choose. They are checked against each other, and a flag whose row and action disagree cannot be confirmed.
-The fourth action is ${GSTR3B_ACTIONS[3]}, and it goes with a null row. Use it when nothing belongs on this return at all — above all for a TIMING difference, where the credit lands on the FOLLOWING period's GSTR-2B and the merchant is still owed it. Do not reverse a credit that is merely late; reversing it is how a merchant loses money they were entitled to.
+The fourth action is ${GSTR3B_ACTIONS[3]}, and it goes with a null row. It means nothing belongs on this return at all.
+
+WHICH ROW THIS RECORD BELONGS ON
+The classification you were given decides this. You do not choose it, it is checked against the record, and a flag on the wrong row cannot be confirmed:
+${CATEGORY_ROUTING}
+
+The two you must not get the wrong way round:
+A fee the merchant cannot substantiate is ALREADY CLAIMED. The whole of the supplier's invoice tax auto-populates into 4A5, so saying no entry is due leaves that credit sitting in the claim. It has to be given back by reversing it.
+A ${GSTR3B_LINES[1]} reversal is reclaimable: the merchant takes it back later, once the supplier explains the charge, and reports the reclaim in ${GSTR3B_LINES[2]}. Say so in the note, because a merchant who thinks a reversal is permanent will not go back for the money.
+A timing difference is the opposite case. The credit lands on the FOLLOWING period's GSTR-2B and is not in this month's claim to begin with. Do not reverse a credit that is merely late; reversing it is how a merchant loses money they were entitled to.
 
 THE TALLY ENTRY
 A ${TALLY_VOUCHER_TYPES[0]} for a fee correction; a ${TALLY_VOUCHER_TYPES[1]} where the merchant owes its customer one. Give the ledger lines with their sides. DEBITS MUST EQUAL CREDITS — an unbalanced voucher is refused on import and is not a draft anyone can use. Use plain ledger names an Indian bookkeeper would recognise.

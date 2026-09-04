@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { ExceptionCategory } from "@/lib/matching/types";
 
 /**
  * Which prompt produced a given draft. Logged on every `ai_calls` row (PRD
@@ -8,7 +9,7 @@ import { z } from "zod";
  * Bump it whenever ACT_SYSTEM_PROMPT or this schema changes. Both are inputs to
  * the same draft.
  */
-export const ACT_PROMPT_VERSION = "act-v2";
+export const ACT_PROMPT_VERSION = "act-v3";
 
 /**
  * Caps, not targets. Output is most of the bill (PRD §9, "On cost") and a draft
@@ -39,13 +40,21 @@ export const LEDGER_MAX_CHARS = 60;
  *   under the Section 16(4) time bar or the place-of-supply restriction.
  *
  * Note which row is ABSENT. `4A5` ("All other ITC") is where GST on a gateway
- * fee arrives, and it is exactly the row a draft may NOT point at: since the
- * October 2025 tax period it is auto-populated from GSTR-2B according to the
- * merchant's Invoice Management System actions, and the lawful way to give
- * credit back is a reversal in 4(B) — never typing a smaller number over the
- * auto-populated claim, which merely creates a 2B-to-3B mismatch the portal
- * now validates against. Drafting an edit to `4A5` would be advising an action
- * the form does not offer, so the row is not in the vocabulary at all.
+ * fee arrives, and it is exactly the row a draft may NOT point at. It has been
+ * auto-populated from GSTR-2B since December 2020, and CBIC Circular No.
+ * 170/02/2022-GST of 6 July 2022 is explicit about what a taxpayer may do to
+ * it: para 4.3(A) and para 4.4 direct that ineligible credit is given back by
+ * REVERSING it in 4(B) and never by editing the auto-populated figure in 4(A).
+ * The 2022 instructions issued under that circular attach interest at 18% a
+ * year and a penalty to doing otherwise. Drafting an edit to `4A5` would be
+ * advising an action the taxpayer is directed not to take, so the row is not in
+ * the vocabulary at all.
+ *
+ * Whether the portal still ACCEPTS such an edit is a separate and unsettled
+ * question — the hard lock on Table 4 has no traceable instrument, unlike the
+ * Table 3.2 liability lock (GSTN Advisory No. 606, 7 June 2025). The vocabulary
+ * does not depend on the answer: the circular settles what may be done, and
+ * that is enough. BUILD-LOG 33 and 35 carry the full reasoning.
  *
  * These are ROW REFERENCES, not GSTN's own label text. The exact wording of
  * each row heading is not published in a form this project could check, so it
@@ -86,6 +95,45 @@ export const GSTR3B_ROW_ACTION: Record<(typeof GSTR3B_LINES)[number], Gstr3bActi
 
 export type Gstr3bLine = (typeof GSTR3B_LINES)[number];
 export type Gstr3bAction = (typeof GSTR3B_ACTIONS)[number];
+
+/**
+ * The row each exception category belongs on, and `null` where none does.
+ *
+ * The row↔action map above only catches a draft that contradicts ITSELF. A
+ * draft can be perfectly self-consistent and still point at the wrong row for
+ * the kind of exception it is about, and nothing checked that — which is how
+ * the first real run came back with `NO_ENTRY` on all sixteen records, every
+ * one of them marked ACCEPTED. See BUILD-LOG 35.
+ *
+ * The source is CBIC Circular No. 170/02/2022-GST of 6 July 2022:
+ *
+ * - `FEE_DEDUCTION` and `UNEXPLAINED` → **4B2**. The whole of the supplier's
+ *   invoice tax auto-populates into 4A5, so a fee the merchant cannot
+ *   substantiate is ALREADY claimed and "nothing is due" would leave it
+ *   claimed. Para 4.3(C) puts a reversal that may be reclaimed once the
+ *   condition is met in 4(B)(2), and the circular's own Annexure works this
+ *   exact case: an inward supply auto-populated in 4A(5) that the registered
+ *   person cannot establish was received is reversed in 4(B)(2) (Note 3).
+ *   Para 4.4 adds that such a reversal goes in 4(B) and NOT 4(D).
+ * - `TIMING` → **no row**. The credit lands on the FOLLOWING period's GSTR-2B
+ *   and is not in this month's 4A5 to begin with. Reversing it is how a
+ *   merchant gives up money they are still owed.
+ * - `REFUND_NETTED` → **no row**. Razorpay keeps its fee on a refunded
+ *   payment, so the merchant's inward credit is untouched. The Section 34
+ *   credit note this record raises is the merchant's own OUTWARD document to
+ *   its customer, which lands in Table 3, not Table 4.
+ * - `PARTIAL_PAYMENT` → **no row**. These rows carry no tax at all.
+ *
+ * Typed against `ExceptionCategory` so a sixth category — were the taxonomy
+ * ever widened — fails to compile here rather than silently routing nowhere.
+ */
+export const GSTR3B_CATEGORY_ROW: Record<ExceptionCategory, Gstr3bLine | null> = {
+  FEE_DEDUCTION: "4B2",
+  UNEXPLAINED: "4B2",
+  TIMING: null,
+  REFUND_NETTED: null,
+  PARTIAL_PAYMENT: null,
+};
 
 /**
  * Tally voucher types a correction can use. A fee correction is a journal; a

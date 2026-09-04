@@ -6,7 +6,25 @@ import {
   type ResolvedFigure,
   type UnresolvedFigure,
 } from "./figures";
-import { actDraftSchema, GSTR3B_ROW_ACTION, type ActDraft, type TallyLine } from "./schema";
+import {
+  actDraftSchema,
+  GSTR3B_CATEGORY_ROW,
+  GSTR3B_ROW_ACTION,
+  type ActDraft,
+  type TallyLine,
+} from "./schema";
+import type { ExceptionCategory } from "@/lib/matching/types";
+
+/**
+ * What the gate needs about the record behind a draft: its figures, and the
+ * classification another layer already made.
+ *
+ * The category is here rather than optional because the check it enables is
+ * not optional. A gate that could be called without it would silently skip the
+ * row check on every call site that forgot — which is precisely how sixteen
+ * wrong flags passed as ACCEPTED.
+ */
+export type GateSource = FigureSource & { category: ExceptionCategory | null };
 
 /**
  * What the gate concluded about one drafted action.
@@ -32,6 +50,8 @@ export type GatedDraft = {
   unbalanced: boolean;
   /** Whether the GSTR-3B flag's row and action contradict each other. */
   misfiled: boolean;
+  /** Whether the flag points at the wrong row for this record's category. */
+  misrouted: boolean;
   verdict: ActVerdict;
 };
 
@@ -52,7 +72,7 @@ export type GatedDraft = {
  * The input is `unknown` deliberately, exactly as the other two gates are. A
  * gate typed to the thing it exists to catch is a gate that trusts its input.
  */
-export function applyActGate(raw: unknown, row: FigureSource): GatedDraft {
+export function applyActGate(raw: unknown, row: GateSource): GatedDraft {
   const parsed = actDraftSchema.safeParse(raw);
   if (!parsed.success) {
     return {
@@ -61,6 +81,7 @@ export function applyActGate(raw: unknown, row: FigureSource): GatedDraft {
       unresolved: [],
       unbalanced: false,
       misfiled: false,
+      misrouted: false,
       verdict: "FAILED",
     };
   }
@@ -80,6 +101,7 @@ export function applyActGate(raw: unknown, row: FigureSource): GatedDraft {
   const unresolved = distinct([...prose.unresolved, ...structured.unresolved]);
   const unbalanced = !balances(draft.tallyEntry.lines);
   const misfiled = !filedCorrectly(draft.gstr3bFlag);
+  const misrouted = !routedCorrectly(draft.gstr3bFlag, row.category);
 
   return {
     draft,
@@ -87,7 +109,11 @@ export function applyActGate(raw: unknown, row: FigureSource): GatedDraft {
     unresolved,
     unbalanced,
     misfiled,
-    verdict: unresolved.length > 0 || unbalanced || misfiled ? "INVALID_FIGURE" : "ACCEPTED",
+    misrouted,
+    verdict:
+      unresolved.length > 0 || unbalanced || misfiled || misrouted
+        ? "INVALID_FIGURE"
+        : "ACCEPTED",
   };
 }
 
@@ -190,6 +216,29 @@ function balances(lines: readonly TallyLine[]): boolean {
 function filedCorrectly(flag: ActDraft["gstr3bFlag"]): boolean {
   if (flag.line === null) return flag.action === "NO_ENTRY";
   return flag.action === GSTR3B_ROW_ACTION[flag.line];
+}
+
+/**
+ * Whether a flag points at the row this record's category belongs on.
+ *
+ * `filedCorrectly` above asks whether the draft agrees with ITSELF. This asks
+ * the separate question of whether it agrees with the RECORD, and the two are
+ * genuinely different: `NO_ENTRY` beside a null row is perfectly self-consistent
+ * and is still wrong on a fee the merchant has already claimed and cannot
+ * substantiate. Nothing checked this until the first run against a real model
+ * returned `NO_ENTRY` on all sixteen flagged records and the gate marked every
+ * one ACCEPTED — BUILD-LOG 35.
+ *
+ * A record with no category is one the matcher resolved cleanly, and Act does
+ * not draft for those; if one ever arrives, there is no row to check against
+ * and the self-consistency check is all there is.
+ */
+function routedCorrectly(
+  flag: ActDraft["gstr3bFlag"],
+  category: ExceptionCategory | null,
+): boolean {
+  if (category === null) return true;
+  return flag.line === GSTR3B_CATEGORY_ROW[category];
 }
 
 /**

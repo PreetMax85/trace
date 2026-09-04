@@ -70,6 +70,7 @@ export async function act(input: ActInput): Promise<ActResult> {
         unresolved: [],
         unbalanced: false,
         misfiled: false,
+        misrouted: false,
         verdict: "BLOCKED_WRITE",
       },
       split: { inputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0, outputTokens: 0 },

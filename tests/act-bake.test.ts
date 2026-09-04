@@ -72,7 +72,7 @@ describe("bakeDrafts", () => {
 
     expect(out.drafts.map((entry) => entry.recordId)).toEqual(["pay_A1", "pay_B2"]);
     expect(out.drafts[0].recordedAt).toBe("2026-09-03T10:00:00.000Z");
-    expect(out.drafts[0].promptVersion).toBe("act-v2");
+    expect(out.drafts[0].promptVersion).toBe("act-v3");
   });
 
   it("stores the figures the record carried, so a moved record drops its draft", async () => {

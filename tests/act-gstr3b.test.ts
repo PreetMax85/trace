@@ -3,6 +3,7 @@ import { applyActGate } from "@/lib/act/policy";
 import { GSTR3B_LINES } from "@/lib/act/schema";
 import { confirmable } from "@/lib/act/confirm";
 import type { RecordedDraft } from "@/lib/act/library";
+import type { ExceptionCategory } from "@/lib/matching/types";
 
 /**
  * The same record the rest of the gate's tests use: ₹28.32 taken on a ₹1,000.00
@@ -15,6 +16,7 @@ const RECORD = {
   taxPaise: 432,
   expectedFeePaise: 2360,
   expectedTaxPaise: 360,
+  category: "FEE_DEDUCTION" as const,
 };
 
 const draft = (flag: Record<string, unknown>) => ({
@@ -64,7 +66,10 @@ describe("the rows a flag may point at", () => {
     // A credit that lands on the FOLLOWING period's GSTR-2B is not claimable
     // this month and is not a reversal either. There is genuinely no row for
     // it, and saying so is the honest draft.
-    const gated = applyActGate(draft({ line: null, action: "NO_ENTRY" }), RECORD);
+    const gated = applyActGate(draft({ line: null, action: "NO_ENTRY" }), {
+      ...RECORD,
+      category: "TIMING" as const,
+    });
 
     expect(gated.verdict).toBe("ACCEPTED");
     expect(gated.misfiled).toBe(false);
@@ -150,6 +155,7 @@ describe("a misfiled flag cannot be confirmed", () => {
       unresolved: [],
       unbalanced: false,
       misfiled: false,
+      misrouted: false,
       model: "claude-opus-5",
       promptVersion: "act-v2",
       recordedAt: "2026-09-03T10:00:00.000Z",
@@ -167,7 +173,99 @@ describe("a misfiled flag cannot be confirmed", () => {
     expect(verdict.ok === false && verdict.reason).toMatch(/row/i);
   });
 
+  it("refuses one whose row is wrong for what the record is", () => {
+    // `misfiled` is held FALSE deliberately. Both refusals mention a row, so a
+    // fixture with both flags set would pass whichever branch fired, and the
+    // test would not be aimed at the one it names. The assertion is on the
+    // clause only the routing refusal carries. BUILD-LOG 27 is why.
+    const verdict = confirmable(
+      recorded({ verdict: "INVALID_FIGURE", misfiled: false, misrouted: true }),
+    );
+
+    expect(verdict.ok).toBe(false);
+    expect(verdict.ok === false && verdict.reason).toMatch(/kind of exception/i);
+  });
+
   it("allows one that agrees", () => {
     expect(confirmable(recorded({})).ok).toBe(true);
+  });
+});
+
+/**
+ * Which Table 4 row each exception category belongs on, stated here
+ * independently of the map the code reads — the same discipline `ROW_ADMITS`
+ * uses above. A test that imported the map would assert the map equals itself.
+ *
+ * The source is CBIC Circular 170/02/2022-GST, 6 July 2022. Para 4.3(C) puts a
+ * reversal that can be reclaimed later — including one for a supply the
+ * registered person cannot establish was received — in 4(B)(2), and the
+ * circular's own Annexure works exactly that case (Note 3). A `TIMING` credit
+ * lands on the FOLLOWING period's GSTR-2B, so nothing belongs on this return.
+ * A `REFUND_NETTED` record's Section 34 credit note is the merchant's own
+ * OUTWARD document and touches Table 3, not Table 4. `PARTIAL_PAYMENT` rows
+ * carry no tax at all.
+ */
+const CATEGORY_ROW: Record<string, string | null> = {
+  FEE_DEDUCTION: "4B2",
+  UNEXPLAINED: "4B2",
+  REFUND_NETTED: null,
+  TIMING: null,
+  PARTIAL_PAYMENT: null,
+};
+
+describe("the flag has to match what the record actually is", () => {
+  const forCategory = (category: string) => ({
+    ...RECORD,
+    category: category as ExceptionCategory,
+  });
+
+  it("refuses no entry on a fee deduction, whose credit is already claimed", () => {
+    // The whole of Razorpay's invoice tax auto-populates into 4A5. A fee the
+    // merchant cannot substantiate is therefore ALREADY claimed, and "no entry
+    // is due" leaves it claimed. Circular 170 para 4.4: give it back in 4(B).
+    const gated = applyActGate(
+      draft({ line: null, action: "NO_ENTRY" }),
+      forCategory("FEE_DEDUCTION"),
+    );
+
+    expect(gated.misrouted).toBe(true);
+    expect(gated.verdict).toBe("INVALID_FIGURE");
+  });
+
+  it("refuses a reversal on a timing difference, which is money still owed", () => {
+    const gated = applyActGate(
+      draft({ line: "4B2", action: "REVERSE" }),
+      forCategory("TIMING"),
+    );
+
+    expect(gated.misrouted).toBe(true);
+  });
+
+  it("keeps the draft so a person can read what was written", () => {
+    const gated = applyActGate(
+      draft({ line: null, action: "NO_ENTRY" }),
+      forCategory("FEE_DEDUCTION"),
+    );
+
+    expect(gated.draft).not.toBeNull();
+  });
+
+  it.each(Object.entries(CATEGORY_ROW))("routes %s to %s", (category, line) => {
+    const action = line === null ? "NO_ENTRY" : "REVERSE";
+    const gated = applyActGate(draft({ line, action }), forCategory(category));
+
+    expect(gated.misrouted).toBe(false);
+    expect(gated.verdict).toBe("ACCEPTED");
+  });
+
+  it.each(Object.entries(CATEGORY_ROW))("refuses %s on any row but %s", (category, line) => {
+    const others = [...GSTR3B_LINES, null].filter((other) => other !== line);
+
+    for (const other of others) {
+      const action = other === null ? "NO_ENTRY" : ROW_ADMITS[other];
+      expect(applyActGate(draft({ line: other, action }), forCategory(category)).misrouted).toBe(
+        true,
+      );
+    }
   });
 });

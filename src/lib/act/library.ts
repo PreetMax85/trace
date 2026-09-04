@@ -46,6 +46,7 @@ const recordedDraftSchema = z.object({
   ),
   unbalanced: z.boolean(),
   misfiled: z.boolean(),
+  misrouted: z.boolean(),
   model: z.string().min(1),
   promptVersion: z.string().min(1),
   recordedAt: z.string().min(1),

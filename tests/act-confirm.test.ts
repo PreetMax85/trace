@@ -24,6 +24,7 @@ const recorded = (over: Partial<RecordedDraft> = {}): RecordedDraft => ({
   unresolved: [],
   unbalanced: false,
   misfiled: false,
+  misrouted: false,
   model: "claude-opus-5",
   promptVersion: "act-v1",
   recordedAt: "2026-09-03T10:00:00.000Z",

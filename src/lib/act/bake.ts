@@ -64,6 +64,7 @@ export async function bakeDrafts(input: DraftBakeInput): Promise<DraftBake> {
       unresolved: out.unresolved,
       unbalanced: out.unbalanced,
       misfiled: out.misfiled,
+      misrouted: out.misrouted,
       model: out.aiCall.model,
       promptVersion: out.aiCall.promptVersion,
       recordedAt: now().toISOString(),

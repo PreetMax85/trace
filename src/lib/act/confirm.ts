@@ -87,6 +87,14 @@ export function confirmable(recorded: RecordedDraft | null): Confirmable {
     };
   }
 
+  if (recorded.misrouted) {
+    return {
+      ok: false,
+      reason:
+        "This flag points at the wrong Table 4 row for this kind of exception, so it cannot be confirmed.",
+    };
+  }
+
   if (recorded.unresolved.length > 0) {
     const figures = recorded.unresolved.map((figure) => figure.text).join(", ");
     return {

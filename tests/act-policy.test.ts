@@ -12,6 +12,7 @@ const RECORD = {
   taxPaise: 432,
   expectedFeePaise: 2360,
   expectedTaxPaise: 360,
+  category: "FEE_DEDUCTION" as const,
 };
 
 const draft = (overrides: Record<string, unknown> = {}) => ({
