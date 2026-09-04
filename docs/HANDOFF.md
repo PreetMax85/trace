@@ -1,14 +1,15 @@
-# Trace — handoff: the Act layer is built; deploy and the video remain
+# Trace — handoff: it is deployed and live; the video remains
 
-Written 2 Sep 2026, late. **Slices 1 through 7 are done.** Slices 1–6 are on `main` (slice 6 was
-fast-forwarded in on 2 Sep); slice 7 (Act + the human gate + PRD §15.6) is on **`feat/act-layer`**.
+Written 2 Sep 2026, late; rewritten 4 Sep after the deploy. **Slices 1 through 9 are done and all
+of them are on `main`** — slice 7 (Act + the human gate + PRD §15.6) merged on 3 Sep, slice 8 (the
+domain-fact audit and the 4B2 routing fix) on 4 Sep.
 
-The tree is green: **411 tests, typecheck, lint, `npm run build` and `npm run verify:screen`**.
+The tree is green: **430 tests, typecheck, lint, `npm run build` and `npm run verify:screen`**.
 
-What remains is **deploy and the video**. The Explain layer no longer needs a key to
-be *visible* — six example answers are recorded and committed — but it does need one to be
-answered *live*, and no run has recorded them yet, so the file is still `[]`. See "What the key
-buys now".
+**It is deployed and live at https://trace-zeta-three.vercel.app/.** What remains is the **video**.
+All three AI layers have their output recorded and committed — 16 investigations, 6 example
+answers, 16 drafts — and the Explain layer additionally answers live questions on the deployed
+site, verified there on 4 Sep. See "Deployed".
 
 ## Read this first
 
@@ -218,6 +219,36 @@ git ls-remote --heads origin <branch-name>
 If it answers, adopt it (`git checkout -b <name> origin/<name>` then `git merge main`). If it does
 not, `git checkout -b <name> main`. Always `git push -u` so `git status` warns you early.
 
+## Deployed — https://trace-zeta-three.vercel.app/
+
+**Live since 4 Sep.** GitHub repo `PreetMax85/trace` is public and connected to Vercel, so every
+push to `main` redeploys. There is no `.vercel/` directory and no `vercel.json`; Next.js is
+auto-detected and the CLI was never needed.
+
+Verified against the deployed site, not locally — these are the paths that cannot be tested from
+the laptop, because they depend on a Vercel function reaching Neon and Anthropic:
+
+- All 54 records render; the headline figures are intact (invoice tax ₹1,196.92, claimable
+  ₹982.23, at risk ₹214.69, matched 38/54).
+- All three prompt versions are on the page: `investigate-v1`, `explain-v1`, `act-v3`.
+- **Live Explain works.** A typed question returned `ACCEPTED` with four resolved citations and no
+  unknowns, and the panel labelled it `answered live · claude-opus-5 · explain-v1` — distinct from
+  the recorded examples' `recorded 2026-09-04 · …`, which is the distinction the panel exists to
+  make.
+- **The Act gate holds in production.** `pay_qcqeWqwISCOg2K` offers three enabled Confirm buttons
+  on a `4B2` reversal; the refused `pay_cOy8OKC0WYS2gq` offers three DISABLED ones and says
+  "This draft states ₹28.08, which this record does not carry, so it cannot be confirmed."
+- **Confirm writes to Neon.** Clicking one flipped it to "Confirmed" and inserted an `actions` row.
+- Zero browser console errors.
+
+Two costs worth knowing before the video: a live answer takes **20–28 seconds** end to end, and the
+first request after an idle period pays a cold start on top. Do not cut the recording as though it
+returns instantly.
+
+The verification left real rows in the audit tables — 2 `ai_calls` and 1 `actions` row, all from
+automated testing on 4 Sep. They are genuine records of genuine calls, so they were left in place
+rather than deleted out of an audit trail.
+
 ## Status board — every run updates this before it stops
 
 | # | Slice | Branch | Status |
@@ -230,7 +261,8 @@ not, `git checkout -b <name> main`. Always `git push -u` so `git status` warns y
 | 6 | Explain layer + §15.5 citations | `feat/explain-layer` | **done, merged into `main`** |
 | 7 | Act layer + human gate + §15.6 | `feat/act-layer` | **done, merged into `main`** (3 Sep) |
 | 8 | Domain-fact audit + the routing fix | `chore/domain-fact-audit` | **done** (4 Sep) |
-| 9 | Deploy + video | — | not started |
+| 9 | Deploy to Vercel | — | **done, live** (4 Sep) |
+| 10 | Video | — | not started |
 
 ## Commands
 
@@ -259,8 +291,13 @@ applied. Don't re-provision; if a connection fails, check `.env` first.
 - **A `batches` row is one RUN, not one period** — it carries `startedAt`, `completedAt` and
   `processingTimeMs`. That is why there is no unique constraint on (gstin, period), and why the
   live Explain route reuses the latest row for the period rather than inserting one per question.
-- Deploy needs `DATABASE_URL` and `ANTHROPIC_API_KEY` in Vercel's project settings.
-  `EXPLAIN_MAX_QUESTIONS` is optional and defaults to 40 live questions per server process.
+- Vercel carries exactly three variables: `DATABASE_URL` (the POOLED string), `ANTHROPIC_API_KEY`
+  and `EXPLAIN_MAX_QUESTIONS=15`. The import screen pre-fills the `RAZORPAY_*` keys from
+  `.env.example`; they were removed, because nothing in `src/` reads them — they are dev-time
+  only and `RAZORPAY_MCP_TOKEN` is consumed by `.mcp.json` on the laptop.
+- `EXPLAIN_MAX_QUESTIONS` is 15 rather than the default 40 because the cap is per server
+  PROCESS and Vercel may run several. A live answer costs a measured **$0.042**, so 15 × three
+  instances is about $1.89 — inside the prepaid balance, which cannot overdraw.
 
 ## Numbers that must never move
 
