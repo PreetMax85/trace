@@ -1,38 +1,31 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import {
-  Alert,
-  Badge,
-  Box,
-  Button,
-  Card,
-  CardBody,
-  Divider,
-  Heading,
-  Link,
-  Spinner,
-  Text,
-  TextInput,
-} from "@razorpay/blade/components";
+import { Loader2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 import { MAX_QUESTION_CHARS } from "@/lib/explain/limits";
 import type { AnswerSegment } from "@/lib/explain/citations";
 import type { ExplainVerdict } from "@/lib/explain/policy";
 import type { ExplainExample } from "@/lib/review/batch";
+import { Caption } from "./ui/type";
 
 /**
  * The Explain layer on screen (PRD §15.5).
  *
  * Every answer names the records behind it, and each citation is a link that
- * scrolls to that row in the table — which is what makes §2's claim ("every
+ * scrolls to that row in the table, which is what makes §2's claim ("every
  * answer traces back to a specific record, amount and date") checkable rather
  * than asserted.
  *
  * Two sources, one renderer. The example questions were answered ahead of time
- * and are committed, so they work with no API key, no database and no network;
- * a typed question is answered live by the same `explain()` through the same
- * gate. They are drawn identically EXCEPT for provenance, which always says
- * which one this is — a recorded answer must never read as one just produced.
+ * and are committed, so they work with no API key, no database and no network; a
+ * typed question is answered live by the same `explain()` through the same gate.
+ * They are drawn identically EXCEPT for provenance, which always says which one
+ * this is: a recorded answer must never read as one just produced.
  */
 type Answer = {
   segments: AnswerSegment[];
@@ -50,7 +43,7 @@ export function ExplainPanel({
   examples: ExplainExample[];
   /** Called with the record a citation points at, to reveal it in the table. */
   onCite: (recordId: string) => void;
-}): React.ReactElement {
+}) {
   const [openId, setOpenId] = useState<string | null>(examples[0]?.id ?? null);
   const [question, setQuestion] = useState("");
   const [live, setLive] = useState<Answer | null>(null);
@@ -87,7 +80,7 @@ export function ExplainPanel({
         cited: payload.cited,
         unknown: payload.unknown,
         verdict: payload.verdict,
-        provenance: `answered live · ${payload.model} · ${payload.promptVersion}`,
+        provenance: `Answered live just now by ${payload.model}, prompt ${payload.promptVersion}.`,
       });
     } catch {
       setError("The answer never arrived. The recorded examples below still work.");
@@ -97,86 +90,73 @@ export function ExplainPanel({
   };
 
   return (
-    <Card padding="spacing.5" elevation="lowRaised" testID="explain-panel">
-      <CardBody>
-        <Box display="flex" flexDirection="column" gap="spacing.4">
-          <Box display="flex" flexDirection="column" gap="spacing.2">
-            <Heading size="small">Ask about this batch</Heading>
-            <Text variant="caption" size="small" color="surface.text.gray.muted">
-              The agent reads the reconciled batch and answers in plain English. Every record it
-              relies on is named, and each one is a link to that row in the table below.
-            </Text>
-          </Box>
+    <div className="flex flex-col gap-4" data-testid="explain-panel">
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          value={question}
+          maxLength={MAX_QUESTION_CHARS}
+          disabled={asking}
+          placeholder="Which records put my credit at risk?"
+          aria-label="Ask a question about this batch"
+          onChange={(event) => setQuestion(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") void ask();
+          }}
+          data-testid="explain-question"
+          className="min-w-[16rem] flex-1"
+        />
+        <Button disabled={asking || question.trim().length === 0} onClick={() => void ask()}>
+          {asking && <Loader2 className="animate-spin" aria-hidden />}
+          Ask
+        </Button>
+      </div>
 
-          <Box display="flex" gap="spacing.3" alignItems="flex-end" flexWrap="wrap">
-            <Box flex="1 1 420px" minWidth="260px">
-              <TextInput
-                label="Your own question"
-                placeholder="e.g. which records put my credit at risk?"
-                value={question}
-                maxCharacters={MAX_QUESTION_CHARS}
-                isDisabled={asking}
-                onChange={({ value }) => setQuestion(value ?? "")}
-                // Enter submits. `onSubmit` is typed away on the web build of
-                // TextInput, so the key is read here instead — verified against
-                // the shipped types rather than guessed.
-                onKeyDown={({ key }) => {
-                  if (key === "Enter") void ask();
-                }}
-                testID="explain-question"
-              />
-            </Box>
+      {error !== null && (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
+
+      <div className="flex flex-col gap-2">
+        <Caption>Or open one of the questions already answered</Caption>
+        <div className="flex flex-wrap gap-2" data-testid="explain-questions">
+          {examples.map((candidate) => (
             <Button
-              variant="primary"
-              size="medium"
-              isDisabled={asking || question.trim().length === 0}
-              onClick={() => void ask()}
+              key={candidate.id}
+              variant={candidate.id === openId ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => {
+                setLive(null);
+                setError(null);
+                setOpenId(candidate.id);
+              }}
+              // A button's default is one unbreakable line at a fixed height,
+              // which is right for "Ask" and wrong for a whole question. One of
+              // these is 389px of text, so on a phone it ran off the side and
+              // took the document with it.
+              className="h-auto max-w-full shrink py-1.5 text-left whitespace-normal"
             >
-              Ask
+              {candidate.question}
             </Button>
-          </Box>
+          ))}
+        </div>
+      </div>
 
-          {error !== null && (
-            <Alert
-              color="notice"
-              emphasis="subtle"
-              isDismissible={false}
-              description={error}
-            />
-          )}
-
-          <Box display="flex" gap="spacing.3" flexWrap="wrap" testID="explain-questions">
-            {examples.map((candidate) => (
-              <Button
-                key={candidate.id}
-                variant={candidate.id === openId ? "secondary" : "tertiary"}
-                size="xsmall"
-                onClick={() => {
-                  setLive(null);
-                  setError(null);
-                  setOpenId(candidate.id);
-                }}
-              >
-                {candidate.question}
-              </Button>
-            ))}
-          </Box>
-
-          <Divider />
-
-          {asking ? (
-            <Box display="flex" alignItems="center" gap="spacing.3" testID="explain-answer">
-              <Spinner accessibilityLabel="Answering" size="medium" />
-              <Text size="small" color="surface.text.gray.muted">
-                Reading the batch…
-              </Text>
-            </Box>
-          ) : (
-            <AnswerBody answer={shown} onCite={onCite} />
-          )}
-        </Box>
-      </CardBody>
-    </Card>
+      {/* The answer gets its own inset ground rather than sitting in the same
+          plane as the controls that produced it. Without the change of surface,
+          the question, the examples and the answer read as one undifferentiated
+          block of text. */}
+      <div className="rounded-lg border border-border bg-background p-4" data-testid="explain-answer">
+        {asking ? (
+          <div className="flex items-center gap-2">
+            <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden />
+            <Caption>Reading the batch</Caption>
+          </div>
+        ) : (
+          <AnswerBody answer={shown} onCite={onCite} />
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -193,7 +173,7 @@ function recordedAnswer(example: ExplainExample): Answer | null {
     // Always says it was recorded, and when. An answer produced weeks ago must
     // never read as one produced just now, and the model and prompt version are
     // what make it checkable at all.
-    provenance: `recorded ${recordedAt.slice(0, 10)} · ${model} · ${promptVersion}`,
+    provenance: `Recorded on ${recordedAt.slice(0, 10)} by ${model}, prompt ${promptVersion}. Replayed here, not regenerated.`,
   };
 }
 
@@ -203,60 +183,84 @@ function AnswerBody({
 }: {
   answer: Answer | null;
   onCite: (recordId: string) => void;
-}): React.ReactElement {
+}) {
   if (answer === null) {
     return (
-      <Box display="flex" flexDirection="column" gap="spacing.2" testID="explain-answer">
-        <Text size="small" color="surface.text.gray.muted">
-          No answer has been recorded for this question yet, and nothing is invented in its place.
-          Run{" "}
-          <Text as="span" size="small" weight="semibold">
-            npm run explain
-          </Text>{" "}
-          to record one, or type a question above to ask live.
-        </Text>
-      </Box>
+      <Caption as="p" className="leading-relaxed">
+        No answer has been recorded for this question yet, and nothing is invented in its place. Run{" "}
+        <code className="rounded-sm bg-muted px-1 py-0.5 font-mono">npm run explain</code> to record
+        one, or type a question above to ask live.
+      </Caption>
     );
   }
 
   return (
-    <Box display="flex" flexDirection="column" gap="spacing.3" testID="explain-answer">
+    <div className="flex flex-col gap-3">
       {/* The gate firing is shown, not hidden. "It never cited a record that
           does not exist" is only a checkable claim if a citation that did would
           have been visible. */}
       {answer.verdict !== "ACCEPTED" && (
-        <Box display="flex" alignItems="center" gap="spacing.3" flexWrap="wrap">
-          <Badge color="negative" emphasis="intense" size="small">
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge variant="outline" className="border-at-risk/40 bg-at-risk/10 text-at-risk">
             {answer.verdict}
           </Badge>
-          <Text variant="caption" size="small" color="feedback.text.negative.intense">
+          <Caption className="text-at-risk">
             {answer.unknown.length > 0
               ? `${answer.unknown.join(", ")} is named here but is not a record in this batch, so it is not linked.`
               : "This answer did not come back in a usable form."}
-          </Text>
-        </Box>
+          </Caption>
+        </div>
       )}
 
-      <Text size="small" color="surface.text.gray.normal">
+      <p className="text-body/relaxed text-foreground">
         {answer.segments.map((segment, index) => (
           <Fragment key={index}>
             {segment.kind === "text" ? (
               segment.text
             ) : (
-              <Link size="small" onClick={() => onCite(segment.recordId)}>
+              <button
+                type="button"
+                onClick={() => onCite(segment.recordId)}
+                className={cn(
+                  "cursor-pointer rounded-sm font-mono text-mono text-primary",
+                  "underline-offset-2 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50",
+                )}
+              >
                 {segment.recordId}
-              </Link>
+              </button>
             )}
           </Fragment>
         ))}
-      </Text>
+      </p>
 
-      <Text size="xsmall" color="surface.text.gray.subtle">
-        {answer.cited.length === 0
-          ? "This answer cites no records."
-          : `Cites ${answer.cited.length} record${answer.cited.length === 1 ? "" : "s"}.`}{" "}
-        {answer.provenance}
-      </Text>
-    </Box>
+      {/*
+        The count stays on the surface and the provenance folds away.
+
+        They used to be one line. The first half is about the answer and is the
+        reason to trust it. The second half is about the machinery, and printing
+        a model name and a prompt version next to a tax figure reads as though
+        the product were prouder of the model than of the answer. Neither is
+        deleted: a recorded answer must never read as one produced just now, and
+        only the provenance says which this is.
+      */}
+      <div className="flex flex-col gap-1">
+        <Caption>
+          {answer.cited.length === 0
+            ? "This answer cites no records."
+            : `Every claim above is tied to ${answer.cited.length} named record${answer.cited.length === 1 ? "" : "s"}.`}
+        </Caption>
+        <details className="group/where">
+          <summary className="cursor-pointer list-none text-caption text-muted-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50">
+            Where this answer came from
+            <span className="ml-1 inline-block transition-transform group-open/where:rotate-90">
+              &rsaquo;
+            </span>
+          </summary>
+          <Caption as="p" className="mt-2">
+            {answer.provenance}
+          </Caption>
+        </details>
+      </div>
+    </div>
   );
 }

@@ -12,7 +12,7 @@ export const REPO_URL = "https://github.com/PreetMax85/trace";
  *
  * Written down rather than derived because the derivation can fail silently.
  * Vercel's `VERCEL_PROJECT_PRODUCTION_URL` is the right source and is set on
- * every deployment including previews — but only when "Enable access to System
+ * every deployment including previews, but only when "Enable access to System
  * Environment Variables" is on in the project settings. If it is off, the
  * variable is simply absent, and an Open Graph card built from a localhost
  * fallback would point every shared link at the reader's own machine. That is
@@ -20,7 +20,6 @@ export const REPO_URL = "https://github.com/PreetMax85/trace";
  * would say it had happened.
  */
 export const PRODUCTION_URL = "https://trace-zeta-three.vercel.app";
-export const PRD_URL = `${REPO_URL}/blob/main/docs/PRD.md`;
 
 /**
  * What Trace is, in one line, for a reader who has never heard of it.

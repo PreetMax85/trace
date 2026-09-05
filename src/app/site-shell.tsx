@@ -1,32 +1,35 @@
-"use client";
-
-import { Box } from "@razorpay/blade/components";
 import { SiteFooter } from "./site-footer";
 import { SiteHeader } from "./site-header";
 
 /**
- * Header, page, footer — the frame every route sits inside.
+ * Header, page, footer: the frame every route sits inside.
  *
- * A client component because Blade needs the browser, and one component rather
- * than three in the layout because the column has to own the page height: the
- * footer belongs below the content on a short page and after it on a long one,
- * which is what `minHeight="100vh"` plus a growing middle gets. The screen used
- * to claim the full viewport height itself, which left nowhere for chrome to
- * go without overflowing.
+ * One component rather than three in the layout because the column has to own
+ * the page height. The footer belongs below the content on a short page and
+ * after it on a long one, which is what `min-h-dvh` plus a growing middle gets.
+ * `dvh` rather than `vh` so a mobile browser's collapsing address bar does not
+ * leave a strip of nothing under the footer.
+ *
+ * A server component. Nothing here holds state, so none of it needs to reach the
+ * browser as JavaScript.
  */
-export function SiteShell({ children }: { children: React.ReactNode }): React.ReactElement {
+export function SiteShell({ children }: { children: React.ReactNode }) {
   return (
-    <Box
-      display="flex"
-      flexDirection="column"
-      minHeight="100vh"
-      backgroundColor="surface.background.gray.subtle"
-    >
+    <div className="flex min-h-dvh flex-col bg-background">
+      {/*
+        The first focusable thing in the document. Without it the only way past
+        the chrome with a keyboard was to tab through every cell of the table,
+        and the table advertises hundreds of stops.
+      */}
+      <a
+        href="#reconciliation"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:text-primary-foreground"
+      >
+        Skip to the reconciliation
+      </a>
       <SiteHeader />
-      <Box flex="1 1 auto" display="flex" flexDirection="column">
-        {children}
-      </Box>
+      <main className="flex flex-1 flex-col">{children}</main>
       <SiteFooter />
-    </Box>
+    </div>
   );
 }

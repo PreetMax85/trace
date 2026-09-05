@@ -9,13 +9,6 @@
         "${CONTEXT7_API_KEY}"
       ]
     },
-    "blade": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@razorpay/blade-mcp@latest"
-      ]
-    },
     "razorpay": {
       "command": "npx",
       "args": [

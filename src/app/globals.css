@@ -1,0 +1,252 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/*
+  Dark is a class on <html>, set by the server from a cookie before the first
+  byte of HTML is written. Nothing about the scheme lives in React state, so
+  switching costs one class toggle and a cascade: no re-render, no hydration
+  correction, and no frame of the wrong colour on a reload.
+*/
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+    /*
+      Each role points at a DISTINCTLY named custom property that the font
+      loader declares on <html>. Pointing `--font-sans` at `--font-sans` is the
+      trap here: it is circular, resolves to nothing, and every declaration
+      falls through to the browser default with no error anywhere.
+    */
+    --font-serif: var(--font-newsreader), Georgia, "Times New Roman", serif;
+    --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+    --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, monospace;
+    --font-heading: var(--font-newsreader), Georgia, "Times New Roman", serif;
+
+    /*
+      Five prose roles and no more, plus one size for machine identifiers.
+      Every step is one a reader can name: the page's claim, a section, a thing
+      inside a section, prose, and the small print under it. Taking whichever
+      size looked right at the point of use had produced eight visible steps,
+      several of them two pixels apart, and near-identical sizes read as
+      mistakes rather than as a hierarchy. `tests/type-scale.test.ts` fails the
+      build if an arbitrary size appears anywhere in `src/app`.
+    */
+    --text-display: clamp(2.125rem, 1.35rem + 3.4vw, 3.375rem);
+    --text-display--line-height: 1.08;
+    --text-display--letter-spacing: -0.021em;
+    --text-section: 1.5rem;
+    --text-section--line-height: 1.25;
+    --text-section--letter-spacing: -0.013em;
+    --text-card: 1.0625rem;
+    --text-card--line-height: 1.4;
+    --text-body: 0.9375rem;
+    --text-body--line-height: 1.6;
+    --text-caption: 0.8125rem;
+    --text-caption--line-height: 1.45;
+    /*
+      One size for machine identifiers, and only for those. Record ids, GSTINs,
+      settlement references and step numbers are all the same kind of thing: a
+      string a person compares character by character rather than reads. Giving
+      them one size in one face is what stops them competing with the prose
+      around them, and stops three near-identical small sizes accumulating.
+    */
+    --text-mono: 0.6875rem;
+    --text-mono--line-height: 1.1rem;
+
+    --color-sidebar-ring: var(--sidebar-ring);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar: var(--sidebar);
+    --color-chart-5: var(--chart-5);
+    --color-chart-4: var(--chart-4);
+    --color-chart-3: var(--chart-3);
+    --color-chart-2: var(--chart-2);
+    --color-chart-1: var(--chart-1);
+    --color-ring: var(--ring);
+    --color-input: var(--input);
+    --color-border: var(--border);
+    --color-destructive: var(--destructive);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-accent: var(--accent);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-muted: var(--muted);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-secondary: var(--secondary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-primary: var(--primary);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-popover: var(--popover);
+    --color-card-foreground: var(--card-foreground);
+    --color-card: var(--card);
+    --color-foreground: var(--foreground);
+    --color-background: var(--background);
+
+    /*
+      The two colours that carry meaning on this page, named for what they mean
+      rather than for what they are. Credit the batch can account for, and credit
+      it cannot. They are deliberately clear of the brand indigo so that "this is
+      Trace" and "this is at risk" can never be confused for one another.
+    */
+    --color-explained: var(--explained);
+    --color-explained-foreground: var(--explained-foreground);
+    --color-at-risk: var(--at-risk);
+    --color-at-risk-foreground: var(--at-risk-foreground);
+    --color-notice: var(--notice);
+    --color-rule: var(--rule);
+
+    --radius-sm: calc(var(--radius) * 0.6);
+    --radius-md: calc(var(--radius) * 0.8);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) * 1.4);
+    --radius-2xl: calc(var(--radius) * 1.8);
+    --radius-3xl: calc(var(--radius) * 2.2);
+    --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/*
+  Ledger paper and ink.
+
+  The ground is a cool off-white rather than pure white, so that a panel painted
+  in `--card` reads as a raised sheet on it. The page used to be white cards on a
+  near-white page, which is why nothing looked separated no matter how much space
+  sat between the sections.
+*/
+:root {
+    --background: #fbfbf9;
+    --foreground: #16181d;
+    --card: #ffffff;
+    --card-foreground: #16181d;
+    --popover: #ffffff;
+    --popover-foreground: #16181d;
+    --primary: #4338ca;
+    --primary-foreground: #ffffff;
+    --secondary: #f1f1ee;
+    --secondary-foreground: #16181d;
+    --muted: #f1f1ee;
+    --muted-foreground: #62656d;
+    --accent: #eeeef3;
+    --accent-foreground: #4338ca;
+    --destructive: #b3261e;
+    --border: #e4e4e0;
+    --input: #e4e4e0;
+    --ring: #4338ca;
+    --rule: #e4e4e0;
+    --explained: #0e7a55;
+    --explained-foreground: #ffffff;
+    --at-risk: #b3261e;
+    --at-risk-foreground: #ffffff;
+    --notice: #8a5a00;
+    --chart-1: #4338ca;
+    --chart-2: #0e7a55;
+    --chart-3: #b3261e;
+    --chart-4: #62656d;
+    --chart-5: #16181d;
+    --radius: 0.5rem;
+    --sidebar: #f6f6f3;
+    --sidebar-foreground: #16181d;
+    --sidebar-primary: #4338ca;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #eeeef3;
+    --sidebar-accent-foreground: #4338ca;
+    --sidebar-border: #e4e4e0;
+    --sidebar-ring: #4338ca;
+}
+
+/*
+  Dark is not the light palette inverted. The indigo and both semantic colours
+  are lifted, because a hue that carries enough contrast on paper goes muddy on
+  ink and a figure printed in it stops reading as a figure.
+*/
+.dark {
+    --background: #101216;
+    --foreground: #e9e9e4;
+    --card: #171a20;
+    --card-foreground: #e9e9e4;
+    --popover: #171a20;
+    --popover-foreground: #e9e9e4;
+    --primary: #8b85f0;
+    --primary-foreground: #14131f;
+    --secondary: #21242b;
+    --secondary-foreground: #e9e9e4;
+    --muted: #21242b;
+    --muted-foreground: #9b9ea7;
+    --accent: #23223a;
+    --accent-foreground: #b3aef6;
+    --destructive: #f2685e;
+    --border: #282c33;
+    --input: #2f333b;
+    --ring: #8b85f0;
+    --rule: #282c33;
+    --explained: #3dbf8c;
+    --explained-foreground: #06231a;
+    --at-risk: #f2685e;
+    --at-risk-foreground: #2a0b09;
+    --notice: #e0a33a;
+    --chart-1: #8b85f0;
+    --chart-2: #3dbf8c;
+    --chart-3: #f2685e;
+    --chart-4: #9b9ea7;
+    --chart-5: #e9e9e4;
+    --sidebar: #171a20;
+    --sidebar-foreground: #e9e9e4;
+    --sidebar-primary: #8b85f0;
+    --sidebar-primary-foreground: #14131f;
+    --sidebar-accent: #23223a;
+    --sidebar-accent-foreground: #b3aef6;
+    --sidebar-border: #282c33;
+    --sidebar-ring: #8b85f0;
+}
+
+@layer base {
+    * {
+        @apply border-border outline-ring/50;
+    }
+
+    html {
+        @apply font-sans;
+        /* Paints the browser's own furniture to match: scrollbars, form
+           controls, and the overscroll area past the end of the page. Without it
+           a dark page keeps a white scrollbar and looks half applied. */
+        color-scheme: light;
+    }
+
+    html.dark {
+        color-scheme: dark;
+    }
+
+    body {
+        @apply bg-background text-foreground;
+        /*
+          Lining, tabular figures everywhere, and two separate problems fixed by
+          one declaration. Inter's default figures are proportional, so a column
+          of rupee amounts came out ragged and the decimal points did not line up
+          down 54 rows. Newsreader's defaults include oldstyle figures, which
+          have descenders: "1,196.92" set that way reads as running text rather
+          than as an amount, which is wrong on a page whose whole subject is
+          amounts.
+        */
+        font-variant-numeric: tabular-nums lining-nums;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /*
+      Motion is opt out at the browser level, so honour it once here rather than
+      per component. Everything that moves on this page moves to show what
+      changed after somebody acted; for a reader who has asked for stillness the
+      change still happens, it just arrives without the travel.
+    */
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
+    }
+}

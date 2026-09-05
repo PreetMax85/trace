@@ -1,37 +1,31 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Alert,
-  Badge,
-  Box,
-  Button,
-  Card,
-  CardBody,
-  Code,
-  Divider,
-  Heading,
-  Text,
-} from "@razorpay/blade/components";
+import { Loader2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { confirmable } from "@/lib/act/confirm";
 import type { RecordedDraft } from "@/lib/act/library";
 import type { ActDraft } from "@/lib/act/schema";
 import type { actionKind } from "@/lib/audit/schema";
 import { formatRupees } from "@/lib/format/money";
+import { Caption, CardTitle } from "./ui/type";
 
 /**
  * The Act layer on screen (PRD §9, agent 3).
  *
  * Three drafts per flagged record and a Confirm button on each. Nothing here
- * sends an email, files a return or posts to anyone's books — confirming writes
- * one `actions` row recording that a person approved this draft, and that is
- * the whole of the human gate.
+ * sends an email, files a return or posts to anyone's books. Confirming writes
+ * one `actions` row recording that a person approved this draft, and that is the
+ * whole of the human gate.
  *
  * The drafts are RECORDED, not generated on view, and that is what makes the
  * button honest: the text on screen, the text confirmed and the text stored in
  * `actions.draft` are the same bytes. A draft regenerated each time the row was
- * opened would mean a person approved something slightly different from what
- * the audit trail kept.
+ * opened would mean a person approved something slightly different from what the
+ * audit trail kept.
  */
 type ActionKind = (typeof actionKind.enumValues)[number];
 
@@ -47,7 +41,7 @@ export function ActionCards({
 }: {
   recordId: string;
   recorded: RecordedDraft | null;
-}): React.ReactElement {
+}) {
   // Keyed by record AND kind, so confirmations survive switching between rows
   // and one record's approval never reads as another's.
   const [confirmed, setConfirmed] = useState<Record<string, string | null>>({});
@@ -58,16 +52,14 @@ export function ActionCards({
 
   if (recorded === null || recorded.draft === null) {
     return (
-      <Box display="flex" flexDirection="column" gap="spacing.2" testID="action-cards">
-        <Heading size="small">What to do next</Heading>
-        <Text size="small" color="surface.text.gray.muted">
-          No action has been drafted for this record yet. Nothing above needs a model — run{" "}
-          <Code size="small" isHighlighted={false}>
-            npm run act
-          </Code>{" "}
-          to record the CA email, the GSTR-3B flag and the Tally entry.
-        </Text>
-      </Box>
+      <div className="flex flex-col gap-1" data-testid="action-cards">
+        <CardTitle as="h4">What to do next</CardTitle>
+        <Caption as="p" className="leading-relaxed">
+          No action has been drafted for this record yet. Nothing above needs a model. Run{" "}
+          <code className="rounded-sm bg-muted px-1 py-0.5 font-mono">npm run act</code> to record
+          the CA email, the GSTR-3B flag and the Tally entry.
+        </Caption>
+      </div>
     );
   }
 
@@ -103,29 +95,27 @@ export function ActionCards({
   };
 
   return (
-    <Box display="flex" flexDirection="column" gap="spacing.4" testID="action-cards">
-      <Box display="flex" flexDirection="column" gap="spacing.2">
-        <Heading size="small">What to do next</Heading>
-        <Text size="small" color="surface.text.gray.muted">
-          Drafted for you to review. Nothing is sent, filed or posted — confirming records that you
+    <div className="flex flex-col gap-3" data-testid="action-cards">
+      <div className="flex flex-col gap-1">
+        <CardTitle as="h4">What to do next</CardTitle>
+        <Caption as="p" className="leading-relaxed">
+          Drafted for you to review. Nothing is sent, filed or posted. Confirming records that you
           approved this draft, and the sending stays yours.
-        </Text>
-      </Box>
+        </Caption>
+      </div>
 
       {/* The gate firing is shown, not hidden, and it is what disables the
           buttons. A gate that only annotates stops nothing. */}
       {!allowed.ok && (
-        <Alert
-          color="negative"
-          emphasis="subtle"
-          isDismissible={false}
-          description={allowed.reason}
-          testID="draft-gate-warning"
-        />
+        <Alert variant="destructive" data-testid="draft-gate-warning">
+          <AlertDescription>{allowed.reason}</AlertDescription>
+        </Alert>
       )}
 
       {error !== null && (
-        <Alert color="notice" emphasis="subtle" isDismissible={false} description={error} />
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
       )}
 
       {(Object.keys(KIND_LABELS) as ActionKind[]).map((kind) => (
@@ -144,11 +134,11 @@ export function ActionCards({
           only checkable next to the model and prompt that wrote it and the day
           it was written, so one left over from a superseded prompt cannot pass
           as the current one's. */}
-      <Text variant="caption" size="small" color="surface.text.gray.muted">
-        Drafted by {recorded.model} · prompt {recorded.promptVersion} · recorded{" "}
-        {recorded.recordedAt.slice(0, 10)}
-      </Text>
-    </Box>
+      <Caption as="p">
+        Drafted by {recorded.model} on {recorded.recordedAt.slice(0, 10)}, prompt{" "}
+        {recorded.promptVersion}.
+      </Caption>
+    </div>
   );
 }
 
@@ -167,115 +157,104 @@ function ActionCard({
   isBusy: boolean;
   isBlocked: boolean;
   onConfirm: () => void;
-}): React.ReactElement {
+}) {
   const isConfirmed = confirmedAt !== undefined;
 
   return (
-    <Card padding="spacing.5" elevation="lowRaised" testID={`action-${kind}`}>
-      <CardBody>
-        <Box display="flex" flexDirection="column" gap="spacing.3">
-          <Box display="flex" alignItems="center" justifyContent="space-between" gap="spacing.3">
-            <Heading size="small">{KIND_LABELS[kind]}</Heading>
-            {isConfirmed && (
-              <Badge color="positive" emphasis="intense" size="medium">
-                Confirmed
-              </Badge>
-            )}
-          </Box>
+    <div
+      className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4"
+      data-testid={`action-${kind}`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <CardTitle>{KIND_LABELS[kind]}</CardTitle>
+        {isConfirmed && (
+          <Badge variant="outline" className="border-explained/40 bg-explained/10 text-explained">
+            Confirmed
+          </Badge>
+        )}
+      </div>
 
-          <ActionBody kind={kind} draft={draft} />
+      <ActionBody kind={kind} draft={draft} />
 
-          <Divider />
+      <Separator />
 
-          <Box display="flex" alignItems="center" justifyContent="space-between" gap="spacing.3">
-            <Text variant="caption" size="small" color="surface.text.gray.muted">
-              {isBusy
-                ? "Recording your approval…"
-                : isConfirmed
-                  ? `Approved${confirmedAt === null ? "" : ` ${confirmedAt.slice(0, 10)}`}. Nothing was sent.`
-                  : "Draft — not sent, not filed."}
-            </Text>
-            {/*
-              `isLoading` matters more here than it looks. Confirming writes a
-              row to the database over the network, and without a spinner the
-              button sat unchanged for the whole round trip — so the honest
-              reading of the screen was that the click had not registered, and
-              the natural response was to click again. The handler already
-              refuses a second click while `busy` is set; this is the half that
-              tells the person why.
-            */}
-            <Button
-              variant="primary"
-              size="small"
-              isLoading={isBusy}
-              isDisabled={isConfirmed || isBlocked}
-              onClick={onConfirm}
-              testID={`confirm-${kind}`}
-            >
-              {isConfirmed ? "Confirmed" : "Confirm"}
-            </Button>
-          </Box>
-        </Box>
-      </CardBody>
-    </Card>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Caption>
+          {isBusy
+            ? "Recording your approval"
+            : isConfirmed
+              ? `Approved${confirmedAt === null ? "" : ` ${confirmedAt.slice(0, 10)}`}. Nothing was sent.`
+              : "Draft. Not sent, not filed."}
+        </Caption>
+        {/*
+          The spinner matters more than it looks. Confirming writes a row to the
+          database over the network, and without it the button sat unchanged for
+          the whole round trip, so the honest reading of the screen was that the
+          click had not registered and the natural response was to click again.
+          The handler already refuses a second click while `busy` is set; this is
+          the half that tells the person why.
+        */}
+        <Button
+          size="sm"
+          disabled={isConfirmed || isBlocked || isBusy}
+          onClick={onConfirm}
+          data-testid={`confirm-${kind}`}
+        >
+          {isBusy && <Loader2 className="animate-spin" aria-hidden />}
+          {isConfirmed ? "Confirmed" : "Confirm"}
+        </Button>
+      </div>
+    </div>
   );
 }
 
 /** The draft itself, rendered as the thing a person is being asked to approve. */
-function ActionBody({ kind, draft }: { kind: ActionKind; draft: ActDraft }): React.ReactElement {
+function ActionBody({ kind, draft }: { kind: ActionKind; draft: ActDraft }) {
   if (kind === "CA_EMAIL") {
     return (
-      <Box display="flex" flexDirection="column" gap="spacing.2">
-        <Text size="small" weight="semibold" color="surface.text.gray.normal">
-          {draft.caEmail.subject}
-        </Text>
-        <Text size="small" color="surface.text.gray.normal">
-          {draft.caEmail.body}
-        </Text>
-      </Box>
+      <div className="flex flex-col gap-1">
+        <span className="text-caption font-semibold">{draft.caEmail.subject}</span>
+        <p className="text-caption/relaxed whitespace-pre-line">{draft.caEmail.body}</p>
+      </div>
     );
   }
 
   if (kind === "GSTR3B_FLAG") {
     const { line, action, amountPaise, note } = draft.gstr3bFlag;
     return (
-      <Box display="flex" flexDirection="column" gap="spacing.2">
-        <Text size="small" weight="semibold" color="surface.text.gray.normal">
-          {/* A flag with no row is not an omission — it is the draft saying
+      <div className="flex flex-col gap-1">
+        <span className="text-caption font-semibold">
+          {/* A flag with no row is not an omission. It is the draft saying that
               nothing belongs on this return, which a row number would
               contradict. */}
           {action === "NO_ENTRY" || line === null
             ? `Nothing to file this period for ${formatRupees(amountPaise)}`
             : `${action} ${formatRupees(amountPaise)} on Table ${line}`}
-        </Text>
-        <Text size="small" color="surface.text.gray.normal">
-          {note}
-        </Text>
-      </Box>
+        </span>
+        <p className="text-caption/relaxed">{note}</p>
+      </div>
     );
   }
 
   const { voucherType, lines, narration } = draft.tallyEntry;
   return (
-    <Box display="flex" flexDirection="column" gap="spacing.2">
-      <Text size="small" weight="semibold" color="surface.text.gray.normal">
+    <div className="flex flex-col gap-1">
+      <span className="text-caption font-semibold">
         {voucherType === "JOURNAL" ? "Journal voucher" : "Credit note"}
-      </Text>
+      </span>
       {lines.map((line, index) => (
         // Keyed by position: two lines can post the same amount to the same
         // ledger on opposite sides, and keying by content would collide.
-        <Box key={index} display="flex" justifyContent="space-between" gap="spacing.3">
-          <Text size="small" color="surface.text.gray.normal">
+        <div key={index} className="flex justify-between gap-3 text-caption">
+          <span>
             {line.side === "DEBIT" ? "Dr" : "Cr"} {line.ledger}
-          </Text>
-          <Text size="small" color="surface.text.gray.normal">
-            {formatRupees(line.amountPaise)}
-          </Text>
-        </Box>
+          </span>
+          <span className="tabular-nums">{formatRupees(line.amountPaise)}</span>
+        </div>
       ))}
-      <Text variant="caption" size="small" color="surface.text.gray.muted">
+      <Caption as="p" className="mt-1">
         {narration}
-      </Text>
-    </Box>
+      </Caption>
+    </div>
   );
 }
