@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { MAX_QUESTION_CHARS } from "@/lib/explain/limits";
 import type { AnswerSegment } from "@/lib/explain/citations";
+import { toAnswerBlocks } from "@/lib/explain/layout";
 import type { ExplainVerdict } from "@/lib/explain/policy";
 import type { ExplainExample } from "@/lib/review/batch";
 import { Caption } from "./ui/type";
@@ -32,8 +33,17 @@ type Answer = {
   cited: string[];
   unknown: string[];
   verdict: ExplainVerdict;
-  /** Where this answer came from, in the words shown under it. */
-  provenance: string;
+  /**
+   * Whether this answer was just produced or is being replayed from disk.
+   *
+   * A flag rather than a sentence carrying a model name and a prompt version,
+   * which is what used to sit here. That was machinery talking about itself
+   * beside a tax figure, and it is now in the audit trail where it belongs. The
+   * one thing on this distinction a reader needs is which of the two they are
+   * looking at, because a recorded answer must never read as one written for
+   * the question they just typed.
+   */
+  origin: "live" | "recorded";
 };
 
 export function ExplainPanel({
@@ -80,7 +90,7 @@ export function ExplainPanel({
         cited: payload.cited,
         unknown: payload.unknown,
         verdict: payload.verdict,
-        provenance: `Answered live just now by ${payload.model}, prompt ${payload.promptVersion}.`,
+        origin: "live",
       });
     } catch {
       setError("The answer never arrived. The recorded examples below still work.");
@@ -91,6 +101,17 @@ export function ExplainPanel({
 
   return (
     <div className="flex flex-col gap-4" data-testid="explain-panel">
+      {/*
+        The field is filled and outlined rather than transparent with a hairline.
+        Sitting on the indigo ground its default border measured 1.15:1 against
+        the panel behind it, where WCAG asks for 3:1 on the boundary of a
+        control, so the one thing on this page a person is meant to type into
+        was the hardest thing on it to see. White fill says "this is where you
+        write" before any border is read at all.
+
+        Taller, too. At 32px it was the size of a filter box on a toolbar, which
+        is the wrong promise for the page's main interaction.
+      */}
       <div className="flex flex-wrap items-center gap-2">
         <Input
           value={question}
@@ -103,9 +124,13 @@ export function ExplainPanel({
             if (event.key === "Enter") void ask();
           }}
           data-testid="explain-question"
-          className="min-w-[16rem] flex-1"
+          className="h-11 min-w-[16rem] flex-1 border-primary/85 bg-card px-3.5"
         />
-        <Button disabled={asking || question.trim().length === 0} onClick={() => void ask()}>
+        <Button
+          className="h-11 px-5"
+          disabled={asking || question.trim().length === 0}
+          onClick={() => void ask()}
+        >
           {asking && <Loader2 className="animate-spin" aria-hidden />}
           Ask
         </Button>
@@ -123,8 +148,12 @@ export function ExplainPanel({
           {examples.map((candidate) => (
             <Button
               key={candidate.id}
-              variant={candidate.id === openId ? "secondary" : "outline"}
-              size="sm"
+              // The open one is filled in the brand indigo, not tinted. It was
+              // `secondary`, a warm grey, sitting on this panel's pale indigo
+              // ground: two colours a few percent apart, so the question you
+              // were reading was indistinguishable from the five you were not.
+              variant={candidate.id === openId ? "default" : "outline"}
+              aria-pressed={candidate.id === openId}
               onClick={() => {
                 setLive(null);
                 setError(null);
@@ -134,7 +163,7 @@ export function ExplainPanel({
               // which is right for "Ask" and wrong for a whole question. One of
               // these is 389px of text, so on a phone it ran off the side and
               // took the document with it.
-              className="h-auto max-w-full shrink py-1.5 text-left whitespace-normal"
+              className="h-auto max-w-full shrink px-3 py-2 text-left whitespace-normal"
             >
               {candidate.question}
             </Button>
@@ -164,17 +193,8 @@ export function ExplainPanel({
 function recordedAnswer(example: ExplainExample): Answer | null {
   if (example.recorded === null) return null;
 
-  const { segments, cited, unknown, verdict, model, promptVersion, recordedAt } = example.recorded;
-  return {
-    segments,
-    cited,
-    unknown,
-    verdict,
-    // Always says it was recorded, and when. An answer produced weeks ago must
-    // never read as one produced just now, and the model and prompt version are
-    // what make it checkable at all.
-    provenance: `Recorded on ${recordedAt.slice(0, 10)} by ${model}, prompt ${promptVersion}. Replayed here, not regenerated.`,
-  };
+  const { segments, cited, unknown, verdict } = example.recorded;
+  return { segments, cited, unknown, verdict, origin: "recorded" };
 }
 
 function AnswerBody({
@@ -212,55 +232,96 @@ function AnswerBody({
         </div>
       )}
 
-      <p className="text-body/relaxed text-foreground">
-        {answer.segments.map((segment, index) => (
-          <Fragment key={index}>
-            {segment.kind === "text" ? (
-              segment.text
-            ) : (
-              <button
-                type="button"
-                onClick={() => onCite(segment.recordId)}
-                className={cn(
-                  "cursor-pointer rounded-sm font-mono text-mono text-primary",
-                  "underline-offset-2 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50",
-                )}
-              >
-                {segment.recordId}
-              </button>
-            )}
-          </Fragment>
-        ))}
-      </p>
+      {/*
+        The answer in the shape it was written, rather than flattened into one
+        paragraph. See `toAnswerBlocks`: the blank lines and the "1)" markers
+        are the model's own, and printing them as a single block was throwing
+        away the only structure the answer had. The worst case was the first
+        example question, whose eleven citations, five rupee totals and three
+        separate findings arrived as one nine-line wall.
+      */}
+      <div className="flex max-w-[78ch] flex-col gap-3" data-testid="answer-body">
+        {toAnswerBlocks(answer.segments).map((block, index) =>
+          block.kind === "paragraph" ? (
+            <p key={index} className="text-body/relaxed text-foreground">
+              <Segments segments={block.segments} onCite={onCite} />
+            </p>
+          ) : (
+            // A real list, so the count is known before any of it is read, and
+            // the numbers sit in a gutter of their own rather than inside the
+            // first sentence. `start` and each marker come from what the model
+            // wrote, so a list that begins at 2 is shown beginning at 2.
+            <ol key={index} className="flex flex-col gap-2">
+              {block.items.map((item) => (
+                <li key={item.marker} className="flex gap-2.5">
+                  <span className="w-4 shrink-0 text-body/relaxed font-medium tabular-nums text-muted-foreground">
+                    {item.marker}
+                  </span>
+                  <span className="min-w-0 text-body/relaxed text-foreground">
+                    <Segments segments={item.segments} onCite={onCite} />
+                  </span>
+                </li>
+              ))}
+            </ol>
+          ),
+        )}
+      </div>
 
       {/*
-        The count stays on the surface and the provenance folds away.
+        One line under the answer, and it is about the answer.
 
-        They used to be one line. The first half is about the answer and is the
-        reason to trust it. The second half is about the machinery, and printing
-        a model name and a prompt version next to a tax figure reads as though
-        the product were prouder of the model than of the answer. Neither is
-        deleted: a recorded answer must never read as one produced just now, and
-        only the provenance says which this is.
+        This was two: how many records the answer rests on, and a fold-away
+        carrying a model name, a prompt version and a note about punctuation.
+        The second told the reader nothing they could act on. What survives of
+        it is the single fact that matters, which is whether they are reading
+        something written for the question they typed or something saved
+        earlier, because those two must never look the same.
       */}
-      <div className="flex flex-col gap-1">
-        <Caption>
-          {answer.cited.length === 0
-            ? "This answer cites no records."
-            : `Every claim above is tied to ${answer.cited.length} named record${answer.cited.length === 1 ? "" : "s"}.`}
-        </Caption>
-        <details className="group/where">
-          <summary className="cursor-pointer list-none text-caption text-muted-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50">
-            Where this answer came from
-            <span className="ml-1 inline-block transition-transform group-open/where:rotate-90">
-              &rsaquo;
-            </span>
-          </summary>
-          <Caption as="p" className="mt-2">
-            {answer.provenance}
-          </Caption>
-        </details>
-      </div>
+      <Caption as="p">
+        {answer.cited.length === 0
+          ? "This answer names no records."
+          : `Every figure above is tied to ${answer.cited.length} named record${answer.cited.length === 1 ? "" : "s"}, and each one opens its row.`}{" "}
+        {answer.origin === "live" ? "Answered just now." : "Answered earlier and saved."}
+      </Caption>
     </div>
+  );
+}
+
+/**
+ * A run of an answer: its prose, with every cited record drawn as a link back
+ * to its row.
+ *
+ * Pulled out of `AnswerBody` when the answer stopped being one paragraph. A
+ * citation is now reachable from inside a list item as well as from a
+ * paragraph, and the alternative to one shared renderer is two that drift.
+ */
+function Segments({
+  segments,
+  onCite,
+}: {
+  segments: AnswerSegment[];
+  onCite: (recordId: string) => void;
+}) {
+  return (
+    <>
+      {segments.map((segment, index) => (
+        <Fragment key={index}>
+          {segment.kind === "text" ? (
+            segment.text
+          ) : (
+            <button
+              type="button"
+              onClick={() => onCite(segment.recordId)}
+              className={cn(
+                "cursor-pointer rounded-sm font-mono text-mono text-primary",
+                "underline-offset-2 outline-none hover:underline focus-visible:ring-3 focus-visible:ring-ring/50",
+              )}
+            >
+              {segment.recordId}
+            </button>
+          )}
+        </Fragment>
+      ))}
+    </>
   );
 }
