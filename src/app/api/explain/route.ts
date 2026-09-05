@@ -14,7 +14,7 @@ import { loadReviewBatch } from "@/lib/review/batch";
  * whose behaviour the tests describe.
  *
  * POST only. Route Handlers are uncached for every method except GET, which is
- * what this needs — an answer is about a question, not about a URL.
+ * what this needs: an answer is about a question, not about a URL.
  */
 
 /**
@@ -23,7 +23,7 @@ import { loadReviewBatch } from "@/lib/review/batch";
  * This route is public and every call is billed, so the realistic accident is
  * somebody holding down enter. The spending limit on the API account is the
  * hard stop; this is what keeps an accident from reaching it. Per-process, so
- * it neither survives a restart nor coordinates across serverless instances —
+ * it neither survives a restart nor coordinates across serverless instances,
  * deliberately crude rather than pretending to be a real rate limiter.
  */
 const budget = createQuestionBudget(Number(process.env.EXPLAIN_MAX_QUESTIONS ?? 40));

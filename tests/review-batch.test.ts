@@ -45,6 +45,26 @@ describe("the review header", () => {
       batch.header.totalRecords,
     );
   });
+
+  it("carries the two terms that claimable is made of, and they add up to it", () => {
+    // The screen shows this subtraction, term by term, when a reader opens the
+    // claimable figure. A derivation that does not reach the number printed
+    // above it is worse than no derivation: it invites a reader to trust the
+    // arithmetic and then hands them different arithmetic. The terms come from
+    // the audit row's own function, so the only way they can drift is if one
+    // of them stops being read from it.
+    expect(batch.header.rolledUpTaxPaise + batch.header.refundNettedTaxPaise).toBe(
+      batch.header.itcClaimablePaise,
+    );
+    expect(batch.header.refundNettedTaxPaise).toBe(12636);
+  });
+
+  it("names the supplier and invoice the figures were billed on", () => {
+    // Shown in every figure's derivation. An amount at risk that cannot say
+    // which invoice billed it is not something an accountant can query.
+    expect(batch.header.supplierGstin).toMatch(/^\d{2}[A-Z]{5}\d{4}[A-Z]/);
+    expect(batch.header.invoiceNumber.length).toBeGreaterThan(0);
+  });
 });
 
 describe("the review rows", () => {
@@ -93,9 +113,9 @@ describe("why a row was flagged", () => {
       expect(row.explanation.points.length).toBeGreaterThan(0);
 
       if (row.status === "EXCEPTION") {
-        expect(row.explanation.headline).toMatch(/^Flagged — /);
+        expect(row.explanation.headline).toMatch(/^Flagged\. /);
       } else {
-        expect(row.explanation.headline).toMatch(/^Matched — /);
+        expect(row.explanation.headline).toMatch(/^Matched\. /);
       }
     }
   });

@@ -89,11 +89,11 @@ export const TOOL_VALUE_MAX_CHARS = 140;
  * conclude the agent saw less than it did.
  */
 export function summariseToolValue(value: unknown, maxChars = TOOL_VALUE_MAX_CHARS): string {
-  if (value === undefined) return "—";
+  if (value === undefined) return "(nothing recorded)";
 
   let text: string;
   try {
-    text = JSON.stringify(value) ?? "—";
+    text = JSON.stringify(value) ?? "(nothing recorded)";
   } catch {
     // A cyclic or otherwise unserialisable payload is a broken trace, not a
     // reason to crash the page a person is using to check a tax figure.

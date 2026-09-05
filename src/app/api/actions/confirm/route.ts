@@ -9,14 +9,14 @@ import { loadReviewBatch } from "@/lib/review/batch";
  * to act on one. It writes an `actions` row with `confirmed_at` set, and that
  * is the whole of what "confirmed" means: an `actions` row exists if and only
  * if somebody clicked Confirm. Nothing is sent, nothing is filed, and nothing
- * is posted to the merchant's books — the row is a record of approval, and the
+ * is posted to the merchant's books: the row is a record of approval, and the
  * sending is theirs to do.
  *
  * §9 describes the gate as `confirmed_at IS NULL until a person clicks
  * Confirm`. The column is nullable and means exactly that, but no row is
  * written before the click: an unconfirmed draft lives in the committed drafts
  * file, not in the database, so there is nothing to write a null against. The
- * audit property is the stronger one either way — every row in `actions` was
+ * audit property is the stronger one either way: every row in `actions` was
  * approved by a person, and a query for unapproved actions returns nothing
  * because none were ever taken.
  *

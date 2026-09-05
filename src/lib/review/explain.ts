@@ -55,13 +55,13 @@ function matched(row: ClassifiedRow): RecordExplanation {
 
   return {
     headline: cell
-      ? `Matched — the fee is exactly what Razorpay's ${rateLabel(cell)} rate charges.`
+      ? `Matched. The fee is exactly what Razorpay's ${rateLabel(cell)} rate charges.`
       : "Matched.",
     points: [
       charged(row),
       ...(cell ? [pricedAt(row, cell)] : []),
       row.method === "EXACT"
-        ? "This is the rate the merchant expects to pay, so the match is EXACT — the highest confidence tier."
+        ? "This is the rate the merchant expects to pay, so the match is EXACT, the highest confidence tier."
         : "The merchant's own standard rate did not explain this fee, but another rate Razorpay publishes did, so the match is FUZZY.",
       `The ${formatRupees(row.taxPaise)} of GST inside the fee is input tax credit this merchant can claim.`,
     ],
@@ -70,7 +70,7 @@ function matched(row: ClassifiedRow): RecordExplanation {
 
 function feeDeduction(row: ClassifiedRow): RecordExplanation {
   return {
-    headline: "Flagged — no rate Razorpay publishes explains this fee.",
+    headline: "Flagged. No rate Razorpay publishes explains this fee.",
     points: [
       charged(row),
       bothCells(row),
@@ -84,11 +84,11 @@ function timing(row: ClassifiedRow, period: string): RecordExplanation {
   const cell = row.rateCell;
 
   return {
-    headline: `Flagged — this settled into ${formatPeriod(row.billedIn)}, not ${formatPeriod(period)}.`,
+    headline: `Flagged. This settled into ${formatPeriod(row.billedIn)}, not ${formatPeriod(period)}.`,
     points: [
       `Settled ${formatIstDateTime(row.settledAt)}, which falls in ${formatPeriod(row.billedIn)}.`,
       charged(row),
-      ...(cell ? [`The fee itself is correct — ${pricedAt(row, cell).replace(/^The /, "the ")}`] : []),
+      ...(cell ? [`The fee itself is correct. ${pricedAt(row, cell)}`] : []),
       `Razorpay bills it on ${formatPeriod(row.billedIn)}'s GSTR-2B rather than ${formatPeriod(period)}'s, so it is deliberately left out of this period's rollup. Nothing is wrong with the fee; it belongs to the next return.`,
     ],
   };
@@ -98,20 +98,20 @@ function refundNetted(row: ClassifiedRow): RecordExplanation {
   const cell = row.rateCell;
 
   return {
-    headline: "Flagged — this payment was refunded, and the refund was netted into a later settlement.",
+    headline: "Flagged. This payment was refunded, and the refund was netted into a later settlement.",
     points: [
       charged(row),
       ...(cell ? [pricedAt(row, cell)] : []),
       `Razorpay does not return its fee when a payment is refunded, so the ${formatRupees(row.taxPaise)} of GST inside it stays claimable. This row is not a threat to the input tax credit.`,
       "What the refund creates is an obligation on the other side of the books: a credit note to the customer under Section 34 of the CGST Act, which reduces the merchant's own output tax.",
-      "The refund is matched to this payment by its payment id, never by its settlement id — a refund almost never lands in the same settlement as the payment it reverses.",
+      "The refund is matched to this payment by its payment id, never by its settlement id. A refund almost never lands in the same settlement as the payment it reverses.",
     ],
   };
 }
 
 function partialPayment(row: ClassifiedRow): RecordExplanation {
   return {
-    headline: "Flagged — the failed leg of a retried payment.",
+    headline: "Flagged. The failed leg of a retried payment.",
     points: [
       `This row settled ${formatRupees(row.amountPaise)} and was charged no fee, so there is nothing to price against a rate card.`,
       `Order ${row.orderId} was captured on a separate row, and only that capture is billable.`,
@@ -126,7 +126,7 @@ function unexplained(row: ClassifiedRow): RecordExplanation {
   // billable") would then be a false statement about a real deduction.
   if (row.amountPaise === 0) {
     return {
-      headline: "Flagged — a fee was charged on a row where nothing was captured.",
+      headline: "Flagged. A fee was charged on a row where nothing was captured.",
       points: [
         `Nothing settled on order ${row.orderId}, yet ${formatRupees(row.feePaise)} was deducted.`,
         "A rate card prices a percentage of an amount, and there is no amount here, so no published rate can explain it either way.",
@@ -137,7 +137,7 @@ function unexplained(row: ClassifiedRow): RecordExplanation {
 
   // Otherwise the fee resolved to more than one published cell.
   return {
-    headline: "Flagged — two rates Razorpay publishes both explain this fee.",
+    headline: "Flagged. Two rates Razorpay publishes both explain this fee.",
     points: [
       charged(row),
       bothCells(row),
@@ -163,7 +163,11 @@ const bothCells = (row: ClassifiedRow) =>
  * `"STANDARD"` → `"2.00% standard"`. Derived from the matcher's own basis
  * points rather than written out, so a change to the rate card cannot leave the
  * screen quoting a rate the matcher no longer uses.
+ *
+ * Exported because the table shows the same label in its own column. Two
+ * spellings of the same rate on one screen is how a reader ends up believing
+ * there are more rates than there are.
  */
-function rateLabel(cell: RateCell): string {
+export function rateLabel(cell: RateCell): string {
   return `${(RATE_CELLS[cell] / 100).toFixed(2)}% ${cell.toLowerCase()}`;
 }

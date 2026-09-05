@@ -29,7 +29,7 @@ export function parseExplainRequest(raw: unknown): ExplainRequest {
 
   const issue = parsed.error.issues[0];
   if (issue?.code === "too_big") {
-    throw new Error(`That question is too long — keep it under ${MAX_QUESTION_CHARS} characters.`);
+    throw new Error(`That question is too long. Keep it under ${MAX_QUESTION_CHARS} characters.`);
   }
   throw new Error("Ask a question first.");
 }

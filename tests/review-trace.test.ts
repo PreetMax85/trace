@@ -94,6 +94,6 @@ describe("summariseToolValue", () => {
   });
 
   it("shows a dash for a tool that returned nothing", () => {
-    expect(summariseToolValue(undefined)).toBe("—");
+    expect(summariseToolValue(undefined)).toBe("(nothing recorded)");
   });
 });
