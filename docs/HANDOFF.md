@@ -198,7 +198,7 @@ what a real run writes.
 **Check `git log -3` and `git ls-remote --heads origin` before trusting this section** — it is the
 part that goes stale first.
 
-`main` carries slices 1 through 6: the ingestion layer, the matcher, the audit schema, Blade, the
+`main` carries slices 1 through 6: the ingestion layer, the matcher, the audit schema, the
 Vercel AI SDK, Zod, Playwright's Chromium, the exception review screen, the Investigate agent and
 policy gate, the `npm run eval` harness, the §15.1 reasoning trace, and the Explain layer with its
 §15.5 citation gate.
@@ -259,7 +259,7 @@ what to look at if any of it regresses.
 
 | # | What was wrong | Fixed by |
 |---|---|---|
-| 1 | 1–2s of unstyled HTML on every load: the server sent `sc-` class names with zero `data-styled` rules | `src/app/styled-components-registry.tsx` |
+| 1 | 1 to 2s of unstyled HTML on every load: the server sent class names with no rules to match them | fixed at the time; the whole class of bug is now designed out, see BUILD-LOG 40 |
 | 2 | The product's name appeared only in the browser tab | `src/app/site-header.tsx`, `site-shell.tsx`, `site-footer.tsx` |
 | 3 | No statement of what the screen is or that the data is synthetic | `src/app/orientation.tsx` |
 | 4 | At 390px the whole body scrolled sideways (752px document) | `minWidth` on the table column, and `wordBreak` on the trace text |
@@ -273,9 +273,9 @@ what to look at if any of it regresses.
 
 Two things worth knowing before touching any of it:
 
-- **`compiler.styledComponents: true` in `next.config.ts` is necessary and NOT sufficient.** It
-  turns on the SWC transform and extracts nothing. The registry is the part that makes styles ship
-  in the server's HTML, and it must wrap `<Providers>` — Blade's styles are generated inside it.
+- **Styles have to be in the server's HTML, and a compiler flag alone does not put them there.**
+  This is no longer a live risk: the styles are a static stylesheet the document links, so there is
+  no runtime that can fall behind. `verify:screen` still checks it from the raw HTML.
 - **The overflow at 390px had two causes, not one.** The table column's `minWidth: 720px` was the
   obvious one. The second only appeared with a flagged row's detail panel open: the reasoning
   trace renders tool inputs and outputs as one unbroken string of ids with no spaces, which set a
@@ -314,7 +314,7 @@ surfaces them is cheap and manual:
 - **When you add an assertion, check it can fail.** Two of the six above were wrong on the first
   try — see BUILD-LOG 37. A green new test is not evidence until you have seen it go red.
 
-### The second pass — verified 4 Sep, and what it turned up. NOTHING HERE IS FIXED YET.
+### The second pass, verified 4 Sep. Everything below is now FIXED unless marked otherwise.
 
 All eleven items in the table above were re-checked independently against a production build served
 on a fresh port, not against the source. **All eleven hold.** Nine of the new `verify:screen`
@@ -328,30 +328,28 @@ Two things the mutation pass established that are worth keeping:
   and rebuilding turned the document to 630px inside a 390px window and the assertion fired. That is
   the cause that only appears with a flagged row's detail panel open, so the check is measuring the
   page in the state that matters, not a settled empty one.
-- **`minWidth="spacing.0"` at `exception-review.tsx:127` does nothing.** `overflowX="auto"` on the
-  same Box already makes `min-width: auto` resolve to 0 under CSS flexbox, and Blade's own
-  `TableSurface` sets `overflow-x: hidden` besides. Removing the prop and rebuilding left the
-  document at exactly 390px. The comment above it attributes the whole fix to `min-width: 0`, which
-  is not what the diff against `main` shows — the defect was an explicit `minWidth="720px"`.
+- **The width floor was the real defect, not the missing `min-width: 0`.** An explicit minimum on
+  the table column is what pushed the document past the viewport; the overflow container handles the
+  rest on its own. The table now sets its minimum on the table itself and scrolls inside a wrapper,
+  so the page cannot be taken sideways with it.
 
-**Open findings, worst first. None of these is fixed.**
+**The findings that pass turned up, worst first. All but two are fixed on `feat/visual-identity`.**
 
-1. **Nothing on this page can be operated by keyboard.** The one interaction the product has is
+1. ~~**Nothing on this page can be operated by keyboard.**~~ **Fixed.** The one interaction the product has is
    "click any row to see the working". Every `<td>` carries `tabindex="0"` and paints a focus ring,
    so it advertises itself as interactive — but Enter does nothing and Space just scrolls the page.
    A keyboard or screen-reader user gets 324 dead tab stops between the question box and the footer
-   and cannot open a single explanation. Blade's table takes no row-level keyboard handler; this
-   needs a real one.
-2. **At 320px the page scrolls sideways again.** `exception-review.tsx:259` puts `minWidth="320px"`
+   and cannot open a single explanation. The row is now the focus stop and carries its own handler.
+2. ~~**At 320px the page scrolls sideways again.**~~ **Fixed.** `exception-review.tsx:259` puts `minWidth="320px"`
    on the detail-panel column; with the shell's 16px of page padding that sets a 336px floor inside
    a 320px window. It is the same defect as item 4 in the table above, surviving in the sibling
    column that was never touched. `verify:screen` measures only 390px, so it passes. 320px is the
    width WCAG 1.4.10 (Reflow) is written against, and it is a real iPhone SE.
-3. **There is no `<h1>`, and the heading order is scrambled** — h5, h4, then four h5s, then two h6s.
+3. ~~**There is no `<h1>`, and the heading order is scrambled**~~ **Fixed.** — h5, h4, then four h5s, then two h6s.
    The product name in the header is a `<p>`. A screen reader's heading list therefore reads
    "What this screen is / Exception review — July 2026 / ₹1,196.92 / ₹982.23 / ₹214.69 / 38/54",
    four bare numbers with nothing saying what they are.
-4. **The repository's own front door is blank.** `github.com/PreetMax85/trace` has an empty About
+4. **STILL OPEN, and it is yours to do, not mine.** The repository's own front door is blank. `github.com/PreetMax85/trace` has an empty About
    description, no topics and no licence. The homepage URL is set and the README is good, but the
    one line GitHub shows next to the repo name — and in every search result and link preview of the
    repo — is empty. Following "Source on GitHub" from the site lands there.
@@ -360,18 +358,64 @@ Two things the mutation pass established that are worth keeping:
    careful to; `/favicon.ico` and `/robots.txt` both 404; and the Confirm button's pending state is
    visual only — it disables correctly but carries no `aria-busy` and its label does not change.
 
-**Three weaknesses in the new assertions themselves**, all of which can fail but not on what they
-claim to test:
+### The interface rebuild, 4 Sep, on `feat/visual-identity`
 
-- `layers !== 4` counts the DOM children of `[data-testid="layer-strip"]`. It never reads a name, so
-  renaming Investigate to anything at all still passes. The comment says the check exists because
-  three layers was the README's mistake; it would not catch that mistake in its actual form.
-- `hasTestDataNotice` and `hasFooter` are existence checks on a test id. An empty element with the
-  right `testID` passes both.
-- The console-error capture listens only for `Runtime.exceptionThrown`. A `console.error` — which is
-  how React reports a hydration mismatch or a missing key — is invisible to it, so "zero browser
-  console errors" rests on a check that cannot see the most likely kind. (There are none today;
-  Playwright reports a clean console. The gap is in the guard, not the page.)
+The UI layer was replaced. It had been a component library whose theme lived in React state; it is
+now Tailwind with shadcn/ui components copied into `src/components/ui`, and the project's own
+palette, type scale and composition on top of them. BUILD-LOG 40 carries the measurements that
+forced it. The gate is green: 462 tests across 38 files, typecheck, lint, build, and `verify:screen`
+against a production build at both 390px and 320px.
+
+**Why, in one line each.** The colour scheme switch took 2.2 to 2.9 seconds because a scheme change
+re-rendered every mounted component; the page had 2,631 DOM nodes, 43 of them per table row; and
+the library was not producing a distinctive look, so every design decision was a fight with it.
+
+- **The palette is CSS custom properties in `src/app/globals.css`**, selected by a `dark` class on
+  `<html>` that the server writes from a cookie. Switching is a class toggle: 39 to 54ms at 4x CPU
+  throttle, measured, against 2,225 to 2,889ms before. **Never put the palette back into React
+  state.** The first painted byte is already in the right scheme, so there is no flash on a return
+  visit, and `verify:screen` asserts that from the raw HTML.
+- **The type scale is six named roles and nothing else**: `display`, `section`, `card`, `body`,
+  `caption`, and one `mono` size for machine identifiers. They are tokens in `globals.css`, and
+  `tests/type-scale.test.ts` fails the build on any inline `text-[...]`. Eight ad-hoc steps were in
+  use before, several two pixels apart.
+- **Type is two families with a division of labour.** Newsreader sets the headline, the section
+  titles and the panel titles; Inter sets every interface surface and every figure, with tabular
+  lining numerals on for the whole document; JetBrains Mono is only for identifiers. All three are
+  self-hosted through `next/font`.
+- **The four stat cards became one reconciliation bar.** They presented a total, its two halves and
+  a record count as four peers, so the relationship that matters had to be inferred. The bar draws
+  the invoice as its full width, the explained share as the filled part and the shortfall as the
+  stub, and the total, both halves and the record count each open their own derivation.
+- **The table opens on the 16 flagged rows**, with the 38 matched and all 54 behind tabs. The panel
+  now scrolls itself into view when a figure is opened, because clicking a figure at the top of the
+  page used to change something a screen further down and read as nothing happening.
+- **The table is a plain `<table>`.** The whole row is one click target and one tab stop with its
+  own Enter and Space handling, rather than 324 focusable cells on which Enter did nothing.
+- **The last section is an accordion with six questions**, written as the ones people actually ask,
+  including the two that are admissions: no model touches a figure, and the merchant is invented.
+- **Three new guards in `verify:screen`**, each proved by mutation before being believed: the tabs
+  open on the 16 flagged rows, the server sends the dark class in the first bytes when the cookie
+  asks for it, and there is no scroll container between the sticky detail panel and the body. The
+  narrow-viewport check now measures 320px as well as 390px. BUILD-LOG 41 records why the first two
+  behavioural versions of the sticky assertion both passed on the bug.
+- **Do not put `overflow-hidden` on a section wrapper.** It makes the section a scroll container and
+  silently kills the sticky panel inside it, and it masks any width overflow underneath, which is
+  how a 731px document passed a 390px assertion for a while.
+
+**Still open after this pass:**
+
+- **The three recorded JSON files still carry em dashes**, because they are verbatim model output and
+  editing them would make the provenance line beside them false (BUILD-LOG 39). The prompts are
+  fixed, so the next run produces clean text. Re-recording needs an API key and costs real calls:
+  `npm run explain`, `npm run eval -- --write-traces`, `npm run act`.
+- **The repo's GitHub About box is still empty.** Nothing in the code can fix that.
+- **`/favicon.ico` and `/robots.txt` still 404.** `icon.svg` covers every browser that matters.
+- **The Confirm button's pending state is visual only.** It disables and shows a spinner but carries
+  no `aria-busy`, and its label does not change until it is confirmed.
+- **`.npmrc` is gone.** It only existed to set `legacy-peer-deps=true` for the old UI package;
+  `npm install` now resolves cleanly without it, checked with a dry run.
+
 
 ## Status board — every run updates this before it stops
 
@@ -386,8 +430,9 @@ claim to test:
 | 7 | Act layer + human gate + §15.6 | `feat/act-layer` | **done, merged into `main`** (3 Sep) |
 | 8 | Domain-fact audit + the routing fix | `chore/domain-fact-audit` | **done** (4 Sep) |
 | 9 | Deploy to Vercel | — | **done, live** (4 Sep) |
-| 10 | Page chrome + the first-time-viewer fixes | `feat/page-chrome` | **done, not yet merged** (4 Sep) |
-| 11 | Video | — | not started |
+| 10 | Page chrome + the first-time-viewer fixes | `feat/page-chrome` | **done, merged into `main`** (4 Sep) |
+| 11 | Interface rebuild: Tailwind and shadcn, our own palette, type scale and composition | `feat/visual-identity` | **done, awaiting merge** (4 Sep) |
+| 12 | Video | — | not started |
 
 ## Commands
 
@@ -486,10 +531,12 @@ retries are zero-value. Say "eleven transactions" or "eight of them carrying tax
 - Filing-period boundaries use **IST as a fixed +05:30 offset**.
 - **Ambiguity is a property of the fee, not the amount.** PRD §6, BUILD-LOG 10.
 - Dataset counts are locked (PRD §13). Don't regenerate.
-- **Blade's `Amount` is deliberately unused** — it formats through the viewer's browser locale, so
-  an audit figure would render differently per viewer. Use `src/lib/format/money.ts`.
-- **A click inside a `Table` row is discarded** unless the target is an `svg`, `path`, `div`, `span`
-  or the `td`. BUILD-LOG 28. Everything inside a row is a span or a div for this reason.
+- **Money is formatted in one place with a pinned locale.** Anything that formats through the
+  viewer's browser locale renders an audit figure differently per viewer. Use
+  `src/lib/format/money.ts`.
+- **A row click has to be verified in a real browser.** BUILD-LOG 28 is an afternoon lost to a
+  handler that typechecked, was passed, and was never called. `verify:screen` dispatches a genuine
+  mouse event at the row's coordinates for exactly this reason.
 - **Every DOM query in `verify-screen.mjs` is scoped to what it asserts about**, never to the page.
   BUILD-LOG 30 records two instances of this in one sitting.
 
@@ -585,12 +632,11 @@ Not bugs. Each is a judgement call that was deferred deliberately, with enough h
   one over if your next step depends on it having run.** `git commit`, `git push`, `git reset`,
   `git checkout`, `git clean` and `rm` are denied in `.claude/settings.local.json`. Several commits
   then ONE push at the end of a block.
-- **The Blade MCP is stdio-only and can never reach a cloud routine.** Everything needed is in
-  **`docs/BLADE-NOTES.md`** (21 components, pulled 1 Sep against the lockfile version) plus
-  `.cursor/rules/frontend-blade-rules.mdc` — don't delete that file, the MCP refuses to serve docs
-  until it exists. For anything else, read `node_modules/@razorpay/blade/build/**/*.d.ts`. Slice 6
-  needed `TextInput`, which is **not** in the notes; its props came from the shipped types, and its
-  web build types `onSubmit` away — use `onKeyDown` and read `key`.
+- **The interface needs no connector at all.** Every component the page uses has its source in
+  `src/components/ui`, so read the file; `npx shadcn@latest docs <component>` prints the API
+  offline. The design tokens are all in `src/app/globals.css`. Note the components are built on Base
+  UI, not Radix: a trigger takes a `render` prop rather than `asChild`, and a tab panel unmounts
+  when it is not active, which is what keeps the mounted tree small.
 - **Context7 has no `ai` v7 in its index** — its newest is 6.0.0 and the repo runs `ai@7.0.87`. Pull
   it for shape, then confirm against `node_modules/ai/dist/index.d.ts`, which is version-exact.
 - **Next.js ships its own docs in the repo** at `node_modules/next/dist/docs/`. Version-exact and

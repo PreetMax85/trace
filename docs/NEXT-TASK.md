@@ -10,9 +10,9 @@ wherever the first stopped, so this file must stay true for both. Do not edit it
 
 **You write code. You do not change the environment.**
 
-Every dependency this queue needs is already installed and committed — Blade, the Vercel AI SDK,
-Zod, Drizzle, Playwright's Chromium, and the MCP servers. `.npmrc` already sets
-`legacy-peer-deps=true`, which Blade requires and which Vercel will inherit.
+Every dependency this queue needs is already installed and committed: Tailwind, the shadcn
+components under `src/components/ui`, the Vercel AI SDK, Zod, Drizzle, Playwright's Chromium, and
+the MCP servers.
 
 So: **do not run `npm install <new package>`, do not add MCP servers, do not provision anything, do
 not change React or Next versions.** `npm ci` or a plain `npm install` to restore the existing
@@ -36,9 +36,10 @@ have already spent twenty minutes.
      rescue it, but it died in thirty seconds having wasted nothing, and the log will say why.
    - **It errors** — `fetch failed`, a timeout, an auth error. The tool is *allowed* but the
      sandbox cannot reach it. This is recoverable and you should **carry on**. Fall back to the
-     version-exact docs vendored in the repo: `node_modules/next/dist/docs/` for Next.js,
-     `docs/BLADE-NOTES.md` and `node_modules/@razorpay/blade/build/**/*.d.ts` for Blade, and the
-     shipped `.d.ts` files for anything else. Use WebSearch only after those. Note the failure in
+     version-exact docs vendored in the repo: `node_modules/next/dist/docs/` for Next.js, the
+     component source in `src/components/ui` for anything shadcn (it is in the repo, so read it
+     rather than looking it up), and the shipped `.d.ts` files for anything else. Use WebSearch
+     only after those. Note the failure in
      `docs/HANDOFF.md` and keep going — do **not** guess at an API you could not look up.
 2. `npm ci` (or `npm install`) — restore the lockfile, nothing new.
 3. `npm test` — expect **195 passing**. If not, stop and report; the tree was already broken.
@@ -56,11 +57,10 @@ If steps 2-5 fail, **stop and report**. Do not try to repair the environment. If
 API you are about to write against — the AI SDK especially. That is this project's first
 non-negotiable rule and it applies to you.
 
-**NOT available: the Blade MCP.** It is stdio-only, so no routine can reach it. Everything you need
-is cached in **`docs/BLADE-NOTES.md`** (21 components, pulled 1 Sep against the exact version in the
-lockfile) plus `.cursor/rules/frontend-blade-rules.mdc`. For anything not in those, read the shipped
-types in `node_modules/@razorpay/blade/build/**/*.d.ts` — version-exact and compiler-enforced. Do
-not guess a prop name.
+**You do not need a connector for the interface.** Every component the page uses has its source in
+`src/components/ui`, so read the file rather than looking anything up, and `npx shadcn@latest docs
+<component>` prints the API offline. The design tokens are all in `src/app/globals.css`. Do not
+guess a prop name and do not add a component the page does not already use.
 
 ## Never do any of these — they hang forever with nobody to answer
 
@@ -153,14 +153,15 @@ The screen. One page, server-rendered, reading the fixture directly through `mat
 through Postgres. The database is the audit trail; it must not sit between the fixture and the pixels.
 
 - Header: invoice tax ₹1,196.92 · ITC claimable ₹982.23 · ITC at risk ₹214.69 · 38/54 matched.
-- Table: all 54 rows — settlement id, amount, fee, tax, `match_method`, category. The 16 exceptions
-  must be visually distinct from the 38 matched.
+- Table: all 54 records reachable, showing what the payment is, amount, fee, tax, the rate it
+  matched and its category. It opens on the 16 flagged rows, with the 38 matched behind a tab.
 - Detail: clicking an exception shows why it was flagged.
 
-Use `@razorpay/blade`. **Read `docs/BLADE-NOTES.md` before using any component** — the Blade MCP is
-not reachable from a routine and the prop names are not guessable. `src/app/page.tsx` and `src/app/providers.tsx` already hold a working Blade
-setup; build from those. Known issue: Blade's `Amount` logs `window is not defined` during SSR. It
-renders correctly; make it client-side if that is cheap, and record it if not.
+Build on what is already there. `src/app/exception-review.tsx` holds the working screen and
+`src/app/ui` holds the project's own type scale and section shell; extend those rather than
+starting a new visual language. The palette, the five type roles and the colour scheme all live in
+`src/app/globals.css` as CSS custom properties. Never move the palette into React state: a scheme
+switch has to stay a class toggle on `<html>`, which is what keeps it instant.
 
 **Done when:** the page renders at `/`, all 54 rows are present, the console and build are free of
 errors, and you have captured a screenshot proving it. Verify with the browser, not by assuming.

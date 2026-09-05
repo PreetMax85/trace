@@ -151,23 +151,6 @@ Explain/Act call sites owns this line of code, not a later observability pass.
 
 ---
 
-## Also checked, because it is the stack's largest unverified risk
-
-Not one of the three named libraries, and no §9 claim is being contradicted — but it is worth one
-paragraph while the packages are open.
-
-`@razorpay/blade@12.121.0` declares `peerDependencies` including `react: ">=18"`,
-`react-dom: ">=18"` and **`styled-components: "^5"`**, plus `framer-motion`, `@gorhom/portal`,
-`react-hot-toast@2.4.1` and a set of `react-native` peers.
-(Source: `https://registry.npmjs.org/@razorpay/blade/latest`.)
-
-React 19 satisfies `>=18` nominally. **Whether styled-components v5 behaves under React 19 inside
-Next 16's App Router was not verified** — it is a runtime-and-SSR question that a peer range cannot
-answer, and it is the single thing in this stack most likely to cost an afternoon. Install Blade
-into a scratch branch and render one component before committing the UI to it.
-
----
-
 ## What a later session should take from this
 
 1. **Nothing in §9 needs rewriting for Inngest.** It works as described; the pause just needs a

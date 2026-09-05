@@ -961,24 +961,17 @@ another month's fees into this period's claimed credit.
 
 ## 28. Clicking a row did nothing, and no test could have known
 
-**Believed.** The exception review table was finished: `TableRow` was given an `onClick`, the
-handler set the open record, the detail panel read it, and everything typechecked. Blade's own
-documented example wires a row click exactly this way.
+**Believed.** The exception review table was finished: the row was given an `onClick`, the handler
+set the open record, the detail panel read it, and everything typechecked. The documented example
+for the table component in use wires a row click exactly that way.
 
-**Broke.** Clicking a row did nothing at all. Blade's `Table` is built on
-`@table-library/react-table-library`, whose `Row` only forwards a click when `isRowClick(event)`
-passes — and that function is an allowlist of five tag names:
-
-```js
-"svg" === target.tagName || "path" === target.tagName ||
-"DIV" === target.tagName || "SPAN" === target.tagName || "TD" === target.tagName
-```
-
-The settlement cell rendered a Blade `Code` (a `<code>`) and a default `Text` (a `<p>`). Both are
-outside the allowlist, so a click that landed on any actual text was discarded silently — no
-error, no warning, nothing in the console. Only the few pixels of cell padding, where the target
-is the `<td>` itself, worked. Neither Blade's docs nor its TypeScript types mention this; it is a
-behaviour of a transitive dependency.
+**Broke.** Clicking a row did nothing at all. The table was built on a library whose row only
+forwards a click when the event target passes an allowlist of five tag names: `svg`, `path`, `DIV`,
+`SPAN` and `TD`. The settlement cell rendered its id inside a `<code>` and its text inside a `<p>`.
+Both are outside the allowlist, so a click that landed on any actual text was discarded silently:
+no error, no warning, nothing in the console. Only the few pixels of cell padding, where the target
+is the `<td>` itself, worked. Neither the documentation nor the TypeScript types mentioned it; it
+was a behaviour of a transitive dependency.
 
 **Caught by.** Driving the real page over the Chrome DevTools Protocol and dispatching a genuine
 `Input.dispatchMouseEvent` at the row's coordinates, then reading the detail panel's text back out
@@ -987,16 +980,21 @@ nothing; the row element also has `display: contents`, so its bounding box is 0�
 has to be aimed at a cell. Every unit test in this slice passed throughout — the bug lives
 entirely in the gap between a handler being *passed* and a handler being *called*.
 
-**Would have cost.** A demo where the headline interaction — click an exception, see why it was
-flagged — does nothing on camera, with a green suite and a clean build saying it was finished.
+**Would have cost.** The headline interaction of the whole product, clicking an exception to see
+why it was flagged, doing nothing in front of somebody, with a green suite and a clean build saying
+it was finished.
 
-**Second instance, found by the guard itself.** Blade's `Badge` renders its label as a `<p>` and
-exposes no `as` prop, so the coloured category pill — the most clickable-looking thing in an
-exception row — was dead in the same way and could not be fixed by choosing a different element.
-It is wrapped in `<Box pointerEvents="none">` so the click falls through to the cell, which keeps
-the design-system component and the row click both. The table library does the same thing to its
-own buttons (`button * { pointer-events: none }`), which is the hint that this is the intended
-escape hatch rather than a workaround.
+**Second instance, found by the guard itself.** The category pill, the most clickable-looking thing
+in an exception row, rendered its label as a `<p>` with no way to change the element, so it was dead
+in the same way. It had to be wrapped in a `pointer-events: none` box so the click fell through to
+the cell.
+
+**Where this landed.** The table is now a plain `<table>`. The whole row is one click target and one
+tab stop, there is no allowlist between the event and the handler, and the row carries its own
+`onKeyDown` so Enter and Space do what the focus ring promises. The guard is unchanged and still the
+one that matters: `scripts/verify-screen.mjs` drives a real browser, dispatches a genuine mouse
+event at the row's coordinates, and reads the detail panel back out of the DOM. **A handler that is
+passed is not a handler that is called, and only a real browser can tell you which you have.**
 
 **The guard was wrong twice before it was right.** Worth recording, because it is the same failure
 as entry 27 in a new place. Version one clicked the *centre of the cell*, which is empty space: it
@@ -1416,12 +1414,14 @@ lint. It had been reviewed and shipped on that basis.
 nowhere on the page — only in `metadata.title`, which is the browser tab. There was no header, no
 statement of what was being reconciled or against what, no mention that the data is synthetic, and
 no link to the source. Four more things came out of the same look, none of which any test could
-see: the server was sending HTML with styled-components class names and **no rules to match them**,
-so every load painted unstyled for a second or two until the client bundle booted; at 390px the
+see: the server was sending HTML with class names and **no rules to match them**, so every load
+painted unstyled for a second or two until the client bundle booted; at 390px the
 document was 752px wide and the whole body scrolled sideways; an unknown URL returned Next's bare
 default 404 with no styling and no way back; there was no `error.tsx`, so a client-side throw fell
 through to Next's default crash screen; and a shared link unfurled as plain text with no preview
-card. The README, now the front door of a public repository, still carried a placeholder where the
+card. The unstyled flash had a specific cause: the server was sending class names generated by a
+CSS-in-JS runtime with no rules to match them, so the page painted raw until the client bundle
+booted and injected the stylesheet. The README, now the front door of a public repository, still carried a placeholder where the
 live URL should be and listed three layers instead of four — it omitted **Investigate** entirely,
 which is the layer with the strongest evidence behind it.
 
@@ -1438,23 +1438,22 @@ it, and on a phone the page is unusable regardless.
 
 **Permanently changed.**
 
-- **The FOUC has a root cause and a fix, not a workaround.** `compiler.styledComponents: true` in
-  `next.config.ts` enables the SWC transform only; it extracts nothing. Next's own documented
-  three-step setup — a `ServerStyleSheet` registry, `useServerInsertedHTML`, a client component
-  wrapping the tree — is now in `src/app/styled-components-registry.tsx`, verified against
-  `node_modules/next/dist/docs/01-app/02-guides/css-in-js.md` and against the installed
-  styled-components 5.3.11 rather than the 6.x the doc is written for.
+- **The flash had a root cause and a fix, not a workaround.** Styles generated at runtime have to
+  be collected and inserted into the server's HTML, and enabling a compiler transform does not do
+  that on its own. It was fixed properly at the time, and the whole class of bug has since been
+  designed out: the styles are a static stylesheet the document links, so there is no runtime to
+  fall behind.
 - **`verify:screen` now grades legibility, not only correctness.** It asserts the product name is
   on the page, that the orientation names GSTR-2B, Razorpay and input tax credit, that four layers
   are listed (three was the README's exact mistake), that the test-data notice and footer render,
   that an unknown URL 404s with the product's own page, and that the document is not wider than the
   viewport at 390px.
-- **The FOUC assertion fetches the server's raw HTML, not the DOM.** This is the guard that
+- **The flash assertion fetches the server's raw HTML, not the DOM.** This is the guard that
   matters, because it is the one the old script could not have held: by the time a DOM exists the
-  client bundle has booted and injected every rule, so a DOM check passes whether or not the server
-  sent any CSS. The assertion is conditional in the right direction — if the HTML carries `sc-`
-  class names it must also carry `data-styled` rules — so it fails on the actual defect rather than
-  on a stylistic choice.
+  client bundle has booted and put right anything the document was missing, so a DOM check passes
+  whether or not the server sent any CSS. It now fetches the document, follows the stylesheet link
+  and checks the ground colour is really defined in it, and separately checks that the colour scheme
+  is already correct in the first bytes.
 - **Two of the new assertions were wrong on the first try, and both were caught by attacking
   them rather than by running them.** The 404 check originally asserted that the page carried the
   product's name — which Next's *default* not-found page also does, because it renders inside the
@@ -1492,3 +1491,174 @@ it, and on a phone the page is unusable regardless.
   from inside the criteria. So: check the front doors nobody on the team ever opens — the README,
   the browser tab, the unfurled link, the 404 — and watch the first two seconds of a load rather
   than the settled page.
+
+---
+
+## 38. A doc comment's own example was wrong, and no test could have known
+
+**Believed.** `formatIstDateTime` was documented as turning `1785479400` into
+`"01 Aug 2026, 00:00 IST"`. That example had sat in `src/lib/format/date.ts` since the formatter
+was written, and it was the illustration of the exact case the function exists for: the T+2
+month boundary that decides which GSTR-2B a settlement lands on.
+
+**Broke.** `1785479400` is midday on **31 July**, not midnight on 1 August. The instant the
+comment meant is `1785522600`, 43,200 seconds later. The function was correct throughout; only
+its documentation was wrong, and it was wrong about the one value a reader would have used to
+convince themselves the IST handling was right.
+
+**Caught by.** Writing a test for a NEW function, `formatIstDate`, and asserting the example the
+neighbouring comment already claimed. The assertion failed on the first run with
+`expected '31 Jul 2026' to be '01 Aug 2026'`, which was not what the test was written to check.
+Nothing else in the project could have surfaced this: comments are not executed, and the
+formatter's own tests used different timestamps.
+
+**Would have cost.** Nothing at runtime, and that is the point. It would have cost the next
+person to read that file their confidence in it. Anyone verifying the period logic by hand would
+have started from a worked example that does not work, concluded the formatter was off by half a
+day, and gone looking for a bug in code that is correct.
+
+**Permanently changed.** The example is now `1785522600`, which is genuinely the boundary, and
+`tests/format-record.test.ts` asserts the pair (`formatIstDate(1785522600) === "01 Aug 2026"`,
+and that the full timestamp starts with it) rather than leaving the comment to claim it. The
+general rule: **a worked example in a comment is an untested assertion.** If it is load-bearing
+enough to write down, write it as a test and let the comment point at the test.
+
+---
+
+## 39. The em dashes were in the model's output too, and those cannot just be edited
+
+**Believed.** Taking em dashes out of the product was a copy pass over the files that hold copy.
+
+**Broke.** Three of the places a reader meets them are not authored text at all. The recorded
+Explain answers (`data/synthetic/explanations.json`), the Investigate reasons
+(`investigations.json`) and the drafted actions (`drafts.json`) are verbatim output from real
+model runs, replayed on the page and labelled as recorded. Editing the words would make the
+provenance line beside them false: the page says "Recorded on 2026-09-04 by claude-opus-5", and
+that claim is only worth anything if the text is what the model actually said.
+
+**Caught by.** Reading the rendered page after the copy pass rather than re-running the search.
+The authored strings were clean and the biggest paragraph on the screen still had three em
+dashes in it.
+
+**Would have cost.** Either a page that still reads as machine-written, or an audit trail quietly
+rewritten to look better, which is the worse of the two by a distance. A product whose argument
+is "you can check our working" cannot edit the working to improve the presentation.
+
+**Permanently changed.** Two halves. `tests/screen-copy.test.ts` scans every authored file whose
+strings reach a screen and fails on an em dash, an en dash, or any of the occasion words
+("demo", "judge", "on stage", "pitch"); it strips comments first, so the rule applies to copy and
+not to the notes around it, and both halves of the stripper are themselves tested. The recorded
+files are left exactly as recorded, and instead `src/lib/explain/prompt.ts` and
+`src/lib/act/prompt.ts` now tell the model to use ordinary punctuation, so the next run produces
+clean text honestly. The rule: **when generated content is wrong, fix the generator, not the
+artifact.**
+
+---
+
+## 40. The slow colour switch was not a rendering cost, and two cheap tests proved it
+
+**Believed.** Switching between light and dark took two to three seconds, and the obvious reading
+was that a page with 54 table rows is simply a lot to repaint. The plan was to mount fewer rows and
+call it fixed.
+
+**Broke.** Measured over the Chrome DevTools Protocol at 4x CPU throttle, the switch took 2,225 to
+2,889ms. Two elimination tests then killed the theory in about a minute each. Setting
+`display: none` on the entire table changed nothing at all: 2,752 and 2,865ms, if anything worse
+than the baseline. Adding `content-visibility: auto` to every row, which lets the browser skip
+style, layout and paint for anything off screen, moved it to 2,427ms. So it was not style, not
+layout and not paint. A CPU profile confirmed it: roughly 600ms of unthrottled scripting spread
+thin across minified React internals with no hot spot anywhere, which is the signature of a large
+tree reconciling rather than of one slow function.
+
+The cause was structural. The palette lived in React state, so a scheme change produced a new theme
+object, handed it to every component through context, and re-rendered the entire mounted tree to
+change some colours. Scale confirmed it: the 404 page, with the same header and 100 DOM nodes,
+switched in 63ms; the review screen, with 2,631, took 2,400ms. About one millisecond per node,
+whether or not that node was visible.
+
+**Caught by.** Preet, using the deployed page: *"When I click on the dark mode icon, it takes
+approximately 2-3 seconds to change to dark mode, and vice versa. Why is this happening?"* Nothing
+in the test suite could have seen it. Every assertion in the repo grades a settled page, and the
+settled page was correct in both schemes.
+
+**Would have cost.** The `startTransition` fix that was already written and staged. It stops the tab
+freezing, so the click registers immediately, and it would have made the symptom feel better while
+leaving a two-second wait in place. That is the expensive kind of fix: it removes the evidence
+without removing the defect, and the next person to measure it starts from scratch.
+
+**Permanently changed.**
+
+- **The palette is CSS custom properties selected by one class on `<html>`.** Switching is a class
+  toggle and a cascade: no re-render, no React state, nothing for the tree size to multiply. The
+  same measurement on the same hardware at the same 4x throttle now reads 39 to 54ms.
+- **The class is written by the server from a cookie**, so the first painted byte is already in the
+  right scheme and a returning reader never meets a flash of the wrong page.
+- **The row count came down anyway, for a different reason.** The table opens on the 16 flagged
+  rows with the 38 matched behind a tab, because a reader opening this screen wants the queue and
+  handing them every matched row alongside buries it. It also took the page from 2,631 DOM nodes to
+  460, and the table from 43 nodes per row to about 12.
+- **`scripts/verify-screen.mjs` asserts the scheme is in the server's first bytes.** It writes the
+  preference, refetches the document and checks the class is already there, then puts the cookie
+  back. This is the assertion a client-side theme switch cannot pass, which is the point. Both new
+  assertions were made to fail before being believed: breaking the cookie read and changing the
+  default tab each produced exactly their own failure message and nothing else.
+- **`tests/type-scale.test.ts` fails the build on any inline font size.** A separate complaint in
+  the same review was that the fonts looked "very, very disoriented"; there were eight visible
+  steps, several two pixels apart. Every size is now one of six named roles declared as a token, and
+  the test refuses an arbitrary one, because each individual size was reasonable where it was
+  written and only the total was wrong.
+
+**The rule.** When something feels slow, spend two minutes eliminating whole categories before
+choosing a fix. Hiding the suspect and measuring again is the cheapest experiment available, and
+here it was the one that turned a plausible wrong answer into the right one.
+
+---
+
+## 41. Three layout defects the whole gate was blind to, and one assertion that lied
+
+**Believed.** The rebuilt screen was done. Typecheck, lint, 462 tests, a clean build and every
+assertion in `verify:screen` were green, including the one that measures the document against the
+viewport at 390px.
+
+**Broke.** Three things, none of which any of that could see.
+
+The detail panel stopped following the reader down the table. It is `position: sticky`, which is
+silently defeated by any ancestor that creates a scroll container, and one did: the section wrapper
+carried `overflow-hidden` purely to clip its header band to a rounded corner. Nothing looked wrong;
+the panel was simply not there forty rows down.
+
+Removing that `overflow-hidden` then exposed a second defect it had been hiding. The table sets a
+680px minimum and scrolls inside its own box, but two ancestors between it and the page were flex
+or grid items whose default `min-width: auto` refused to shrink, so the document went to 731px
+inside a 390px window. The clip had been masking it, which is why the 390px assertion had been
+passing all along on a page that was actually broken.
+
+Third, at 320px an example question in the Explain panel is 389px of text on a button, and a button
+does not wrap. The tab list needed 322px for the same reason. Neither showed at 390px.
+
+**Caught by.** Looking at a screenshot. The sticky bug was visible in one frame as an empty column
+where the explanation should have been. The other two came from adding 320px to the viewport check
+after the first fix changed what the check could see.
+
+**Would have cost.** The sticky one is the expensive one: the product's single interaction is
+"select a row, read why", and on any laptop the explanation would have been off screen for most of
+the table. It would have been found by the first person to scroll, which is everybody.
+
+**Permanently changed.**
+
+- **The sticky assertion is structural, not behavioural.** Two behavioural versions were written
+  first and both passed on the bug. Scrolling to the last row scrolls the nearest scroll container,
+  which with the defect present is the section itself, so the panel never moves relative to the
+  viewport. Checking that the panel's box overlaps the viewport also passes, because with a record
+  open the panel is taller than the window and overlaps whatever happens. The version that works
+  asks the only question with one answer: is there a scroll container between the panel and the
+  body? It fails on the mutation and names the element.
+- **`verify:screen` now measures 320px as well as 390px.** 320 is what WCAG 1.4.10 is written
+  against and a real iPhone SE, and both new overflows lived between the two widths.
+- **The identifier chips break on any character.** There is no sensible place to break
+  `setl_aeu2mc8Y4Y6CqA`, so `break-all` is correct rather than a workaround, and without it a
+  19-character settlement id set a 196px floor in a 288px column.
+
+**The rule, and it is the same one as entry 37.** A green gate means the numbers are right. It has
+never meant the page is usable, and the cheapest instrument for the difference is still a
+screenshot. Two of these three were found by looking at one.

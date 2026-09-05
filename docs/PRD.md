@@ -498,7 +498,7 @@ is generated; the counts above are exact.
 │  └───────────────────────────────┘  └───────────────────────────────┘│
 │                                                                      │
 │  ┌────────────────────────────────────────────────────────────────┐  │
-│  │  Blade UI                                                      │  │
+│  │  Interface                                                     │  │
 │  │    dashboard · reasoning trace · chat panel · action cards     │  │
 │  └────────────────────────────────────────────────────────────────┘  │
 └──────────────────────────────────────────────────────────────────────┘
@@ -512,7 +512,7 @@ is generated; the counts above are exact.
 | Pipeline execution | Plain async functions + Postgres | **Inngest cut 1 Sep.** Durable execution earns its cost on long, expensive or fan-out steps. Detect is 54 records through pure functions in under 3 seconds, and a re-run is byte-identical because it is deterministic — so there is nothing to resume. Run state lives in the `batches` row, not in a workflow engine. The human-in-the-loop pause Inngest was chosen for is `actions.confirmed_at`: a nullable column and a Confirm button, which is also the only version of that gate a user can actually see. |
 | Agent/AI calls | Vercel AI SDK + Claude (Anthropic API) | Tool calling for MCP context fetches. `generateText` + `Output.object` for **all three** layers, Explain included — see §15.5 for why streaming was dropped there |
 | Database | PostgreSQL via Drizzle | Audit trail needs ACID guarantees |
-| UI | `@razorpay/blade` | Razorpay's own design system: tokenised, accessible, and already the visual language of the dashboard these merchants read their settlements in. A reconciliation view that looks like a different product makes people distrust the numbers. |
+| UI | Tailwind + shadcn/ui | Components are copied into the repo rather than installed, so the project owns them and the look is a design decision rather than a library default. Theming is CSS custom properties, which is what lets the colour scheme switch without re-rendering the page. |
 | Data layer | `razorpay-mcp-server` (dev-time) + synthetic fixtures (runtime) | Official tooling, used during development to verify the `fetch_settlement_recon_details` response shape. **Not the runtime path** — it is a stdio subprocess and Vercel is serverless; a fresh test account also returns zero settlements until a settlement cycle runs. Runtime reads the synthetic fixtures. |
 | Observability / trace | `ai_calls` table in the same Postgres | **Langfuse cut 1 Sep.** `langfuse-vercel` is deprecated in its own README, and the current SDK drops spans on Vercel unless `exportMode: "immediate"` is set and `forceFlush()` is called — a *silent* failure that looks like "the model made fewer calls" rather than an error, which is the worst thing to be debugging the night before a deadline. For an audit product the trace **is** the audit trail, so it belongs in our own database beside the records it explains. That serves the data-sovereignty narrative better than a third-party SaaS did. Stretch goal only if there is slack on Sep 4. |
 | Error tracking | ~~Sentry~~ — cut | No real users and no production traffic in a demo, so error monitoring has almost nothing to catch. Revisit Sep 4 only if there is slack. |
@@ -612,7 +612,7 @@ trace/
 │   │   ├── agent/               ← Investigate agent (Vercel AI SDK + MCP tools)
 │   │   ├── actions/             ← Act layer: email draft, GSTR-3B flag, Tally entry generators
 │   │   └── audit/                ← Postgres audit trail + ai_calls logging
-│   └── components/              ← Blade UI: dashboard + chat panel + action review cards
+│   └── components/              ← interface: dashboard + chat panel + action review cards
 ├── data/
 │   └── synthetic/
 │       ├── settlements.json     ← 54 payment records + 4 refund rows
