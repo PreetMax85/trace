@@ -2,7 +2,7 @@
   "name": "trace",
   "version": "0.1.0",
   "private": true,
-  "description": "GST tax-line matching agent — reconciles Razorpay settlements against GSTR-2B",
+  "description": "Reconciles Razorpay settlement data against GSTR-2B and explains every gap it finds",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

@@ -517,12 +517,9 @@ is generated; the counts above are exact.
 | Observability / trace | `ai_calls` table in the same Postgres | **Langfuse cut 1 Sep.** `langfuse-vercel` is deprecated in its own README, and the current SDK drops spans on Vercel unless `exportMode: "immediate"` is set and `forceFlush()` is called — a *silent* failure that looks like "the model made fewer calls" rather than an error, which is the worst thing to be debugging the night before a deadline. For an audit product the trace **is** the audit trail, so it belongs in our own database beside the records it explains. That serves the data-sovereignty narrative better than a third-party SaaS did. Stretch goal only if there is slack on Sep 4. |
 | Error tracking | ~~Sentry~~ — cut | No real users and no production traffic in a demo, so error monitoring has almost nothing to catch. Revisit Sep 4 only if there is slack. |
 | Deployment | Vercel | Native Next.js, zero config |
-| Dev tooling | Claude Code + Claude Pro | `/wayfinder`, `/tdd`, `/handoff`, `mcp-server` skill, `ai-playbook` conventions |
 
-**On cost.** Claude Pro and the Anthropic API are **separate balances** — a Pro subscription
-contributes nothing to what Trace's own agent calls cost. The API is billed from a prepaid balance
-at `console.anthropic.com`, and this build runs on **$5** with a console spending limit set to the
-same figure, so overrun is impossible rather than merely unlikely.
+**On cost.** The whole build runs inside a **$5** API budget, with a console spending limit set to
+the same figure so an overrun is impossible rather than merely unlikely.
 
 The workload that dominates spend is §15.2's eval, which puts all 54 records through Investigate,
 not just the 16 exceptions. At `claude-opus-5` rates ($5/$25 per MTok) a naive implementation costs
