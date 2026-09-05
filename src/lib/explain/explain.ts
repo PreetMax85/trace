@@ -1,4 +1,5 @@
 import { Output, generateText, isStepCount, type LanguageModel, type ToolSet } from "ai";
+import { decodeStrayEscapesDeep } from "@/lib/format/escapes";
 import type { RecordedToolCall } from "@/lib/agent/investigate";
 import { MODEL_ID, costMicroUsd, splitUsage, type TokenSplit } from "@/lib/agent/pricing";
 import type { aiCalls } from "@/lib/audit/schema";
@@ -141,7 +142,9 @@ export async function explain(input: ExplainInput): Promise<ExplainResult> {
  */
 function readAnswer(result: { output: unknown }): unknown {
   try {
-    return result.output;
+    // Repaired before the schema parse, and so before every gate.
+    // `decodeStrayEscapesDeep` explains why that order matters.
+    return decodeStrayEscapesDeep(result.output);
   } catch {
     return undefined;
   }

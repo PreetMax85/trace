@@ -1,4 +1,5 @@
 import { Output, generateText, type LanguageModel, type ToolSet } from "ai";
+import { decodeStrayEscapesDeep } from "@/lib/format/escapes";
 import { MODEL_ID, costMicroUsd, splitUsage, type TokenSplit } from "@/lib/agent/pricing";
 import type { aiCalls } from "@/lib/audit/schema";
 import { applyActGate, unauthorisedActTools, type GatedDraft } from "./policy";
@@ -123,7 +124,9 @@ export async function act(input: ActInput): Promise<ActResult> {
 /** The model's draft, or nothing if the run never produced one. */
 function readDraft(result: { output: unknown }): unknown {
   try {
-    return result.output;
+    // Repaired before the schema parse, and so before every gate.
+    // `decodeStrayEscapesDeep` explains why that order matters.
+    return decodeStrayEscapesDeep(result.output);
   } catch {
     return undefined;
   }
