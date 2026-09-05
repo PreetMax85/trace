@@ -1662,3 +1662,401 @@ the table. It would have been found by the first person to scroll, which is ever
 **The rule, and it is the same one as entry 37.** A green gate means the numbers are right. It has
 never meant the page is usable, and the cheapest instrument for the difference is still a
 screenshot. Two of these three were found by looking at one.
+
+---
+
+## 42. A type role named `card` compiled to a colour, and the test asserted the wrong half
+
+**Believed.** The five-role type scale was enforced. `tests/type-scale.test.ts` asserted that every
+role was declared as a token in `globals.css` and that no screen invented a size of its own, and it
+passed on every run.
+
+**Broke.** One of the six roles had never worked, anywhere. Tailwind v4 resolves `text-*` against
+two theme namespaces at once: `--text-name` for a font size and `--color-name` for a colour. The
+role was called `card`, shadcn declares `--color-card`, and the colour namespace wins. So
+`text-card` compiled to `color: var(--card)`, which is `#ffffff`, and set no size at all. The
+product's own wordmark was painted white on a white header and read as missing. `CardTitle` was
+only legible because it also passed `text-foreground`, which overrode the colour and left the size
+role silently dead across the whole page.
+
+Three more defects came out of the same look. Base UI's `Button` was being used to render the two
+GitHub links, which its documentation explicitly forbids (`node_modules/@base-ui/react/docs/react/components/button.md`,
+"Rendering links as buttons"), and it logged a console error on every load. The accordion panel
+carried a keyframe animation and a CSS transition on the same property, which Base UI also warns
+about. And the whole Act layer, the three drafted actions that are the point of the product, was
+only reachable by clicking a table row: a reader could scroll the entire page and never learn that
+it writes the email.
+
+**Caught by.** Preet, on the rendered page: *"trace name isn't even visible."* Nothing automated saw
+it. Compiling `globals.css` through Tailwind by hand afterwards showed `.text-card { color: var(--card); }`
+with no `font-size`, which is the mechanical proof the test never looked for.
+
+**Would have cost.** The page ships with its own name invisible and a type scale one role short in
+every panel, while the test that exists to protect the scale reports green. The console error is
+the first thing anyone opening dev tools sees. And a judge who does not happen to click a table row
+sees a reconciliation table and no agent that acts.
+
+**Permanently changed.** `tests/type-scale.test.ts` now COMPILES the stylesheet with
+`@tailwindcss/postcss` and asserts that each role produces a `font-size` and does not produce a
+`color:`, with `@source inline(...)` so the check does not depend on where the classes happen to be
+used. It carries its own negative: a second test renames the role back to `card`, recompiles, and
+asserts that the broken output comes back, so a check that could no longer see the bug fails
+instead of passing quietly. Declaring a token is no longer evidence that a class works. The links
+are now anchors wearing `buttonVariants`, and the page opens on a flagged record so the drafts are
+on screen without a click.
+
+---
+
+## 43. A search and replace that worked on sentences ran every drafted letter together
+
+**Believed.** The em-dash ban was enforced on everything a reader sees. `tests/screen-copy.test.ts`
+scanned `src/app` and three library files and had passed since it was written.
+
+**Broke.** It scanned only the files we write. The recorded agent output was never checked, and it
+carried 56 em dashes: a drafted email whose subject line opened *"Timing difference — settlement
+setl_..."* was on screen, in the product's voice, on a page whose whole argument is that a person
+can check its working. The prompts that produce that output were written in em dashes too, so
+re-recording would have put every one of them back. The same files also carried 17 passages where
+the model had written the escape sequence `\u20b9` as literal text instead of the character `₹`, so a
+drafted email told the reader an amount of `\u20b90.00`.
+
+Then the fix broke something worse than the problem. The rewriter split text on sentence
+boundaries and rejoined with a single space, which consumed the newlines between sentences: every
+blank line in all sixteen drafted emails disappeared and each letter became one 300-word block. It
+did the same to the three prompt files, collapsing their line structure entirely. Nothing failed.
+The figures were all still correct, the dash count was zero, tests, typecheck, lint, build and
+`verify:screen` were all green, and the drafts were unreadable.
+
+**Caught by.** Reading a full-page screenshot of the finished work in dark mode and noticing the
+email had lost its paragraphs. The prompt damage was caught the same way, by reading the diff
+rather than the test result.
+
+**Would have cost.** The product's most-quoted artifact, the letter it writes for your accountant,
+shipped as a wall of text. And the prompts would have gone to the next agent run with their
+structure destroyed, which is invisible until the output degrades.
+
+**Permanently changed.** Three guards, and one rule about rewriters. `screen-copy.test.ts` now
+checks the recorded output in `data/synthetic/*.json` and the three prompt files for banned
+punctuation, checks that no recorded copy contains an unrendered `\uXXXX` escape, and asserts that
+every drafted email body still contains a blank line, with a mutation confirming that guard fails
+when the blank lines are removed. The rule: **a rewrite over prose works line by line, never
+sentence by sentence.** Line breaks in a letter and in a prompt are content, and a regex that
+treats `\s+` as a separator deletes them without leaving a trace.
+
+---
+
+## 44. The scroll-spy was right everywhere except the one place it had to work
+
+**Believed.** With an `IntersectionObserver` watching a band just below the sticky header, the
+section crossing that band is the one the reader is looking at, so taking the first crossing
+section out of the set gives the right answer.
+
+**Broke.** Two sections cross the band whenever a boundary between them is inside it, and "first"
+is the wrong tie-break at the bottom of the document. The page cannot scroll far enough to lift
+the last section to the top of the band, so the section above it never stops crossing and the FAQ
+link could not be marked at all: clicking it scrolled correctly and then marked "How Trace works".
+A second, opposite bug sat behind the same line. The set is empty while the reader is up in the
+opening, and the code kept the last known answer there to avoid blinking in the 40px gap between
+two sections, so scrolling back to the top left the FAQ marked while the reader was looking at the
+headline. The gap turned out not to need protecting: the band is never narrower than about 145px.
+
+**Caught by.** Driving the page in a real browser and asserting on where the mark landed, then
+sweeping the whole document 40px at a time and printing the runs. Neither bug is reachable from a
+unit test, and both looked correct at every scroll position a person would think to check by hand,
+because both only appear at an end of the page.
+
+**Would have cost.** A navigation bar that says the reader is somewhere they are not, on a page
+whose entire argument is that it does not tell you things that are not so. The FAQ, which is the
+section the links exist to make reachable at all, would have been the one section the bar refused
+to acknowledge.
+
+**Permanently changed.** `verify:screen` now clicks each link, asserts the destination comes to
+rest clear of the sticky header and that the bar marks that exact destination, then scrolls back
+to the top and asserts nothing is marked. It runs at 1440x900 rather than in the 3200px-tall
+window the rest of the script uses, and that is part of the guard: in a window taller than the
+document there is almost nothing to scroll, no section ever enters the band, and the check reports
+a failure that exists only in the harness. Restoring `find` in place of `findLast` reproduces the
+original symptom in the checker's own words. `tests/sections.test.ts` covers the other half, that
+every link has a destination on the page and is labelled with that section's heading word for
+word, proven by renaming an id and then a title and watching each fail.
+
+---
+
+## 45. The one control a reader has to find was the hardest thing on the page to see
+
+**Believed.** The question box inherited the default field styling, which was fine everywhere else
+on the page, so it was fine there too.
+
+**Broke.** That styling is a transparent fill and a hairline border in `--input`, and the question
+box is the only field on the page that sits on the indigo agent ground rather than on paper. The
+border measured **1.15:1** against what was behind it, where WCAG 2.2 SC 1.4.11 asks for 3:1 on the
+boundary of a control. The field was also 32px tall, the size of a filter box on a toolbar, which
+is the wrong promise for the page's main interaction. Every check in the suite passed: nothing here
+had ever looked at a colour.
+
+**Caught by.** A person using it and saying the box was not visible until they clicked it. Then
+measured, and the number was worse than the complaint.
+
+**Would have cost.** The Explain layer is a text field and a button. If a reader cannot see the
+field, the layer does not exist for them, and the page reads as a report rather than as something
+that answers questions.
+
+**Permanently changed.** `verify:screen` now composites the field's border over its own fill and
+over the section ground on a canvas and fails below 3:1. Compositing rather than string comparison
+is the point: these colours resolve to `oklab(...)` with an alpha, so reading `borderColor` and
+parsing it as `rgb()` returns a confident and completely meaningless number, which is what the
+first attempt at this measurement did. Reverting the field to the default styling makes the check
+report 1.15:1, the same figure measured on the build that was complained about.
+
+---
+
+## 46. Three drafts in a grid row, and a closed one that looked like an empty box
+
+**Believed.** Putting the three drafted actions in a grid and giving each card `h-full` was a
+tidy way to line the three Confirm buttons up along the bottom of the band.
+
+**Broke.** A grid row is as tall as its tallest item. Opening the CA email, which is four
+paragraphs, stretched the two closed cards beside it into 599px boxes with a title at the top
+and a button at the bottom and nothing in between. Closing one while another was open could not
+shrink it back. Reported as three separate bugs, all the same one: "when i expand one section,
+suppose the CA email, others expand too but only with whitespaces", and "if all are expanded
+and i close one section, it closes but not fully, still leaves whitespace behind".
+
+**Caught by.** Preet, on his own screen, with a screenshot. Nothing in the suite could see it:
+every test asserted that the three cards exist, that each opens, and that Confirm is
+clickable, and all of that was true the whole time. The defect was entirely in how tall a box
+was.
+
+**Would have cost.** The Act layer is the part of this product that writes something, and it
+read as two broken disclosures that had opened by themselves with nothing inside them.
+
+**Permanently changed.** `items-start` on the grid, and the height guarantee dropped. The
+buttons no longer align across the three cards, which is the trade: a card is now as tall as
+what is in it. `verify:screen` collapses two of the three and fails if a closed card is more
+than 60% of the open one's height. Reintroducing `h-full` reports "a closed draft is 599px tall
+beside an open one at 599px", which is the exact state in the screenshot.
+
+---
+
+## 47. The model wrote a structured answer and the screen flattened it
+
+**Believed.** An answer is a string of segments, so the panel rendered the segments into one
+`<p>`.
+
+**Broke.** The model does not write one paragraph. It writes an opening sentence, numbered
+findings separated by blank lines, and a closing total, and every one of those breaks is
+sitting in `data/synthetic/explanations.json`. Dropping the flat list into a single paragraph
+threw all of it away: the first example arrived as nine unbroken lines carrying eleven record
+ids and five rupee totals. "the ans to the highlighted qs is good, but seems very consolidated,
+like i can't even read it with all the numbers and all".
+
+**Caught by.** Preet reading it. No assertion here had any opinion about layout, and the
+citation tests passed because every citation was present, which it was: it was present inside a
+wall of text nobody would read.
+
+**Would have cost.** The citations are the whole argument that an answer is checkable. A
+citation a reader will not go looking for is not a citation.
+
+**Permanently changed.** `src/lib/explain/layout.ts` recovers the grouping the model wrote, and
+adds, removes and reorders nothing. `tests/explain-layout.test.ts` asserts conservation over
+every recorded answer: same citations in the same order, and every non-whitespace character
+still present with the list markers put back. Four mutations were run against it. The first,
+dropping a citation that opens a paragraph, PASSED, because no recorded answer happens to start
+a paragraph with a citation, so the fixture never exercised that branch. That is the lesson:
+conservation over real data only covers the paths the data walks. Two unit cases now cover the
+branch, plus one for a single newline being a wrap and not a paragraph break, which was the
+fourth surviving mutation. `verify:screen` separately asserts the structure reaches the DOM,
+because the function can be correct and the panel can still render one block.
+
+---
+
+## 48. The footer link that pointed at an anchor with no scroll margin
+
+**Believed.** Every jump target on the page carries `scroll-mt-24`, because `Section` applies
+it whenever it is given an id.
+
+**Broke.** `#reconciliation` is not a `Section`. It is a bare div at the top of the page, put
+there for the skip link, and it had no scroll margin at all. It went unnoticed for as long as
+nothing but the skip link pointed at it: a skip link moves focus, and the browser scrolls
+focus into view differently. The moment the rebuilt footer added "Back to the top" as an
+ordinary anchor, the reader landed with the page's own headline hidden under the sticky header.
+
+**Caught by.** `verify:screen`, on the first run after the footer changed, without anything
+being added to look for it. The existing sweep clicks every link inside a
+`nav[aria-label="On this page"]`, and the new footer nav carries that label, so the new link
+was swept the moment it existed.
+
+**Would have cost.** The one link whose entire job is "put me back at the start" would have put
+the reader somewhere the start was not visible.
+
+**Permanently changed.** The anchor carries `SCROLL_MARGIN` like every other target. The sweep
+also had to be corrected in the other direction: it asserted that every link it clicked ended
+up marked in the navigation, which is false for a link to the top of the page, since only the
+three spied sections can be marked. It now reads the spied ids out of `src/app/sections.ts`,
+asserts landing for every link and marking only for those three, and fails if any of the three
+turns out to be unreachable from a link.
+
+---
+
+## 49. A type scale that was consistent, and too quiet to be a hierarchy
+
+**Believed.** The five-role scale settled the typography question. Every size on the page came
+from a role, no role was within two pixels of another, and a test failed the build if a screen
+invented a size of its own.
+
+**Broke.** Consistency is not hierarchy. The steps were too close together to do the job a
+heading exists to do: section headings at 24px against 15px body, card headings at 17px, the
+product's own name in the header at 17px. Preet went through the built page and named five
+separate places that "do not standout". Worse, the scale did not reach the components at all.
+Every one of them still shipped whatever Tailwind size it was generated with, so the FAQ's
+questions rendered at `text-sm`, which is 14px: one pixel BELOW the page's own body role, and
+the reason his complaint about that section was that everything in it "seems so consolidated
+there and very small". A size baked into a component is also unfixable from the call site,
+because class merging cannot tell that `text-sm` and `text-body` are competing for one property,
+so both survive and the winner depends on compile order.
+
+**Caught by.** A person reading the page. Nothing automated could have found it: every
+assertion in `tests/type-scale.test.ts` was about a size being on the scale, and 14px in a
+component was not covered by the scale at all.
+
+**Would have cost.** A page whose headings are the same weight as its paragraphs, on a product
+whose argument depends on a stranger being able to find their way through five screens of it.
+
+**Permanently changed.** The steps are wider: 15 to 20 to 30, with the headline larger again,
+and the reasoning is written above the tokens so the next person does not compress them back.
+Every `text-sm`, `text-xs` and `text-base` in `src/components/ui` is now a role, and
+`tests/type-scale.test.ts` bans Tailwind's own size names in `src/app` AND `src/components`,
+with exactly one exemption, named in the test with its reason: the question box keeps 16px up to
+`md`, because a text field below 16px makes iOS zoom the page when it takes focus.
+
+---
+
+## 50. The answers were not flat. Two of the six were never anything else.
+
+**Believed.** `toAnswerBlocks` had fixed the wall-of-text answer. It recovers the paragraphs and
+the numbered points the model wrote, it is proved by a conservation test over every recorded
+answer, and `verify:screen` confirms the structure reaches the DOM.
+
+**Broke.** It recovers the structure the model wrote, and two of the six recorded answers had
+none. `unexplained-fees` contains no newline at all. `missing-tax` contains no newline either
+and numbers its three findings `(1)`, `(2)`, `(3)` inline, mid-sentence, where nothing can see
+them: a marker is only a marker to this module at the start of its own line. So one answer on
+the page was a list and the other five were prose, which is exactly what a person reported
+after the fix shipped. The cause was upstream of all of it: the Explain prompt says how to cite,
+how to count money and how to punctuate, and had never said a word about layout.
+
+**Caught by.** Preet, opening the other five example questions. Every test passed, including
+the one written specifically about this defect, because the module was doing its job correctly
+on input that had nothing in it.
+
+**Would have cost.** The complaint that produced `toAnswerBlocks` in the first place, still true
+for five of the six answers, on the panel that exists to be read.
+
+**Permanently changed.** The prompt now has a HOW TO LAY IT OUT section: a blank line between
+points, and numbered findings at the start of their own line rather than inline. The six
+recorded answers were re-laid to match, with no word altered and no figure touched: the only
+edits are inserted line breaks, plus three `(1)` markers moved to the front of their lines.
+`tests/explain-layout.test.ts` gained two assertions about the DATA rather than the code, which
+is where this failed: no recorded answer may lay out as a single block, and none may number a
+point inside a sentence. Both were confirmed to fail on the old file before being kept.
+
+---
+
+## 51. A correct footer failed its own new check by 69 pixels
+
+**Believed.** The new `verify:screen` assertion that the footer wordmark fills its container
+was measuring the word. It paints the text to a canvas with the element's computed font and
+reads `actualBoundingBox`, which is the real ink rather than the advance width, and the advance
+would have reported the word narrower than it is drawn because the T's serifs overhang.
+
+**Broke.** A canvas 2D context does not inherit the element's letter-spacing, and the wordmark
+is set with `-0.03em` of it. Over four gaps at a 553px font that is 69px, so the check reported
+the word 1408px wide in 1352px of room and failed a page that was pixel-correct on screen.
+
+**Caught by.** The check itself, on its first run, disagreeing with a screenshot of the same
+page. Being wrong in the direction of a false failure is the lucky half of this: the same
+oversight in a check with a lower bound would have passed a broken page.
+
+**Would have cost.** Either a red gate nobody could explain, or the check being loosened until
+it asserted nothing.
+
+**Permanently changed.** The context copies `letterSpacing` from the computed style before
+measuring, with the number that was wrong recorded in a comment beside it. The general rule,
+which is the reusable part: a measurement taken outside the layout engine has to be given every
+property the layout engine was using, and the way to find out whether it was is to check it
+against the rendered page once, deliberately, rather than trusting that it agrees.
+
+*(Preet removed the footer entirely later the same day, and this check went with it. The entry
+is kept for the rule, which applies to any measurement taken on a canvas.)*
+
+
+---
+
+## 52. Deleting the footer broke the navigation mark, three sections above it
+
+**Believed.** The footer was decoration. Removing it is a deletion, and a deletion cannot break
+anything that is not the footer.
+
+**Broke.** The footer was 624px of document, and the scroll-spy in the header had been depending
+on it without anyone knowing. The spy marks the last section crossing a band that runs from
+under the header down to a quarter of the viewport. A section can only reach that band if there
+is at least a band's worth of page below it, and with the footer gone there was not: at
+1680x900 the FAQ comes to rest 348px down the screen when the page has scrolled as far as it
+can, and the band ends at 225. So clicking FAQ scrolled to the FAQ and marked "How Trace works",
+and no viewport height fixed it. At 1680x3200 nothing was marked at all.
+
+**Caught by.** `verify:screen`, immediately, with the exact sentence: *"after jumping to #faq the
+navigation marks #how-it-works, so it does not say where the reader is."* That sweep was written
+two passes earlier for an unrelated reason and it has now caught three separate defects it was
+not aimed at.
+
+**Would have cost.** One of the three links in the header saying the wrong thing about where the
+reader is, for every reader, at every window size, on a change nobody would have thought to
+check.
+
+**Permanently changed.** The end of the document is answered separately from the band, because
+no choice of margins can answer it: when the page cannot scroll any further, the reader is
+looking at the last section by definition. That needs the one scroll listener in the component,
+which is passive, coalesced into an animation frame, sets state only when the answer changes,
+and reads three numbers. The general lesson is the one worth keeping: **a layout that is
+load-bearing for something else does not announce that it is.** A block of page whose only job
+looked decorative was holding up a behaviour in a different component, and the only reason it
+surfaced is that something clicks every link on every run.
+
+---
+
+## 53. The Confirm buttons painted their label in black on indigo
+
+**Believed.** Moving the components off Tailwind's own sizes and onto this project's roles was a
+rename. `text-sm` became `text-body`, `text-[0.8rem]` became `text-caption`, the compiled CSS
+was checked, and the type-scale test passes on every role.
+
+**Broke.** Class merging does not read CSS, it reads names, and it has to decide which of two
+`text-*` classes wins by working out whether each is a size or a colour. `text-caption` is
+neither a t-shirt size nor an arbitrary length, so it was filed as a COLOUR. The Confirm button
+composes `text-primary-foreground` from its variant and `text-caption` from its size, in that
+order, so the real colour was dropped as the loser of a conflict that did not exist and the
+label fell back to the page's ordinary ink: near-black on indigo, about 2:1, well under the
+4.5:1 a label needs. The class it replaced, `text-[0.8rem]`, had been recognised as a length all
+along, which is why nothing had gone wrong before.
+
+Every small button had it, and so did every component setting a size and a muted colour in one
+call: the alert description, the table caption and the card description were all silently losing
+their size instead.
+
+**Caught by.** Preet, looking at the page: "see this color on confirm button? its too dark."
+Nothing else could have. The stylesheet was correct, the component source was correct, both
+classes were present in the class list, and the type-scale test was asserting exactly the wrong
+half of the problem.
+
+**Would have cost.** The only control on the page that commits to anything, with an unreadable
+label, on a screen whose whole argument is that a person checks things before approving them.
+
+**Permanently changed.** `src/lib/utils.ts` builds `cn` with the six roles declared as font
+sizes, and every component imports `cn` from there rather than from the package, so the fix
+holds for every call site instead of the one that was noticed. `tests/type-scale.test.ts` merges
+each role against a colour and fails if either is dropped, and separately checks that one role
+still replaces another, because a fix that made every `text-*` class survive would pass the
+first assertion and break the scale. The wider lesson: **a rename that is correct in CSS can
+still be wrong to a tool that reasons about class names**, and the type scale now has to be
+declared in two places, the stylesheet and the merge config.

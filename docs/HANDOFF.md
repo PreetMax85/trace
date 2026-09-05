@@ -3,11 +3,16 @@
 Written 2 Sep 2026, late; rewritten 4 Sep after the deploy, and again the same day after the page
 chrome landed. **Slices 1 through 9 are done and on `main`** — slice 7 (Act + the human gate +
 PRD §15.6) merged on 3 Sep, slice 8 (the domain-fact audit and the 4B2 routing fix) on 4 Sep.
-**Slice 10 (page chrome and the first-time-viewer fixes) is finished on `feat/page-chrome` and is
-NOT yet merged.**
+**Slice 10 (page chrome and the first-time-viewer fixes) is merged into `main`.** As of 5 Sep
+`feat/visual-identity` is the only branch not in `main`, and `origin/main` is an ancestor of it, so
+it merges as a fast forward. Confirm rather than trust this line:
+`git branch -a --no-merged origin/main`.
 
-The tree is green on that branch: **430 tests, typecheck, lint, `npm run build` and
-`npm run verify:screen`** — the last of which now also grades whether the page says what it is.
+The tree is green on `feat/visual-identity`: **497 tests across 41 files, typecheck, lint,
+`npm run build` and `npm run verify:screen`** against a production build at 1680px, 1440px, 390px
+and 320px. `verify:screen` now also grades whether the page says what it is, whether the in-page
+navigation lands where it claims, and whether the question box clears the contrast WCAG asks of a
+control.
 
 **It is deployed and live at https://trace-zeta-three.vercel.app/.** What remains is the **video**.
 All three AI layers have their output recorded and committed — 16 investigations, 6 example
@@ -22,8 +27,12 @@ carries what they don't.
 - `docs/PRD.md` — the spec. Read **§9 (architecture)** and **§15 (making the AI legible)** before
   writing agent code. Read **§7 (exception taxonomy)** when you need it. Don't read all of it.
   §15.5 now records how Explain actually ships, including two deviations from §9.
-- `docs/BUILD-LOG.md` — 37 entries, each a thing that was wrong while its own tests passed. **Next
-  free number is 38.** Read **37** before touching the page chrome or the styling setup, **30**
+- `docs/BUILD-LOG.md` — 53 entries, each a thing that was wrong while its own tests passed. **Next
+  free number is 54**, and **check `grep -o "^## [0-9]*" docs/BUILD-LOG.md | sort -n | uniq -d`
+  before you use it**: this line was stale once and two entries got written under numbers that were
+  already taken. Read **42** before touching `globals.css` or the type scale, **43** before
+  rewriting any prose in bulk, **44** before touching the header navigation, **45** before styling a
+  control, **37** before touching the page chrome or the styling setup, **30**
   before touching `scripts/verify-screen.mjs`, **29** before
   touching anything model-provider-shaped, **28** before touching the table, **27** for how a
   passing test can be aimed at the wrong thing.
@@ -375,15 +384,21 @@ the library was not producing a distinctive look, so every design decision was a
   throttle, measured, against 2,225 to 2,889ms before. **Never put the palette back into React
   state.** The first painted byte is already in the right scheme, so there is no flash on a return
   visit, and `verify:screen` asserts that from the raw HTML.
-- **The type scale is six named roles and nothing else**: `display`, `section`, `card`, `body`,
+- **The type scale is six named roles and nothing else**: `display`, `section`, `title`, `body`,
   `caption`, and one `mono` size for machine identifiers. They are tokens in `globals.css`, and
   `tests/type-scale.test.ts` fails the build on any inline `text-[...]`. Eight ad-hoc steps were in
-  use before, several two pixels apart.
+  use before, several two pixels apart. **A role's name must never collide with a colour's name.**
+  The `title` role was called `card`, collided with shadcn's `--color-card`, and compiled to
+  `color: #ffffff` with no size at all: BUILD-LOG 42. The test now compiles the stylesheet and
+  asserts what each class actually produces, rather than that the token was declared.
 - **Type is two families with a division of labour.** Newsreader sets the headline, the section
   titles and the panel titles; Inter sets every interface surface and every figure, with tabular
   lining numerals on for the whole document; JetBrains Mono is only for identifiers. All three are
   self-hosted through `next/font`.
-- **The four stat cards became one reconciliation bar.** They presented a total, its two halves and
+- **The four stat cards became a statement of reconciliation** (5 Sep). Two amounts, a rule, and
+  the difference under it, set in the serif with tabular figures, the way the document it describes
+  is set out. The proportional bar survives underneath it as the fastest read of the same fact.
+  Its earlier form: They presented a total, its two halves and
   a record count as four peers, so the relationship that matters had to be inferred. The bar draws
   the invoice as its full width, the explained share as the filled part and the shortfall as the
   stub, and the total, both halves and the record count each open their own derivation.
@@ -405,16 +420,217 @@ the library was not producing a distinctive look, so every design decision was a
 
 **Still open after this pass:**
 
-- **The three recorded JSON files still carry em dashes**, because they are verbatim model output and
-  editing them would make the provenance line beside them false (BUILD-LOG 39). The prompts are
-  fixed, so the next run produces clean text. Re-recording needs an API key and costs real calls:
-  `npm run explain`, `npm run eval -- --write-traces`, `npm run act`.
+- ~~**The three recorded JSON files still carry em dashes**~~ **Reversed on 5 Sep.** They were left
+  verbatim on the reasoning that editing model output makes the provenance line beside it false.
+  That reasoning was right about the cost and wrong about the remedy: the dashes were on screen in
+  the product's voice, and the same files carried 17 unrendered `\u20b9` escapes, so a drafted
+  email told a reader an amount of `\u20b90.00`. Both are now normalised in the files, and every
+  provenance line says so in as many words: *"Punctuation normalised; not a word was changed."*
+  It had to happen in the FILE rather than at render time, because the Act layer's design is that
+  the text shown, the text confirmed and the text stored in `actions.draft` are the same bytes.
+  Re-recording from the fixed prompts still needs an API key and costs real calls: `npm run
+  explain`, `npm run eval -- --write-traces`, `npm run act`.
 - **The repo's GitHub About box is still empty.** Nothing in the code can fix that.
 - **`/favicon.ico` and `/robots.txt` still 404.** `icon.svg` covers every browser that matters.
 - **The Confirm button's pending state is visual only.** It disables and shows a spinner but carries
   no `aria-busy`, and its label does not change until it is confirmed.
 - **`.npmrc` is gone.** It only existed to set `legacy-peer-deps=true` for the old UI package;
   `npm install` now resolves cleanly without it, checked with a dry run.
+
+
+### The judge pass, 5 Sep, on `feat/visual-identity`
+
+Preet read the page as a Razorpay judge would and found four things wrong on screen, all of which
+had passed the entire gate. BUILD-LOG **42** and **43** carry the accounts. (They were written as
+38 and 39, which were already taken; renumbered on 5 Sep. Check `grep -o "^## [0-9]*"` for
+duplicates before adding one.) What changed:
+
+- **The wordmark was invisible.** `--text-card` collided with shadcn's `--color-card`, so
+  `text-card` compiled to `color: #ffffff` and no size. The role is now `title`, and
+  `tests/type-scale.test.ts` compiles the stylesheet rather than trusting the declaration. The
+  component is still called `CardTitle` while the role it applies is called `title`: renaming it
+  would have touched five more files for no behaviour and forced every UI change into one commit.
+  The mismatch is deliberate and `src/app/ui/type.tsx` says so.
+- **Two console errors on every load.** Base UI's `Button` was rendering the GitHub links, which
+  its own docs forbid; they are anchors wearing `buttonVariants` now. The accordion panel had a
+  keyframe animation and a transition on the same property; the transition won.
+- **The Act layer was invisible.** All three drafts lived behind a table-row click. The page now
+  opens on the flagged record with the most tax at stake that has a draft recorded
+  (`openingSelection` in `exception-review.tsx`, with `tests/opening-selection.test.ts` pinning the
+  tie-break, which was order-dependent when it was written).
+- **Colour now marks provenance, and this is the design rule to keep.** Ink is arithmetic, indigo
+  is anything a model wrote, green and red are the verdict on money and nothing else. `Section`
+  takes `tone="agent"`, the detail panel and the Ask section use it, and the hero states the key in
+  two lines. It is the page's honesty claim drawn rather than asserted, so **do not spend indigo on
+  decoration.**
+- **The hero says what the thing is, beside the finding.** Four layers, compact, top right
+  (`hero-orientation`). The full account stays at the foot of the page and the `layer-strip` testid
+  stays with it; `verify:screen` counts four layers there.
+- **Three rows showed "No rate matches" in red against a ₹0.00 fee.** Correct data reading as a
+  broken matcher. They say "No fee charged" now, and a matched rate still wins over that label.
+
+**Left open after this pass, and since resolved:**
+
+- **The dark-mode black flash could not be reproduced** (class toggle 0.2ms synchronously, worst
+  frame 47ms in headless Chromium). It stopped mattering on 5 Sep: Preet asked for dark mode to be
+  removed outright, so there is no longer a switch to flash. See the section below.
+- **The three ₹0.00 partial-payment records are genuinely all-zero in the fixture** (amount, fee and
+  tax). That is deliberate per PRD §13. The row copy now explains it; the data is not the problem.
+
+
+### One scheme, three jump links, and the drafts out in the open. 5 Sep, on `feat/visual-identity`
+
+Preet's second read of the page. BUILD-LOG **44** and **45** carry the two defects that had a
+guard added; the rest were design decisions, not breakages.
+
+- **Dark mode is gone, on Preet's instruction, and should not come back without him asking.**
+  `theme-toggle.tsx` and `color-scheme.ts` are deleted, the `.dark` block and `@custom-variant` are
+  out of `globals.css`, and 27 `dark:` variants are stripped from four `components/ui` files. The
+  real prize was in `layout.tsx`: reading the scheme cookie is what forced `/` to render
+  dynamically, so the whole route is **static** again and the fixture is no longer parsed, matched
+  and classified once per request. If anything reintroduces a second scheme, that cost comes back
+  with it.
+- **Three jump links in the header**, built from `src/app/sections.ts`, which is the single source
+  for the id, the label and the scroll margin. The header and the footer both map that list; both
+  are asserted not to hardcode an anchor. Scrolling is a plain anchor plus `scroll-behavior: smooth`
+  in CSS, so the links work before the bundle boots and the existing reduced-motion block turns the
+  glide into a jump for anyone who asked for less movement. `site-nav.tsx` holds only the mark for
+  the current section. **NN/g advises against jump links in a nav bar** because people expect a nav
+  bar to load another page; it is safe here only because Trace has no other page, so if a second
+  route is ever added, revisit this.
+- **The Ask section is now "Ask a question" and the FAQ is its own section.** Both renames exist to
+  satisfy one rule: a jump link must be labelled with the heading it lands on, or the reader cannot
+  tell the jump worked. `tests/sections.test.ts` enforces it.
+- **The drafted actions moved out of the detail panel into a full-width band** (`next-action`).
+  Measured at 1440x900: the panel was 2192px against a 1166px table, so a full screenful of blank
+  paper sat beside the one part of the product that writes anything. It is 1067px now, 99px from the
+  table. The three drafts sit in three columns, all open, with the CA email in the wider one.
+  `verify:screen` looks for the cards inside `next-action` rather than inside `detail-panel`.
+- **The band survives a figure click.** `actionRecordId` is held separately from `selection` in
+  `exception-review.tsx` precisely so that opening a headline figure does not make a whole section
+  vanish under the reader. A matched row gets the section saying there is nothing to do rather than
+  no section at all.
+- **The colour key is drawn, not described.** It was two sentences in the right-hand card, one of
+  which read "Indigo is where a model spoke". It is now two swatches with labels, under the
+  reconciliation where the colours are, and moving it is also what brought the right-hand card back
+  above the fold: 654px to 523px, and the cut-off lines Preet photographed were the legend.
+- **The question box is filled, outlined and 44px tall.** It measured 1.15:1 against the indigo
+  ground, under the 3:1 WCAG 2.2 asks of a control's boundary. It is 3.72:1 now and `verify:screen`
+  measures it on every run.
+- **The footer carries the page's own provenance**: the model and the three prompt versions,
+  imported from the constants the runs are recorded under so the line cannot drift, plus the
+  merchant GSTIN which used to sit in the header. A fintech footer is normally a compliance
+  instrument, licence numbers and FDIC and SOC 2, and Trace has none of those, so **do not add
+  trust badges here.** Borrowing that pattern would mean inventing marks on a page whose argument
+  is that every claim can be checked. *(Superseded on 5 Sep, see below. The instruction not to add
+  trust badges still stands.)*
+
+**Still open:**
+
+- **The live-question budget is per server process.** `EXPLAIN_MAX_QUESTIONS` defaults to 40 and
+  `createQuestionBudget` holds the count in module scope, so on Vercel every cold instance gets its
+  own 40 and the real ceiling for a public link is unbounded. The Anthropic account's spending limit
+  is the only hard stop. Not fixed, and it is the one thing here that could cost money.
+- **The footer does not name the buildathon or the track.** That was a judgement call against
+  Preet's standing preference not to write anything that reads as playing to an evaluator. If he
+  wants it, it goes in the block beside the disclaimer.
+
+
+### Plain words, and three bugs a person found before any test did. 5 Sep, on `feat/visual-identity`
+
+Preet went through the built page and reported what was wrong with it. Most of it was one problem
+wearing different clothes: the page explained itself in the vocabulary of the people who built it.
+"we have to use easy wordings at least on our hero sections so a random person coming could
+understand that but we have just used buzz words and all of that no?"
+
+- **No model or prompt provenance anywhere a reader meets by default.** The caption under the
+  drafted actions ("Drafted by claude-opus-5 ... Punctuation normalised; not a word was changed"),
+  the footer's provenance bar, the recorded answer's fold-away, and the merchant GSTIN are all
+  gone, on instruction, and the instruction was general: "plus specific such wordings from
+  everywhere". **Do not put a model id, a prompt version, a recording date or a normalisation note
+  back on a screen.** What survives is the collapsed "How this was produced" disclosure inside a
+  record's detail panel, which is the audit trail and is opened deliberately. The answer panel now
+  says only "Answered just now" or "Answered earlier and saved", which is the one part of the old
+  provenance a reader could act on.
+- **Plain language first, the official term second.** The headline was "₹214.69 of input tax credit
+  has nothing to explain it", which is unreadable to anyone who does not already know what input
+  tax credit is. The rule now followed across the hero, the four section descriptions and the
+  footer comes from the IRS Direct File content style guide: ordinary words first, and the term of
+  art introduced afterwards once the reader has something to attach it to. Their research is the
+  reason it matters, and it is not that people ask: they skim past a term they do not know and
+  conclude it does not apply to them.
+- **The footer is now the plain-English version of the whole product.** Three sentences, no term of
+  art in any of them, beside the only place on the page the name is set as type rather than drawn
+  as a mark. The "The work" column (source, spec, build log) was removed entirely on instruction;
+  the GitHub mark in the header is the remaining route to the repository. *(Superseded twice on the
+  same day and then deleted, see the section below. The GitHub mark is still the only route to the
+  repository.)*
+- **Three defects a person found and no test could see**, all written up in BUILD-LOG 46 to 48
+  with the guard each one now has: the drafted-action cards stretching to a shared height, the
+  answer being flattened into one paragraph, and `#reconciliation` having no scroll margin.
+
+**Still open after this pass:**
+
+- ~~**The FAQ section has an empty right half.**~~ **Closed on 5 Sep.** The accordion runs the full
+  width of its card now. A question is one short line, so the reading measure it was capped at was
+  buying nothing and leaving a third of the section blank; only the answer keeps a measure.
+- **The hero's right-hand card is about 200px shorter than the left column**, so there is some
+  dead space beside the colour key. Down from a 1026px difference before the drafts moved out of
+  the sidebar, and not worth filling with something invented.
+
+
+### Bigger type, structured answers, and no footer at all. 5 Sep, on `feat/visual-identity`
+
+Preet's third read of the page. BUILD-LOG **49**, **50** and **51** carry the accounts.
+
+- **The type scale is a third larger at every prose step**: body 15, card and header 20, section
+  headings 30, the headline on a 40 to 64px clamp. The old steps were internally consistent and too
+  compressed to read as a hierarchy. The reasoning is written above the tokens in `globals.css`;
+  **do not compress them back to save vertical space.**
+- **The type scale is declared in two places and both are load-bearing**: the tokens in
+  `globals.css`, and the `font-size` group in the `cn` built in `src/lib/utils.ts`. Class merging
+  decides a `text-*` conflict from the NAME, so a role it has not been told about is filed as a
+  colour and evicts the real one. That is BUILD-LOG 53, and it painted the Confirm buttons black
+  on indigo. **Adding a role means adding it in both places**, and every component imports `cn`
+  from `@/lib/utils`, never from the package.
+- **No component may ship a size of Tailwind's own.** Every `text-sm`, `text-xs` and `text-base` in
+  `src/components/ui` is a role now, and `tests/type-scale.test.ts` fails the build if one comes
+  back, in `src/app` or in `src/components`. There is exactly one exemption and it is named in the
+  test: the question box keeps 16px up to `md`, because a field below 16px makes iOS zoom the page
+  on focus. Add an exemption only with a reason written beside it.
+- **The open example question is a filled indigo chip.** It was `secondary`, a warm grey, on the
+  panel's pale indigo ground: two colours a few percent apart, so nothing looked selected.
+- **The Explain prompt now says how to lay an answer out**, and the six recorded answers were
+  re-laid to match. No word was changed and no figure was touched; the edits are inserted line
+  breaks plus three inline `(1)` markers moved to the front of their lines. Two of the six had no
+  line break in them at all, which is why one answer rendered as a list and five as prose.
+- **There is no footer, and one should not be added back.** A version carrying the whole product
+  name across a navy band was built and then removed the same day on Preet's instruction: "remove
+  the footer completely, I don't like it." `site-footer.tsx` is deleted, along with the
+  `--text-wordmark` role and the `--ink` palette that existed only for it. Everything a footer
+  would carry is said earlier, where a reader meets it in time to use it: what Trace does is the
+  first screen, that nothing is ever sent or filed is beside every Confirm button, that the
+  merchant is invented is stated above the table and again in the FAQ, and the three jump links
+  are in a header that never leaves the screen.
+- **Removing it broke the header's navigation mark, and BUILD-LOG 52 is the account.** The footer
+  was 624px of document that the scroll-spy had been depending on: without it the last section
+  can never be scrolled high enough to cross the spy's band, so clicking FAQ marked "How Trace
+  works". The spy now answers the end of the document separately from the band. **If anything
+  ever adds or removes a large block at the bottom of the page, re-run `verify:screen` and read
+  the in-page navigation line.**
+- **The interactive indigo is one step lighter**, `#4f46e5` rather than `#4338ca`, because the
+  Confirm buttons read as heavy navy blocks against the pale indigo card behind them. `brand.ts`
+  and `icon.svg` carry the same value, so the mark, the favicon and the buttons cannot drift
+  apart. White on it measures 6.3:1. The question box's border was widened from `/70` to `/85` to
+  hold its own contrast, which `verify:screen` measures on every run: it is 4.27:1, against the
+  3:1 WCAG asks for a control's boundary.
+
+**Still open after this pass:**
+
+- **The live-question budget is still per server process** (see the previous section). Unchanged
+  and still the one thing here that could cost money.
+- **The hero's right-hand card is about 200px shorter than the left column.** Unchanged, and still
+  not worth filling with something invented.
 
 
 ## Status board — every run updates this before it stops
