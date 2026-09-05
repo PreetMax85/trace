@@ -160,11 +160,14 @@ describe("laying an answer out", () => {
 
     const lists = blocks.filter((block) => block.kind === "list");
     expect(lists.length).toBe(1);
-    expect(lists[0].kind === "list" && lists[0].items.map((item) => item.marker)).toEqual([
-      "1",
-      "2",
-      "3",
-    ]);
+
+    // Sequential from 1, and at least three findings, rather than one exact
+    // set of markers. The comment above promised this test survives a
+    // re-recording and it did not: an answer that found a fourth thing to say
+    // failed here, which is the model doing its job. The shape is the claim.
+    const markers = lists[0].kind === "list" ? lists[0].items.map((item) => item.marker) : [];
+    expect(markers.length).toBeGreaterThanOrEqual(3);
+    expect(markers).toEqual(markers.map((_, index) => String(index + 1)));
   });
 
   /**
