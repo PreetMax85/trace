@@ -32,7 +32,14 @@ const MONTHS = [
   "Dec",
 ] as const;
 
-/** `1785479400` → `"01 Aug 2026, 00:00 IST"`. */
+/**
+ * `1785522600` → `"01 Aug 2026, 00:00 IST"`.
+ *
+ * The example used to name `1785479400`, which is midday on 31 July. Nobody
+ * checked it, because nothing reads a doc comment. It is the boundary instant
+ * that makes the point, so it is now the one that is actually the boundary, and
+ * a test asserts the pair rather than the comment claiming it.
+ */
 export function formatIstDateTime(epochSeconds: number): string {
   if (!Number.isSafeInteger(epochSeconds)) {
     throw new Error(
@@ -51,6 +58,36 @@ export function formatIstDateTime(epochSeconds: number): string {
   const minutes = String(ist.getUTCMinutes()).padStart(2, "0");
 
   return `${day} ${month} ${ist.getUTCFullYear()}, ${hours}:${minutes} IST`;
+}
+
+/**
+ * The same instant, in IST, without the time: `1785522600` → `"01 Aug 2026"`.
+ *
+ * For places where the date is context rather than evidence, such as the line
+ * of a table row that says what a payment was. The full form with the clock
+ * time stays where a person is checking a period boundary, because that is the
+ * one comparison where the hour decides the answer.
+ *
+ * Derived from `formatIstDateTime` rather than reimplemented, so the two can
+ * never disagree about which day an instant falls on.
+ */
+export function formatIstDate(epochSeconds: number): string {
+  return formatIstDateTime(epochSeconds).split(",")[0];
+}
+
+/**
+ * Day and month only, in IST: `1785522600` → `"01 Aug"`.
+ *
+ * For the table, where the year is on every one of 54 rows and the period is
+ * already stated twice above them. Dropping it is what stops the first column
+ * wrapping to two lines on a laptop, and a wrapped line in every other row is
+ * what made the table look ragged.
+ *
+ * Sliced off `formatIstDate` rather than formatted separately, so all three
+ * forms agree about which day an instant falls on.
+ */
+export function formatIstDayMonth(epochSeconds: number): string {
+  return formatIstDate(epochSeconds).split(" ").slice(0, 2).join(" ");
 }
 
 /**

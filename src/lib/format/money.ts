@@ -2,19 +2,17 @@
  * Integer paise rendered as rupees, for the screen.
  *
  * The whole pipeline holds money as integer paise and never as a float, so the
- * one place that has to produce a human-readable rupee figure is the one place
- * a rounding rule could quietly enter the product. It lives here, alone, and is
- * tested — a screen that shows a merchant ₹982.23 when the audit trail recorded
+ * one place that has to produce a human-readable rupee figure is the one place a
+ * rounding rule could quietly enter the product. It lives here, alone, and is
+ * tested: a screen that shows a merchant 982.23 when the audit trail recorded
  * 98223 paise is the only version of this that is safe to put in front of a CA.
  *
- * Blade's `Amount` is deliberately NOT used for these figures. It delegates
- * formatting to `@razorpay/i18nify-js`, whose `getLocale` falls back to
- * `window.navigator.languages` — so the grouping and decimal separator follow
- * the VIEWER'S browser locale, and a viewer on a de-DE browser would read the
- * same audit figure as ₹1.196,92. The same function also reads `window` after
- * only guarding on `typeof navigator`, which is what logs "window is not
- * defined" during SSR on Node. A figure that must match the audit trail cannot
- * depend on who is looking at it, so it is formatted here instead.
+ * The locale is pinned rather than inherited, and that is the load-bearing part.
+ * A formatter that falls back to `navigator.languages` follows the VIEWER'S
+ * browser, so the same audit figure reads as ₹1,196.92 here and ₹1.196,92 to
+ * somebody on a German browser. A figure that has to match the audit trail
+ * cannot depend on who is looking at it, and anything reading `window` at all
+ * throws during server rendering.
  */
 
 /** Paise in a rupee. Named because `/ 100` twice is how two rules drift. */
