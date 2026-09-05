@@ -2,14 +2,13 @@
  * Browser verification for the exception review screen.
  *
  * Unit tests cannot see this screen's one interaction. A click handler passed
- * to a component is not the same thing as a click handler that runs: Blade's
- * table sits on `@table-library/react-table-library`, which discards a click
- * whose target is not one of five tag names, so a row click can be wired
- * correctly, typecheck, and still do nothing. BUILD-LOG entry 28.
+ * to a component is not the same thing as a click handler that runs: a row
+ * click can be wired correctly, typecheck, and still do nothing, which is an
+ * afternoon this project has already lost once. BUILD-LOG entry 28.
  *
  * So this drives a real browser over the Chrome DevTools Protocol, dispatches
  * real mouse events, and reads the rendered result back out of the DOM. No test
- * dependency is added — Node's built-in WebSocket speaks CDP directly.
+ * dependency is added, Node's built-in WebSocket speaks CDP directly.
  *
  *   npm run dev            # or npm run build && npx next start
  *   npm run verify:screen
@@ -25,6 +24,13 @@ import { join } from "node:path";
 const TARGET_URL = process.env.TARGET_URL ?? "http://localhost:3000/";
 const PORT = Number(process.env.CDP_PORT ?? 9333);
 const EXPECTED_ROWS = 54;
+/**
+ * The split the tabs have to show, and the same locked figures `docs/HANDOFF.md`
+ * carries. Written here rather than read from the page: a count taken from the
+ * thing under test grades it against itself.
+ */
+const EXPECTED_EXCEPTIONS = 16;
+const EXPECTED_MATCHED = 38;
 const EXPECTED_QUESTIONS = 6;
 
 /**
@@ -194,7 +200,7 @@ try {
 
   // The server has to be serving THIS build. `next start` refuses the port when
   // an older server is still holding it, and that older server keeps answering
-  // — so every assertion below would grade a build that predates the change
+  //, so every assertion below would grade a build that predates the change
   // being verified. A stale run reporting OK is worse than no run at all, so
   // the build id on disk has to appear in the page the browser actually loaded.
   const builtId = buildId();
@@ -204,19 +210,49 @@ try {
     );
     if (servedBuild !== true) {
       failures.push(
-        `the server is not serving this build (${builtId}) — stop the one already on the port and start it again`,
+        `the server is not serving this build (${builtId}). Stop the one already on the port and start it again`,
       );
     }
   }
 
-  const rows = await evaluate(`document.querySelectorAll('[role="row"]').length`);
+  // The table opens on the flagged rows, because those are the ones that need a
+  // decision. Asserted before anything switches tabs: a default that quietly
+  // became "all" would bury the queue again and nothing else here would notice.
+  const flaggedTab = await evaluate(`(() => {
+    const tabs = ["flagged", "matched", "all"].map((name) =>
+      document.querySelector(\`[data-testid="tab-\${name}"]\`)
+    );
+    if (tabs.some((tab) => tab === null)) return null;
+    return {
+      counts: tabs.map((tab) => tab.innerText.replace(/\\D+/g, "")),
+      openRows: document.querySelectorAll("tbody tr").length,
+    };
+  })()`);
+
+  if (flaggedTab === null) {
+    failures.push("the record table has no flagged/matched/all tabs");
+  } else {
+    if (flaggedTab.counts.join(",") !== `${EXPECTED_EXCEPTIONS},${EXPECTED_MATCHED},${EXPECTED_ROWS}`) {
+      failures.push(`the tabs count ${flaggedTab.counts.join("/")}, expected ${EXPECTED_EXCEPTIONS}/${EXPECTED_MATCHED}/${EXPECTED_ROWS}`);
+    }
+    if (flaggedTab.openRows !== EXPECTED_EXCEPTIONS) {
+      failures.push(`the table opens on ${flaggedTab.openRows} rows, expected the ${EXPECTED_EXCEPTIONS} flagged ones`);
+    }
+  }
+
+  // Everything below needs every record reachable, so switch to the tab that
+  // holds them all. This doubles as the check that switching tabs works.
+  await evaluate(`document.querySelector('[data-testid="tab-all"]')?.click()`);
+  await sleep(400);
+
+  const rows = await evaluate(`document.querySelectorAll("tbody tr").length`);
   if (rows !== EXPECTED_ROWS) failures.push(`expected ${EXPECTED_ROWS} rows, found ${rows}`);
 
   // Scoped to the TABLE, not the document. The Explain panel renders record ids
   // too, as citation links, so a document-wide count stops being a count of
   // rows the moment an answer is recorded.
   const ids = await evaluate(`(() => {
-    const text = [...document.querySelectorAll('[role="row"]')].map((r) => r.innerText).join(" ");
+    const text = [...document.querySelectorAll("tbody tr")].map((r) => r.innerText).join(" ");
     return new Set([...text.matchAll(/pay_[A-Za-z0-9]{14}/g)].map((m) => m[0])).size;
   })()`);
   if (ids !== EXPECTED_ROWS) {
@@ -224,7 +260,7 @@ try {
   }
 
   // Column names in table order, used to rotate which cell gets clicked.
-  const COLUMNS = ["settlement", "amount", "fee", "tax", "match method", "category"];
+  const COLUMNS = ["payment", "amount", "fee", "tax", "rate matched", "category"];
   let columnIndex = 0;
 
   for (const [verdict, { id, expectFlagged }] of targets()) {
@@ -235,31 +271,31 @@ try {
     columnIndex += 1;
     // Aimed at the TEXT, not at the middle of the cell. The cell's centre is
     // usually empty space, so a click there lands on a div and passes the
-    // library's tag allowlist whatever the text is wrapped in — which would
+    // library's tag allowlist whatever the text is wrapped in, which would
     // make this script green against the exact bug it exists to catch.
     const box = await evaluate(`(() => {
       // Searched INSIDE the table rows. A document-wide search finds the
       // Explain panel's citation link for the same record first, which has no
-      // row to click and reports as "no clickable text" — a failure that looks
+      // row to click and reports as "no clickable text", a failure that looks
       // like the row bug this script exists to catch. BUILD-LOG entry 30.
-      const anchor = [...document.querySelectorAll('[role="row"] *')].find(
+      const anchor = [...document.querySelectorAll("tbody tr *")].find(
         (el) => el.children.length === 0 && el.textContent.trim() === ${JSON.stringify(id)}
       );
       if (!anchor) return null;
-      const row = anchor.closest('[role="row"]');
+      const row = anchor.closest("tr");
       if (!row) return null;
-      const cell = row.querySelectorAll('td,[role="cell"],[role="gridcell"]')[${column}];
+      const cell = row.querySelectorAll("td")[${column}];
       if (!cell) return null;
       // Brought into view before its position is read. A mouse event is
       // dispatched at viewport coordinates, so a row below the fold gets a
-      // click at a y the browser resolves to whatever is actually there —
+      // click at a y the browser resolves to whatever is actually there 
       // which reports as "the row did not open" and looks exactly like the
       // click bug this script exists to catch. It used to be masked by a
       // 3200px-tall viewport that happened to fit every row; adding anything
       // above the table pushed the last ones out and broke it. Scrolling is
       // the fix, because it does not depend on the page's height.
       cell.scrollIntoView({ block: "center", behavior: "instant" });
-      // The deepest element that actually paints text — what a finger lands on.
+      // The deepest element that actually paints text, what a finger lands on.
       const leaf = [...cell.querySelectorAll('*')]
         .filter((el) => el.children.length === 0 && el.textContent.trim().length > 0)
         .pop() ?? cell;
@@ -295,14 +331,14 @@ try {
       continue;
     }
 
-    const opening = expectFlagged ? "Flagged — " : "Matched — ";
+    const opening = expectFlagged ? "Flagged. " : "Matched. ";
     if (!panel.includes(opening)) {
       failures.push(`${verdict}: detail for ${id} does not read as "${opening.trim()}"`);
       continue;
     }
 
     // PRD §15.1. Only a flagged row is investigated, so only a flagged row gets
-    // this section — an empty one on a matched row would imply a run that is
+    // this section, an empty one on a matched row would imply a run that is
     // missing rather than a row no model was ever asked about. Asserted in a
     // real browser because this whole file exists for the reason BUILD-LOG 28
     // records: this screen has already shipped a section that typechecked,
@@ -339,7 +375,7 @@ try {
     );
   }
 
-  // PRD §15.5 — the Explain panel.
+  // PRD §15.5, the Explain panel.
   const panelText = await evaluate(
     `document.querySelector('[data-testid="explain-panel"]')?.innerText ?? ""`,
   );
@@ -406,7 +442,7 @@ try {
 
   const recorded = recordedAnswers();
   if (recorded.length === 0) {
-    // Nothing recorded yet. The panel must SAY so rather than render blank —
+    // Nothing recorded yet. The panel must SAY so rather than render blank 
     // an empty answer under a real question reads as "the agent had nothing to
     // say" instead of "no run has happened".
     if (!panelText.includes("No answer has been recorded")) {
@@ -416,7 +452,7 @@ try {
   } else {
     const cited = await evaluate(`(() => {
       const panel = document.querySelector('[data-testid="explain-panel"]');
-      const link = [...(panel?.querySelectorAll("a, [role=link]") ?? [])].find((el) =>
+      const link = [...(panel?.querySelectorAll("a, button, [role=link]") ?? [])].find((el) =>
         /^(pay|rfnd)_[A-Za-z0-9]+$/.test(el.textContent.trim()),
       );
       if (!link) return null;
@@ -426,7 +462,7 @@ try {
     })()`);
 
     if (!cited) {
-      failures.push("a recorded answer rendered no citation link");
+      failures.push("a recorded answer rendered no citation a person can open");
     } else {
       await sleep(600);
       const panel = await evaluate(
@@ -440,7 +476,7 @@ try {
     }
   }
 
-  // PRD §9, agent 3 — the human gate. The detail panel is left showing the
+  // PRD §9, agent 3, the human gate. The detail panel is left showing the
   // last flagged row the loop above opened, which is the one with cards.
   const drafts = recordedDrafts();
 
@@ -530,6 +566,147 @@ try {
   // what they are looking at.
   // ---------------------------------------------------------------------------
 
+  // Every headline figure opens its own derivation.
+  //
+  // The four figures are the most consequential numbers on the page and were
+  // the only ones a reader had to take on faith. Each is asserted by a term of
+  // its OWN arithmetic rather than by "the panel changed": a control that opened
+  // the wrong figure's derivation would still change the panel, and that is the
+  // failure most likely to happen when one of these is edited.
+  const FIGURES = [
+    ["itcAtRisk", "less claimable"],
+    ["itcClaimable", "Tax on rows matched to a published rate"],
+    ["invoiceTax", "GSTN says the credit is"],
+    ["matched", "Flagged for review"],
+  ];
+
+  for (const [figure, term] of FIGURES) {
+    const box = await evaluate(`(() => {
+      const el = document.querySelector('[data-testid="figure-${figure}"]');
+      if (!el) return null;
+      el.scrollIntoView({ block: "center", behavior: "instant" });
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return null;
+      return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 };
+    })()`);
+
+    if (!box) {
+      failures.push(`the ${figure} figure is not on the page`);
+      continue;
+    }
+
+    for (const type of ["mousePressed", "mouseReleased"]) {
+      await send("Input.dispatchMouseEvent", {
+        type,
+        x: Math.round(box.x),
+        y: Math.round(box.y),
+        button: "left",
+        clickCount: 1,
+      });
+    }
+    await sleep(500);
+
+    const panel = await evaluate(
+      `document.querySelector('[data-testid="detail-panel"]')?.innerText ?? ""`,
+    );
+    if (!panel.includes(term)) {
+      failures.push(`clicking the ${figure} figure did not show its derivation ("${term}")`);
+    }
+  }
+  const figureFailures = failures.filter((line) => line.includes("figure")).length;
+  if (figureFailures === 0) {
+    console.log(`\n  Figures: all ${FIGURES.length} open their own arithmetic.`);
+  }
+
+  // A row opens from the keyboard, not only from a mouse.
+  //
+  // The whole row is one focus stop and one click target. It used to be every
+  // cell, which advertised 324 interactive stops on which Enter did nothing:
+  // worse than not offering, because a keyboard reader is told the row is
+  // operable and finds out otherwise. Asserted in a real browser because a
+  // handler that typechecks and never fires is exactly what BUILD-LOG 28 is.
+  const KEYBOARD_TARGET = "pay_qcqeWqwISCOg2K";
+  const focused = await evaluate(`(() => {
+    const anchor = [...document.querySelectorAll("tbody tr *")].find(
+      (el) => el.children.length === 0 && el.textContent.trim() === ${JSON.stringify(KEYBOARD_TARGET)}
+    );
+    if (!anchor) return "no row carries that record";
+    const row = anchor.closest("tr");
+    if (!row) return "that record is not inside a row";
+    row.scrollIntoView({ block: "center", behavior: "instant" });
+    row.focus();
+    return document.activeElement === row ? "focused" : "the row refused focus";
+  })()`);
+
+  if (focused !== "focused") {
+    failures.push(`keyboard: ${focused}`);
+  } else {
+    for (const type of ["keyDown", "char", "keyUp"]) {
+      await send("Input.dispatchKeyEvent", {
+        type,
+        key: "Enter",
+        code: "Enter",
+        windowsVirtualKeyCode: 13,
+        nativeVirtualKeyCode: 13,
+        text: "\r",
+      });
+    }
+    await sleep(600);
+
+    const panel = await evaluate(
+      `document.querySelector('[data-testid="detail-panel"]')?.innerText ?? ""`,
+    );
+    if (!panel.includes(KEYBOARD_TARGET)) {
+      failures.push(
+        `keyboard: Enter on a focused row did not open ${KEYBOARD_TARGET}, so the focus ring on every row is a lie`,
+      );
+    } else {
+      console.log(`  Keyboard: Enter on a focused row opened ${KEYBOARD_TARGET}.`);
+    }
+  }
+
+  // The explanation follows the reader down the table.
+  //
+  // Asserted structurally rather than by scrolling and looking, and that is the
+  // point. `position: sticky` is silently defeated by any ancestor that creates
+  // a scroll container, and it was: the section wrapper carried
+  // `overflow-hidden` to clip its header band to a rounded corner, so the panel
+  // stuck to a box that never scrolls and left the screen forty rows down.
+  //
+  // Scrolling and measuring cannot catch it. With a record open the panel is
+  // taller than the window, so it legitimately scrolls under its own weight and
+  // a visibility check passes whether the bug is there or not. The structural
+  // question has one answer: is there a scroll container between the panel and
+  // the body?
+  const sticky = await evaluate(`(() => {
+    const panel = document.querySelector('[data-testid="detail-panel"]');
+    if (!panel) return null;
+
+    const blockers = [];
+    for (let el = panel.parentElement; el && el !== document.body; el = el.parentElement) {
+      const style = getComputedStyle(el);
+      if (style.overflow !== "visible" || style.overflowX !== "visible" || style.overflowY !== "visible") {
+        const name = typeof el.className === "string" ? el.className.split(" ").slice(0, 3).join(".") : "";
+        blockers.push(el.tagName.toLowerCase() + (name ? "." + name : ""));
+      }
+    }
+    return { position: getComputedStyle(panel).position, blockers };
+  })()`);
+
+  if (sticky === null) {
+    failures.push("there is no detail panel to measure");
+  } else if (sticky.position !== "sticky") {
+    failures.push(
+      `the detail panel is ${sticky.position}, not sticky, so it leaves the screen as soon as the reader scrolls the table`,
+    );
+  } else if (sticky.blockers.length > 0) {
+    failures.push(
+      `the detail panel is sticky but ${sticky.blockers[0]} between it and the body is a scroll container, which silently defeats it`,
+    );
+  } else {
+    console.log("  Detail panel: sticky, with nothing above it clipping the scroll.");
+  }
+
   // Trace says what it is, on the page itself and not only in the browser tab.
   const chrome = await evaluate(`(() => {
     const header = document.querySelector('[data-testid="site-header"]');
@@ -550,7 +727,7 @@ try {
   // be told what it reconciles, or the table below is a data dump.
   for (const word of ["GSTR-2B", "Razorpay", "input tax credit"]) {
     if (!chrome?.orientationText.includes(word)) {
-      failures.push(`the page never says what it does — "${word}" appears nowhere in the orientation`);
+      failures.push(`the page never says what it does: "${word}" appears nowhere in the orientation`);
     }
   }
   // Four layers, named. Three is the old README's mistake: it listed Detect,
@@ -563,30 +740,67 @@ try {
   if (!chrome?.hasTestDataNotice) failures.push("the page does not say it runs on test data");
   if (!chrome?.hasFooter) failures.push("the page has no footer");
 
-  // The styles have to be IN the server's HTML.
+  // The styles, and the colour scheme, have to be IN the server's HTML.
   //
-  // Fetched raw rather than read off the DOM: by the time the DOM exists the
-  // client bundle has booted and styled-components has injected everything, so
-  // a DOM check passes whether or not the server sent any CSS at all. That is
-  // precisely the bug — the server was sending `sc-` class names with no rules
-  // to match them, and the page sat unstyled for a second or two until React
-  // took over. Nothing that grades the settled page can see it.
+  // Fetched raw rather than read off the DOM, because by the time the DOM exists
+  // the client bundle has booted and anything missing from the document has been
+  // put right. That is the whole class of bug: a page that arrives unstyled, or
+  // in the wrong scheme, and corrects itself a moment later looks perfect to
+  // anything that grades the settled page.
+  //
+  // The scheme half matters most for a returning reader. The class on <html> is
+  // written by the server from a cookie, so it has to be in the first bytes; if
+  // it were applied by the client instead, every dark-mode visit would open with
+  // a flash of a white page.
   const ssr = await evaluate(`(async () => {
-    const html = await (await fetch(location.href, { cache: "no-store" })).text();
+    const light = await (await fetch(location.href, { cache: "no-store" })).text();
+    const stylesheet = /<link[^>]+rel="stylesheet"[^>]*>/.test(light);
+    const href = light.match(/<link[^>]+rel="stylesheet"[^>]+href="([^"]+)"/)?.[1] ?? null;
+    const css = href === null ? "" : await (await fetch(href, { cache: "no-store" })).text();
     return {
-      styledClasses: /class="[^"]*\bsc-/.test(html),
-      styledRules: html.includes("data-styled"),
-      namesProduct: html.includes("Trace"),
+      stylesheet,
+      hasGroundRule: css.includes("--background"),
+      namesProduct: light.includes("Trace"),
+      lightIsLight: !/<html[^>]*class="[^"]*\bdark\b/.test(light),
     };
   })()`, true);
 
-  if (ssr?.styledClasses && !ssr.styledRules) {
+  if (!ssr?.stylesheet || !ssr?.hasGroundRule) {
     failures.push(
-      "the server HTML carries styled-components class names but no rules — the page will paint unstyled until the client bundle boots",
+      "the server HTML does not link a stylesheet that defines the page ground, so the page will paint unstyled until the client bundle boots",
     );
+  }
+  if (ssr?.lightIsLight !== true) {
+    failures.push("the server rendered the dark class with no dark cookie set");
   }
   if (!ssr?.namesProduct) {
     failures.push("the server HTML never names the product, so a crawler or a link preview sees nothing");
+  }
+
+  // And the other half: with the preference set, the FIRST bytes must already
+  // say dark. This is the assertion a client-side theme switch cannot pass, and
+  // it is the one that would have caught the flash of a white page that a
+  // returning dark-mode reader used to meet on every visit.
+  //
+  // The cookie is written, the document is refetched with it, and the cookie is
+  // put back the way it was, so this leaves the page exactly as it found it for
+  // whatever runs after.
+  const darkSsr = await evaluate(`(async () => {
+    const before = document.cookie.match(/trace-color-scheme=(\\w+)/)?.[1] ?? null;
+    document.cookie = "trace-color-scheme=dark; path=/; max-age=60; SameSite=Lax";
+    const html = await (await fetch(location.href, { cache: "no-store" })).text();
+    document.cookie = before === null
+      ? "trace-color-scheme=; path=/; max-age=0; SameSite=Lax"
+      : \`trace-color-scheme=\${before}; path=/; max-age=60; SameSite=Lax\`;
+    return /<html[^>]*class="[^"]*\\bdark\\b/.test(html);
+  })()`, true);
+
+  if (darkSsr !== true) {
+    failures.push(
+      "with a dark preference stored, the server still sent a light document, so a returning reader meets a flash of the wrong page",
+    );
+  } else {
+    console.log("  Colour scheme: the server sends dark on the first byte when it is asked for.");
   }
 
   // The link preview must not point at whoever built the page.
@@ -594,7 +808,7 @@ try {
   // `metadataBase` is resolved at BUILD time from an environment variable that
   // exists only when Vercel's system variables are switched on for the project.
   // When it is missing the value is absent rather than wrong, so a production
-  // build silently emitted `http://localhost:3000/opengraph-image` — a card
+  // build silently emitted `http://localhost:3000/opengraph-image`, a card
   // that resolves to the reader's own machine, which is exactly what the card
   // was added to prevent. Nothing in a build log would have said so.
   //
@@ -609,14 +823,14 @@ try {
   if (preview?.image === null) {
     failures.push("the page declares no og:image, so a shared link has no preview");
   } else if (!preview.isDev && preview.image.includes("localhost")) {
-    failures.push(`og:image points at ${preview.image} — a shared link would resolve to the reader's own machine`);
+    failures.push(`og:image points at ${preview.image}, a shared link would resolve to the reader's own machine`);
   }
 
   // A URL that does not exist gets our own page, not Next's bare default.
   //
   // Asserted on the copy this project wrote, NOT on whether the product name
   // appears. The name is the wrong field to test: Next renders its default
-  // not-found INSIDE the root layout, so the header — and with it "Trace" —
+  // not-found INSIDE the root layout, so the header, and with it "Trace" 
   // is on the page either way, and the check would pass with no `not-found.tsx`
   // at all. Two paths that share an outcome have to be separated on the field
   // that differs, which is the copy itself.
@@ -644,32 +858,38 @@ try {
   //
   // `mobile: false` deliberately. With mobile emulation on, Chrome applies the
   // page's viewport meta and its own shrink-to-fit, and `window.innerWidth`
-  // came back as 638 rather than the 390 that was asked for — so the assertion
+  // came back as 638 rather than the 390 that was asked for, so the assertion
   // would have been comparing the document against a width nobody chose. A
   // plain narrow window asks the same question with nothing in between.
-  await send("Emulation.setDeviceMetricsOverride", {
-    width: 390,
-    height: 844,
-    deviceScaleFactor: 1,
-    mobile: false,
-  });
-  await sleep(1200);
+  // 390 is an iPhone's CSS width. 320 is the width WCAG 1.4.10 (Reflow) is
+  // written against and a real iPhone SE, and it is where things break that 390
+  // is wide enough to hide: at 320 the tab list needed 322px and took the
+  // document with it, which the 390 check could not see.
+  for (const width of [390, 320]) {
+    await send("Emulation.setDeviceMetricsOverride", {
+      width,
+      height: 844,
+      deviceScaleFactor: 1,
+      mobile: false,
+    });
+    await sleep(1000);
 
-  const narrow = await evaluate(`({
-    docWidth: document.documentElement.scrollWidth,
-    viewport: window.innerWidth,
-  })`);
+    const narrow = await evaluate(`({
+      docWidth: document.documentElement.scrollWidth,
+      viewport: window.innerWidth,
+    })`);
 
-  if (narrow?.viewport !== 390) {
-    // A check that silently graded a different width than the one requested
-    // would pass for the wrong reason, which is worse than not running.
-    failures.push(`asked for a 390px viewport, measured ${narrow?.viewport}px`);
-  } else if (narrow.docWidth > narrow.viewport + 1) {
-    failures.push(
-      `at ${narrow.viewport}px the document is ${narrow.docWidth}px wide — the whole page scrolls sideways`,
-    );
-  } else {
-    console.log(`\n  Narrow viewport: ${narrow?.viewport}px, document ${narrow?.docWidth}px — no sideways scroll.`);
+    if (narrow?.viewport !== width) {
+      // A check that silently graded a different width than the one requested
+      // would pass for the wrong reason, which is worse than not running.
+      failures.push(`asked for a ${width}px viewport, measured ${narrow?.viewport}px`);
+    } else if (narrow.docWidth > narrow.viewport + 1) {
+      failures.push(
+        `at ${narrow.viewport}px the document is ${narrow.docWidth}px wide, the whole page scrolls sideways`,
+      );
+    } else {
+      console.log(`  Narrow viewport: ${narrow.viewport}px, document ${narrow.docWidth}px, no sideways scroll.`);
+    }
   }
 
   for (const error of consoleErrors) failures.push(`console: ${error}`);
@@ -685,5 +905,5 @@ if (failures.length > 0) {
 }
 
 console.log(
-  `\nOK — ${EXPECTED_ROWS} rows, every verdict opens its own explanation, and the page says what it is.`,
+  `\nOK, ${EXPECTED_ROWS} rows, every verdict opens its own explanation, and the page says what it is.`,
 );
