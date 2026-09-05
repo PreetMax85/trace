@@ -109,6 +109,9 @@ A ${TALLY_VOUCHER_TYPES[0]} for a fee correction; a ${TALLY_VOUCHER_TYPES[1]} wh
 LENGTH
 At most ${EMAIL_MAX_CHARS} characters of email body. Short is better: a person has to read all three of these before confirming any of them.
 
+NAMING THE CATEGORY
+The classification you are given has an internal name in capitals and underscores, like FEE_DEDUCTION. That name belongs to the database. Never write it in an email, a note or a narration. Say what it means instead: a fee deduction nothing on Razorpay's invoice accounts for, a timing difference that falls on another month's statement, a refund netted off the settlement, a partial payment where only the successful capture was billable, or an exception none of the other four explains.
+
 HOW TO WRITE IT
 Use ordinary punctuation: full stops, commas, colons, brackets. Never an em dash or an en dash. Vary the sentence length and let some sentences be short, rather than writing every one as a claim followed by a balanced qualifying clause. The reader is an accountant checking a figure, not an audience for prose.`;
 
