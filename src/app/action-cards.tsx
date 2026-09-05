@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { ChevronDown, Loader2 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,6 @@ export function ActionCards({
   if (recorded === null || recorded.draft === null) {
     return (
       <div className="flex flex-col gap-1" data-testid="action-cards">
-        <CardTitle as="h4">What to do next</CardTitle>
         <Caption as="p" className="leading-relaxed">
           No action has been drafted for this record yet. Nothing above needs a model. Run{" "}
           <code className="rounded-sm bg-muted px-1 py-0.5 font-mono">npm run act</code> to record
@@ -95,15 +94,7 @@ export function ActionCards({
   };
 
   return (
-    <div className="flex flex-col gap-3" data-testid="action-cards">
-      <div className="flex flex-col gap-1">
-        <CardTitle as="h4">What to do next</CardTitle>
-        <Caption as="p" className="leading-relaxed">
-          Drafted for you to review. Nothing is sent, filed or posted. Confirming records that you
-          approved this draft, and the sending stays yours.
-        </Caption>
-      </div>
-
+    <div className="flex flex-col gap-4" data-testid="action-cards">
       {/* The gate firing is shown, not hidden, and it is what disables the
           buttons. A gate that only annotates stops nothing. */}
       {!allowed.ok && (
@@ -118,26 +109,46 @@ export function ActionCards({
         </Alert>
       )}
 
-      {(Object.keys(KIND_LABELS) as ActionKind[]).map((kind) => (
-        <ActionCard
-          key={kind}
-          kind={kind}
-          draft={draft}
-          confirmedAt={confirmed[`${recordId}:${kind}`]}
-          isBusy={busy === `${recordId}:${kind}`}
-          isBlocked={!allowed.ok}
-          onConfirm={() => void confirm(kind)}
-        />
-      ))}
+      {/*
+        Three columns, not a stack, and this is the reason the drafts are no
+        longer inside the panel beside the table. Stacked in a 465px column the
+        three of them ran about nine hundred words and stood a thousand pixels
+        taller than the table they sat next to, so two were collapsed to stop it
+        being a wall and the whole Act layer ended up as the least visible thing
+        on a page whose point is that it writes the next action.
 
-      {/* Provenance, on the same reasoning as the reasoning trace's: a draft is
-          only checkable next to the model and prompt that wrote it and the day
-          it was written, so one left over from a superseded prompt cannot pass
-          as the current one's. */}
-      <Caption as="p">
-        Drafted by {recorded.model} on {recorded.recordedAt.slice(0, 10)}, prompt{" "}
-        {recorded.promptVersion}.
-      </Caption>
+        Across a full-width band each one is its own artefact at its own height,
+        so all three can be open at once: a letter, a filing instruction and a
+        journal voucher, side by side, which is what a person actually has to
+        take away from this screen.
+      */}
+      {/* The letter gets the wider column. It is four paragraphs where the other
+          two are three lines, so equal thirds made it the tallest card by a long
+          way and the two beside it were mostly empty. Widening it shortens it.
+
+          `items-start` is the whole fix for a bug that read as three broken
+          disclosures. Each card used to fill the row's height so that the three
+          Confirm buttons lined up along the bottom, and a grid row is as tall as
+          its tallest item: opening the letter therefore stretched the two closed
+          cards beside it into tall empty boxes, and closing one could not shrink
+          it back while another was open. On screen that is indistinguishable
+          from a card that opened by itself and had nothing in it. Each card is
+          now its own height, and the buttons land where their own content ends,
+          which is the honest place for them. */}
+      <div className="grid items-start gap-3 lg:grid-cols-[minmax(0,1.45fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        {(Object.keys(KIND_LABELS) as ActionKind[]).map((kind) => (
+          <ActionCard
+            key={kind}
+            kind={kind}
+            draft={draft}
+            confirmedAt={confirmed[`${recordId}:${kind}`]}
+            isBusy={busy === `${recordId}:${kind}`}
+            isBlocked={!allowed.ok}
+            onConfirm={() => void confirm(kind)}
+          />
+        ))}
+      </div>
+
     </div>
   );
 }
@@ -165,16 +176,33 @@ function ActionCard({
       className="flex flex-col gap-3 rounded-lg border border-border bg-background p-4"
       data-testid={`action-${kind}`}
     >
-      <div className="flex items-center justify-between gap-3">
-        <CardTitle>{KIND_LABELS[kind]}</CardTitle>
-        {isConfirmed && (
-          <Badge variant="outline" className="border-explained/40 bg-explained/10 text-explained">
-            Confirmed
-          </Badge>
-        )}
-      </div>
+      {/*
+        A native disclosure rather than a state hook. The draft stays in the
+        document either way, so it is findable by search, by a screen reader
+        that lists content, and by anything that grades this page; only its
+        visibility changes, and the browser handles the toggle, the keyboard
+        and the announcement without a line of ours.
+      */}
+      <details open className="group/draft flex flex-col gap-3">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-md outline-none focus-visible:ring-3 focus-visible:ring-ring/50">
+          <CardTitle>{KIND_LABELS[kind]}</CardTitle>
+          <div className="flex shrink-0 items-center gap-2">
+            {isConfirmed && (
+              <Badge variant="outline" className="border-explained/40 bg-explained/10 text-explained">
+                Confirmed
+              </Badge>
+            )}
+            <ChevronDown
+              className="size-4 text-muted-foreground transition-transform group-open/draft:rotate-180"
+              aria-hidden
+            />
+          </div>
+        </summary>
 
-      <ActionBody kind={kind} draft={draft} />
+        <div className="mt-3">
+          <ActionBody kind={kind} draft={draft} />
+        </div>
+      </details>
 
       <Separator />
 

@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { COLOR_SCHEME_COOKIE, isColorScheme } from "./color-scheme";
 import { mono, sans, serif } from "./fonts";
 import { SiteShell } from "./site-shell";
 import { PRODUCTION_URL, TAGLINE } from "./site-links";
@@ -50,35 +48,21 @@ export const metadata: Metadata = {
 };
 
 /**
- * The scheme is read here, on the server, from a cookie the toggle writes.
+ * The frame, and nothing that varies per request.
  *
- * That is what makes the first paint right rather than corrected. A preference
- * kept only in the browser is unreadable until the client runs, so the server
- * would render light and a returning dark mode reader would meet a light page
- * for a frame. Reading the cookie opts the route into dynamic rendering, which
- * costs a fixture parse per request and buys a first paint that is never wrong.
- *
- * Everything downstream of this is CSS. The class on `<html>` selects a set of
- * custom properties, so switching schemes later is one class toggle and a
- * cascade rather than a re-render of the page.
+ * Trace has one set of colours. It carried two for a while, chosen by a cookie
+ * the reader set, and reading that cookie is what forced this route to render
+ * dynamically: the fixture was parsed, matched and classified again on every
+ * request in order to decide a palette. One scheme puts the whole page back to
+ * static, which is faster and is one fewer thing that can be wrong on the first
+ * paint.
  */
-export default async function RootLayout({ children }: LayoutProps<"/">) {
-  const stored = (await cookies()).get(COLOR_SCHEME_COOKIE)?.value;
-  const colorScheme = isColorScheme(stored) ? stored : "light";
-
+export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     // The font classes declare the family custom properties that `globals.css`
     // points its type roles at. On <html> rather than on <body> so anything
     // portalled outside the app still resolves them.
-    <html
-      lang="en"
-      className={[
-        sans.variable,
-        serif.variable,
-        mono.variable,
-        colorScheme === "dark" ? "dark" : "",
-      ].join(" ")}
-    >
+    <html lang="en" className={[sans.variable, serif.variable, mono.variable].join(" ")}>
       <body className="antialiased">
         <TooltipProvider delay={250}>
           <SiteShell>{children}</SiteShell>

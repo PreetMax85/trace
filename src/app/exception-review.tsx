@@ -26,7 +26,8 @@ import { ExplainPanel } from "./explain-panel";
 import { FigureDetail, type FigureId } from "./figure-detail";
 import { Hero } from "./hero";
 import { CATEGORY_LABELS } from "./labels";
-import { HowItWorks, TestDataNotice } from "./orientation";
+import { Faq, HowItWorks, TestDataNotice } from "./orientation";
+import { SCROLL_MARGIN } from "./sections";
 import { Section } from "./ui/section";
 import { Caption, CardTitle, RecordId } from "./ui/type";
 
@@ -56,21 +57,89 @@ type Selection =
 type View = "flagged" | "matched" | "all";
 
 /**
+ * Which record the page opens on.
+ *
+ * It used to open on nothing, and the panel beside the table said "select any
+ * row to see the reasoning". That cost more than an empty state should: the
+ * investigation and the three drafted actions are the whole of what separates
+ * this from a spreadsheet, and both of them lived behind a click nobody had
+ * been asked to make. A reader could scroll the entire page, see a table and a
+ * question box, and never learn that the product writes the email.
+ *
+ * So it opens on the worst flagged record that has a draft to show: the one
+ * with the most tax at stake, which is also the one a person would open first.
+ * Preferring a record WITH a draft matters, because a deployment that has never
+ * run `npm run act` would otherwise open on an empty promise. Falling back
+ * through "any flagged record" to null keeps it correct for a batch with
+ * neither.
+ */
+export function openingSelection(rows: ReviewRow[]): Selection {
+  const flagged = rows.filter((row) => row.status === "EXCEPTION");
+  if (flagged.length === 0) return null;
+
+  /**
+   * The most tax at stake, with ties broken on the record id.
+   *
+   * The tie-break is the whole reason this is not a one-line `reduce`. Two
+   * flagged records can carry the same tax, and comparing on the amount alone
+   * resolves that by whichever arrived first, so the record a reader is shown
+   * would move the day the batch is sorted differently: deterministic on the
+   * machine that wrote it, and quietly not a property of the data. The id is
+   * stable, unique, and independent of the order rows are handed to us.
+   */
+  const worst = (candidates: ReviewRow[]): ReviewRow | undefined =>
+    candidates.reduce<ReviewRow | undefined>((best, row) => {
+      if (best === undefined) return row;
+      if (row.taxPaise !== best.taxPaise) return row.taxPaise > best.taxPaise ? row : best;
+      return row.recordId < best.recordId ? row : best;
+    }, undefined);
+
+  const drafted = worst(flagged.filter((row) => row.draft?.draft != null));
+  const chosen = drafted ?? worst(flagged);
+  return chosen === undefined ? null : { kind: "record", recordId: chosen.recordId };
+}
+
+/**
  * The screen itself. It receives a finished batch and renders it: no fetching,
  * no matching, and no arithmetic beyond formatting, so every rupee figure comes
  * from `formatRupees` and the pixels cannot disagree with the audit trail.
  */
 export function ExceptionReview({ batch }: { batch: ReviewBatch }) {
   const { header, rows } = batch;
-  const [selection, setSelection] = useState<Selection>(null);
+  const [selection, setSelection] = useState<Selection>(() => openingSelection(rows));
+  /**
+   * The record whose drafted actions the band below is showing.
+   *
+   * Held apart from `selection` on purpose. The panel beside the table shows
+   * either a record or a headline figure, so opening a figure clears the
+   * record, and if the drafts followed that they would vanish the moment a
+   * reader clicked one of the amounts in the opening. A whole section
+   * disappearing under somebody reads as a fault, and the Act layer is the last
+   * thing on this page that should be capable of not being there. It follows
+   * the record and ignores figures.
+   */
+  const [actionRecordId, setActionRecordId] = useState<string | null>(() => {
+    const opening = openingSelection(rows);
+    return opening?.kind === "record" ? opening.recordId : null;
+  });
   const [view, setView] = useState<View>("flagged");
   const detailRef = useRef<HTMLDivElement>(null);
 
   const openRecordId = selection?.kind === "record" ? selection.recordId : null;
   const openRow = rows.find((row) => row.recordId === openRecordId) ?? null;
+  const actionRow = rows.find((row) => row.recordId === actionRecordId) ?? null;
 
   const flagged = rows.filter((row) => row.status === "EXCEPTION");
   const matched = rows.filter((row) => row.status !== "EXCEPTION");
+
+  /**
+   * The flagged records whose next action is already written.
+   *
+   * Counted from the batch rather than hardcoded, so a deployment with no
+   * recorded drafts says so instead of promising work it cannot show. This is
+   * the number the hero uses to give a reader a reason to keep scrolling.
+   */
+  const draftedCount = flagged.filter((row) => row.draft?.draft != null).length;
 
   /**
    * Bring the panel into view if it is not already there.
@@ -99,6 +168,7 @@ export function ExceptionReview({ batch }: { batch: ReviewBatch }) {
 
   const openRecord = (recordId: string) => {
     setSelection({ kind: "record", recordId });
+    setActionRecordId(recordId);
     bringDetailIntoView();
   };
 
@@ -117,6 +187,7 @@ export function ExceptionReview({ batch }: { batch: ReviewBatch }) {
       setView(row.status === "EXCEPTION" ? "flagged" : "matched");
     }
     setSelection({ kind: "record", recordId });
+    setActionRecordId(recordId);
 
     // After the tab has committed, or the row is not in the document yet.
     requestAnimationFrame(() => {
@@ -128,12 +199,19 @@ export function ExceptionReview({ batch }: { batch: ReviewBatch }) {
 
   return (
     <div className="mx-auto flex w-full max-w-[1400px] flex-col gap-10 px-4 py-8 sm:px-6 sm:py-10">
-      {/* Where the skip link lands. It has to be the first thing in the page:
-          the point of the link is to get past the chrome, and a target below the
-          hero would skip the reader past the page's own headline too. */}
-      <div id="reconciliation" tabIndex={-1} className="outline-none">
+      {/* Where the skip link, and the footer's way back up, both land. It has
+          to be the first thing in the page: the point of the link is to get
+          past the chrome, and a target below the hero would skip the reader
+          past the page's own headline too.
+
+          It carries the same scroll margin every jump target on this page
+          carries. Without it the reader arrived with the headline sitting under
+          the sticky header, which the browser check caught the moment the
+          footer started linking here. */}
+      <div id="reconciliation" tabIndex={-1} className={`outline-none ${SCROLL_MARGIN}`}>
         <Hero
           header={header}
+          draftedCount={draftedCount}
           openFigure={selection?.kind === "figure" ? selection.figure : null}
           onOpenFigure={openFigure}
         />
@@ -143,7 +221,7 @@ export function ExceptionReview({ batch }: { batch: ReviewBatch }) {
 
       <Section
         title="Every settlement record"
-        description="Flagged rows first, because they are the ones that need a decision. Select any row to see the working behind its verdict."
+        description="Flagged rows first, because those are the ones that need a decision. Select any row to see how Trace reached it."
         bodyClassName="pt-4"
         data-testid="record-section"
       >
@@ -220,7 +298,11 @@ export function ExceptionReview({ batch }: { batch: ReviewBatch }) {
             className="min-w-0 lg:sticky lg:top-20"
             data-testid="detail-panel"
           >
-            <div className="rounded-xl border border-border bg-card p-5">
+            {/* Indigo ground, because everything in this panel below the
+                record's own figures was written by a model: the category, the
+                reasoning, and the three drafts. The table beside it is
+                arithmetic and stays on paper. */}
+            <div className="rounded-xl border border-agent-border bg-agent p-5">
               {selection?.kind === "figure" ? (
                 <FigureDetail
                   figure={selection.figure}
@@ -236,16 +318,82 @@ export function ExceptionReview({ batch }: { batch: ReviewBatch }) {
         </div>
       </Section>
 
+      <NextAction row={actionRow} />
+
       <Section
-        title="Ask about this batch"
-        description="The agent reads the reconciled batch and answers in plain English. Every record it relies on is named, and each one is a link to that row in the table above."
+        id="ask"
+        title="Ask a question"
+        description="Ask anything about this month's settlements and get the answer in plain English. Every answer names the records it is built from, and each of those is a link to that row in the table above."
+        tone="agent"
         data-testid="ask-section"
       >
         <ExplainPanel examples={batch.examples} onCite={revealRecord} />
       </Section>
 
       <HowItWorks />
+
+      <Faq />
     </div>
+  );
+}
+
+/**
+ * The drafted actions for the open record, across the full width of the page.
+ *
+ * PRD §9, agent 3. Only exceptions get a drafted action: a row that matched
+ * cleanly has no next step, and offering one would invite a person to act where
+ * nothing is wrong. A matched row therefore gets a section that says so rather
+ * than no section at all, because the alternative is a landmark that appears and
+ * disappears as the reader clicks around.
+ *
+ * Its own band rather than the foot of the detail panel. Stacked in that column
+ * the three drafts stood a thousand pixels taller than the table beside them,
+ * which left a screenful of blank paper next to the one part of this product
+ * that writes anything. Width is also what lets all three be open at once.
+ */
+function NextAction({ row }: { row: ReviewRow | null }) {
+  if (row === null) {
+    return (
+      <Section
+        title="What to do next"
+        description="Select a flagged record above to see what Trace has written for it."
+        tone="agent"
+        data-testid="next-action"
+      >
+        <Caption as="p">
+          Nothing is open. Every flagged record already has three things written for it: an email
+          to your CA, the entry for your return, and a Tally voucher. None of them is sent, filed
+          or posted.
+        </Caption>
+      </Section>
+    );
+  }
+
+  if (row.status !== "EXCEPTION") {
+    return (
+      <Section
+        title="What to do next"
+        description={`${describeRecord(row.paymentMethod, row.recordType)}, ${row.recordId}`}
+        tone="agent"
+        data-testid="next-action"
+      >
+        <Caption as="p">
+          Nothing. Razorpay charged this one at its published rate and reported the tax on it, so
+          there is nothing to correct and nothing is offered.
+        </Caption>
+      </Section>
+    );
+  }
+
+  return (
+    <Section
+      title="What to do next"
+      description={`Written for ${describeRecord(row.paymentMethod, row.recordType)}, ${row.recordId}. Nothing here is sent, filed or posted. Approving one records that you agreed with it. Sending it is still yours to do.`}
+      tone="agent"
+      data-testid="next-action"
+    >
+      <ActionCards recordId={row.recordId} recorded={row.draft} />
+    </Section>
   );
 }
 
@@ -337,12 +485,25 @@ function RecordTable({
                     the others, which is a fact about the code rather than about
                     the payment. "2.00% standard" is the same information in the
                     form a merchant recognises from their own pricing page. */}
+                {/* A row that was never charged a fee is not a row whose rate
+                    failed to match. Three settlements in this batch carry no
+                    amount, no fee and no tax, and printing "No rate matches" in
+                    red against them made a correct reading of the data look
+                    like a broken matcher: the first thing on the flagged tab
+                    was three zero rows apparently failing a check that was
+                    never run on them. */}
                 <span
                   className={
-                    row.rateCell === null ? "font-medium text-at-risk" : "text-muted-foreground"
+                    row.rateCell === null && row.feePaise !== 0
+                      ? "font-medium text-at-risk"
+                      : "text-muted-foreground"
                   }
                 >
-                  {row.rateCell === null ? "No rate matches" : rateLabel(row.rateCell)}
+                  {row.rateCell !== null
+                    ? rateLabel(row.rateCell)
+                    : row.feePaise === 0
+                      ? "No fee charged"
+                      : "No rate matches"}
                 </span>
               </TableCell>
               <TableCell>
@@ -451,15 +612,6 @@ function Detail({ row, period }: { row: ReviewRow | null; period: string }) {
         </Badge>
       )}
 
-      {/* PRD §9, agent 3. Only exceptions get a drafted action: a row that
-          matched cleanly has no next step, and offering one would invite a
-          person to act where nothing is wrong. */}
-      {row.status === "EXCEPTION" && (
-        <>
-          <Separator />
-          <ActionCards recordId={row.recordId} recorded={row.draft} />
-        </>
-      )}
     </div>
   );
 }
