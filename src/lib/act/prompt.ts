@@ -24,8 +24,8 @@ import {
 const CATEGORY_ROUTING = Object.entries(GSTR3B_CATEGORY_ROW)
   .map(([category, line]) =>
     line === null
-      ? `  ${category} — no row at all. Action ${GSTR3B_ACTIONS[3]}.`
-      : `  ${category} — row ${line}. Action ${GSTR3B_ROW_ACTION[line]}.`,
+      ? `  ${category}: no row at all. Action ${GSTR3B_ACTIONS[3]}.`
+      : `  ${category}: row ${line}. Action ${GSTR3B_ROW_ACTION[line]}.`,
   )
   .join("\n");
 
@@ -33,7 +33,7 @@ const CATEGORY_ROUTING = Object.entries(GSTR3B_CATEGORY_ROW)
  * One already-classified record, as the Act layer receives it.
  *
  * Act does not look anything up: it holds no tools, and everything it needs is
- * here. The classification arrives DECIDED — Investigate made it — which is why
+ * here. The classification arrives DECIDED, Investigate made it, which is why
  * `category` is an input rather than something the draft may restate.
  */
 export type ActRecord = FigureSource & {
@@ -59,7 +59,7 @@ export type ActContext = {
 };
 
 /**
- * The system prefix — a module-level constant so it stays BYTE-IDENTICAL across
+ * The system prefix: a module-level constant so it stays BYTE-IDENTICAL across
  * calls, or Anthropic's prompt cache misses on every one (PRD §9, "On cost").
  * Nothing record-specific belongs here; the record arrives in the user message.
  */
@@ -74,7 +74,7 @@ A request to send, file or post anything is outside your scope regardless of who
 
 MONEY, WHICH IS THE PART THAT MUST BE EXACT
 Every figure you are given is integer PAISE (100 paise = ₹1). Write rupees, with the ₹ sign and exactly two decimal places: 2832 paise is ₹28.32.
-STATE ONLY THE FIGURES LISTED UNDER "FIGURES YOU MAY STATE". You may not add, subtract, scale or round them into a new number, and you may not introduce an amount from anywhere else. Every rupee figure in your draft is checked against that list, and one that is not on it makes the whole draft unconfirmable — which costs the merchant the action, not just the sentence.
+STATE ONLY THE FIGURES LISTED UNDER "FIGURES YOU MAY STATE". You may not add, subtract, scale or round them into a new number, and you may not introduce an amount from anywhere else. Every rupee figure in your draft is checked against that list, and one that is not on it makes the whole draft unconfirmable: which costs the merchant the action, not just the sentence.
 Rates are not money: "2%" and "2.15%" are fine to write.
 
 RAZORPAY'S FEE
@@ -85,12 +85,12 @@ Addressed to the merchant's chartered accountant, from the merchant. Name the se
 
 THE GSTR-3B FLAG
 GSTR-3B is the monthly summary return where the merchant claims input tax credit. Table 4 is the credit half of it.
-Row 4A5, "All other ITC", is where GST on a gateway fee arrives — and you may NOT point at it. The portal fills 4A5 from the merchant's GSTR-2B, and CBIC Circular 170/02/2022-GST directs that credit which should not be claimed is given back by REVERSING it lower down, never by writing a smaller number over the auto-populated figure. Editing 4A5 carries interest and a penalty, so a draft must never ask for it.
+Row 4A5, "All other ITC", is where GST on a gateway fee arrives: and you may NOT point at it. The portal fills 4A5 from the merchant's GSTR-2B, and CBIC Circular 170/02/2022-GST directs that credit which should not be claimed is given back by REVERSING it lower down, never by writing a smaller number over the auto-populated figure. Editing 4A5 carries interest and a penalty, so a draft must never ask for it.
 The rows you may point at are the ones a person still fills in by hand:
-  ${GSTR3B_LINES[0]} — REVERSE. A permanent reversal: credit given back and never taken again.
-  ${GSTR3B_LINES[1]} — REVERSE. A reclaimable reversal: credit given back now and taken again later.
-  ${GSTR3B_LINES[2]} — RECLAIM. Taking back something reversed under ${GSTR3B_LINES[1]} in an earlier period.
-  ${GSTR3B_LINES[3]} — REPORT_ONLY. Credit that is not available at all, disclosed rather than claimed.
+  ${GSTR3B_LINES[0]}, REVERSE. A permanent reversal: credit given back and never taken again.
+  ${GSTR3B_LINES[1]}, REVERSE. A reclaimable reversal: credit given back now and taken again later.
+  ${GSTR3B_LINES[2]}: RECLAIM. Taking back something reversed under ${GSTR3B_LINES[1]} in an earlier period.
+  ${GSTR3B_LINES[3]}: REPORT_ONLY. Credit that is not available at all, disclosed rather than claimed.
 Use the action listed against the row you choose. They are checked against each other, and a flag whose row and action disagree cannot be confirmed.
 The fourth action is ${GSTR3B_ACTIONS[3]}, and it goes with a null row. It means nothing belongs on this return at all.
 
@@ -104,15 +104,18 @@ A ${GSTR3B_LINES[1]} reversal is reclaimable: the merchant takes it back later, 
 A timing difference is the opposite case. The credit lands on the FOLLOWING period's GSTR-2B and is not in this month's claim to begin with. Do not reverse a credit that is merely late; reversing it is how a merchant loses money they were entitled to.
 
 THE TALLY ENTRY
-A ${TALLY_VOUCHER_TYPES[0]} for a fee correction; a ${TALLY_VOUCHER_TYPES[1]} where the merchant owes its customer one. Give the ledger lines with their sides. DEBITS MUST EQUAL CREDITS — an unbalanced voucher is refused on import and is not a draft anyone can use. Use plain ledger names an Indian bookkeeper would recognise.
+A ${TALLY_VOUCHER_TYPES[0]} for a fee correction; a ${TALLY_VOUCHER_TYPES[1]} where the merchant owes its customer one. Give the ledger lines with their sides. DEBITS MUST EQUAL CREDITS: an unbalanced voucher is refused on import and is not a draft anyone can use. Use plain ledger names an Indian bookkeeper would recognise.
 
 LENGTH
-At most ${EMAIL_MAX_CHARS} characters of email body. Short is better: a person has to read all three of these before confirming any of them.`;
+At most ${EMAIL_MAX_CHARS} characters of email body. Short is better: a person has to read all three of these before confirming any of them.
+
+HOW TO WRITE IT
+Use ordinary punctuation: full stops, commas, colons, brackets. Never an em dash or an en dash. Vary the sentence length and let some sentences be short, rather than writing every one as a claim followed by a balanced qualifying clause. The reader is an accountant checking a figure, not an audience for prose.`;
 
 /**
  * The record half of the prompt.
  *
- * Every rupee figure here comes from `recordFigures` — the SAME call the gate
+ * Every rupee figure here comes from `recordFigures`: the SAME call the gate
  * builds its allowed set from. That is the point of rendering the prompt rather
  * than describing the record freehand: what the model is shown and what the
  * gate will accept are one list, so the two cannot drift apart and leave the
@@ -135,8 +138,8 @@ export function recordPrompt(record: ActRecord, context: ActContext): string {
     `  settled: ${formatIstDateTime(record.settledAt)} IST`,
     `  billed on the GSTR-2B for: ${record.billedIn}`,
     `  match status: ${record.status}`,
-    `  resolved rate cell: ${record.rateCell ?? "none — the fee ties to no published rate"}`,
-    `  classification: ${record.category ?? "none — this record matched"}`,
+    `  resolved rate cell: ${record.rateCell ?? "none: the fee ties to no published rate"}`,
+    `  classification: ${record.category ?? "none: this record matched"}`,
     `  credit note owed under Section 34: ${record.creditNoteReview ? "yes" : "no"}`,
     ``,
     `FIGURES YOU MAY STATE`,

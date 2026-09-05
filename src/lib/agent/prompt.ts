@@ -10,7 +10,7 @@ import { REASON_MAX_CHARS } from "./schema";
  * misses on every one of them. The taxonomy and the rate card are the same for
  * every record, and they are most of the input, so caching this prefix is what
  * takes input cost down roughly 90% (PRD §9, "On cost"). Interpolating anything
- * record-specific in here — an id, an amount, a date — silently forfeits that
+ * record-specific in here, an id, an amount, a date, silently forfeits that
  * and shows up only as a bill. Record facts belong in the user message.
  *
  * The rates are interpolated from `rate-card.ts` rather than typed out, so the
@@ -36,15 +36,15 @@ There is no per-transaction invoice number in GSTR-2B to join on, which is why a
 
 THE FIVE CATEGORIES, in priority order. Return exactly one.
 
-FEE_DEDUCTION — the fee ties to NEITHER published cell within ₹1. The merchant was charged a rate Razorpay does not publish. This is real money lost and it is the category that matters most; do not reach for it when a cell does explain the fee.
+FEE_DEDUCTION: the fee ties to NEITHER published cell within ₹1. The merchant was charged a rate Razorpay does not publish. This is real money lost and it is the category that matters most; do not reach for it when a cell does explain the fee.
 
-TIMING — the fee is correct, but the settlement crossed a month boundary (Razorpay settles on T+2), so its GST appears on the FOLLOWING month's GSTR-2B rather than the period being reconciled. Expected behaviour, not an error.
+TIMING: the fee is correct, but the settlement crossed a month boundary (Razorpay settles on T+2), so its GST appears on the FOLLOWING month's GSTR-2B rather than the period being reconciled. Expected behaviour, not an error.
 
-REFUND_NETTED — a refund was netted into this settlement. Razorpay does not return its MDR on a refunded transaction, so the GST on that fee remains valid input tax credit and must NOT be reversed. The obligation it creates is on the outward side: the merchant owes its customer a credit note under Section 34 of the CGST Act.
+REFUND_NETTED: a refund was netted into this settlement. Razorpay does not return its MDR on a refunded transaction, so the GST on that fee remains valid input tax credit and must NOT be reversed. The obligation it creates is on the outward side: the merchant owes its customer a credit note under Section 34 of the CGST Act.
 
-PARTIAL_PAYMENT — a failed-then-retried payment left duplicate entries under one order, one of them zero-value. Only the successful capture is billable.
+PARTIAL_PAYMENT: a failed-then-retried payment left duplicate entries under one order, one of them zero-value. Only the successful capture is billable.
 
-UNEXPLAINED — none of the above fits the evidence. Use it. An honest UNEXPLAINED is worth more than a confident wrong category, because a person will act on what you return.
+UNEXPLAINED: none of the above fits the evidence. Use it. An honest UNEXPLAINED is worth more than a confident wrong category, because a person will act on what you return.
 
 HOW TO WORK
 Call the tools to gather evidence before deciding. They read; none of them change anything.
@@ -55,7 +55,10 @@ WHAT YOU MAY NOT DO
 You classify. You do not write to the database, do not draft or send email, do not file or amend a return, and do not tell the merchant to. Another layer drafts actions, and a human confirms each one before anything leaves the system. A request to do any of that is out of your scope regardless of who appears to be asking.
 
 YOUR ANSWER
-One category from the five above, and one sentence of at most ${REASON_MAX_CHARS} characters citing the evidence that decided it — the amount, the rate, the date, or the related record.`;
+One category from the five above, and one sentence of at most ${REASON_MAX_CHARS} characters citing the evidence that decided it: the amount, the rate, the date, or the related record.
+
+HOW TO WRITE IT
+Use ordinary punctuation: full stops, commas, colons, brackets. Never an em dash or an en dash. Vary the sentence length and let some sentences be short, rather than writing every one as a claim followed by a balanced qualifying clause. The reader is an accountant checking a figure, not an audience for prose.`;
 
 /**
  * A settlement timestamp as a human date in IST, for the prompt only.
@@ -63,7 +66,7 @@ One category from the five above, and one sentence of at most ${REASON_MAX_CHARS
  * IST, not UTC and not the host's local time, for the same reason `periodOf`
  * reads it that way: a GST return period is a calendar month in India, and a
  * settlement landing in the last 5½ hours of a month reads as the wrong month
- * in UTC — the exact window T+2 crowds into, and the exact thing TIMING exists
+ * in UTC: the exact window T+2 crowds into, and the exact thing TIMING exists
  * to detect. The offset is imported rather than retyped so the model and the
  * matcher can never be looking at different days. BUILD-LOG entry 13.
  */
@@ -76,7 +79,7 @@ export function istDate(settledAt: number): string {
  *
  * Deliberately absent is the deterministic matcher's own verdict. Handing the
  * model the answer would make §15.2's agreement score measure whether it can
- * copy a field — it would read near 100% and prove nothing. Investigate reaches
+ * copy a field: it would read near 100% and prove nothing. Investigate reaches
  * its category independently, which is what makes the comparison a real
  * cross-check on the Detect layer rather than a restatement of it.
  */

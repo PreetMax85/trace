@@ -251,7 +251,7 @@
     "promptVersion": "investigate-v1",
     "verdict": "ACCEPTED",
     "category": "FEE_DEDUCTION",
-    "reason": "Fee of 36875 paise on a 1250000 paise capture ties to neither published cell (STANDARD 29500, off by 7375; CORPORATE 31713, off by 5162) — an effective 2.95% rate — with no refunds or zero-value order siblings to explain it.",
+    "reason": "Fee of 36875 paise on a 1250000 paise capture ties to neither published cell (STANDARD 29500, off by 7375; CORPORATE 31713, off by 5162), an effective 2.95% rate, with no refunds or zero-value order siblings to explain it.",
     "toolCalls": [
       {
         "toolName": "priceAtPublishedRates",
@@ -418,7 +418,7 @@
     "promptVersion": "investigate-v1",
     "verdict": "ACCEPTED",
     "category": "FEE_DEDUCTION",
-    "reason": "Fee of 24072 paise on a 680000 paise capture ties to neither published cell (STANDARD 16048, off by 8024; CORPORATE 17252, off by 6820), with no refunds and no sibling order rows — an unpublished rate was charged.",
+    "reason": "Fee of 24072 paise on a 680000 paise capture ties to neither published cell (STANDARD 16048, off by 8024; CORPORATE 17252, off by 6820), with no refunds and no sibling order rows: an unpublished rate was charged.",
     "toolCalls": [
       {
         "toolName": "priceAtPublishedRates",
@@ -489,7 +489,7 @@
     "promptVersion": "investigate-v1",
     "verdict": "ACCEPTED",
     "category": "FEE_DEDUCTION",
-    "reason": "On the 2,400,000 paise capture settled 2026-07-18, the 49,560 paise fee ties to neither published cell (STANDARD 56,640, short 7,080; CORPORATE 60,888, short 11,328), with no refunds or sibling order rows — an unpublished rate was applied.",
+    "reason": "On the 2,400,000 paise capture settled 2026-07-18, the 49,560 paise fee ties to neither published cell (STANDARD 56,640, short 7,080; CORPORATE 60,888, short 11,328), with no refunds or sibling order rows: an unpublished rate was applied.",
     "toolCalls": [
       {
         "toolName": "priceAtPublishedRates",
@@ -647,7 +647,7 @@
     "promptVersion": "investigate-v1",
     "verdict": "ACCEPTED",
     "category": "FEE_DEDUCTION",
-    "reason": "Fee of 30232p on a 915000p capture ties to neither published cell (STANDARD 21594p, off by 8638p; CORPORATE 23214p, off by 7018p), with no refunds and no zero-value sibling under order_yOeG2eAGYawGIm — an unpublished rate was charged.",
+    "reason": "Fee of 30232p on a 915000p capture ties to neither published cell (STANDARD 21594p, off by 8638p; CORPORATE 23214p, off by 7018p), with no refunds and no zero-value sibling under order_yOeG2eAGYawGIm: an unpublished rate was charged.",
     "toolCalls": [
       {
         "toolName": "priceAtPublishedRates",
