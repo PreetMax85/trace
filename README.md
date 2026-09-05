@@ -84,7 +84,7 @@ Trace never sends an email and never files a correction. It drafts, and a human 
 
 - [`docs/PRD.md`](./docs/PRD.md), the full specification: architecture, data schemas, the exception
   taxonomy (§7), the synthetic data breakdown (§13)
-- [`docs/BUILD-LOG.md`](./docs/BUILD-LOG.md), seventeen things that were wrong while their own
+- [`docs/BUILD-LOG.md`](./docs/BUILD-LOG.md), nineteen things that were wrong while their own
   tests were green, and the guard added after each one
 
 ## Stack

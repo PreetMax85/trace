@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { formatIstDateTime } from "@/lib/format/date";
 import { exceptionCategory } from "@/lib/audit/schema";
+import { CATEGORY_LABELS, categoryLabel } from "@/lib/labels";
 import type { ReviewBatch } from "@/lib/review/batch";
 
 /**
@@ -93,6 +94,7 @@ export function createExplainTools(batch: ReviewBatch) {
             taxPaise: row.taxPaise,
             status: row.status,
             category: row.category,
+            categoryLabel: categoryLabel(row.category),
             billedIn: row.billedIn,
             settledAtIst: formatIstDateTime(row.settledAt),
           })),
@@ -129,6 +131,7 @@ export function createExplainTools(batch: ReviewBatch) {
           matchMethod: row.method,
           rateCell: row.rateCell,
           category: row.category,
+          categoryLabel: categoryLabel(row.category),
           billedIn: row.billedIn,
           settledAtIst: formatIstDateTime(row.settledAt),
           creditNoteReview: row.creditNoteReview,
@@ -153,7 +156,17 @@ export function createExplainTools(batch: ReviewBatch) {
 
         return {
           groups: [...groups]
-            .map(([category, totals]) => ({ category, ...totals }))
+            .map(([category, totals]) => ({
+              category,
+              // "MATCHED" is not one of the five, it is the group the rows that
+              // needed no category fall into, so it is spelled here rather than
+              // looked up and coming back undefined.
+              categoryLabel:
+                category === "MATCHED"
+                  ? "Matched"
+                  : CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS],
+              ...totals,
+            }))
             .sort((a, b) => b.taxPaise - a.taxPaise),
         };
       },

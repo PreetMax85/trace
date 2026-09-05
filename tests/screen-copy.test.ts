@@ -66,6 +66,43 @@ const RECORDED_COPY = [
  * dashes teaches the model to answer in dashes. Fixing the recording without
  * fixing the instruction means the next run puts them all back.
  */
+/**
+ * The five categories as the database spells them, which a reader must never
+ * see.
+ *
+ * `FEE_DEDUCTION` in an answer is the same failure as an em dash in a heading:
+ * it tells the reader they are looking at a log rather than at a finding, on
+ * the one screen whose argument is that a person can check its working. The
+ * plain wording is in `src/lib/labels.ts` and the prompts now hand it to the
+ * model, so an occurrence here means a recording predates that instruction.
+ *
+ * Checked against PROSE ONLY, never the whole file. Every one of these files
+ * also carries `"category": "FEE_DEDUCTION"` as a structural field, which is
+ * correct and must stay: a test run over the raw JSON would fail on the field
+ * and on the sentence alike, and the only way to make it pass would be to break
+ * the data. The field is what separates the two, so the field is what it reads.
+ */
+const BANNED_CONSTANTS = [
+  "FEE_DEDUCTION",
+  "TIMING",
+  "REFUND_NETTED",
+  "PARTIAL_PAYMENT",
+  "UNEXPLAINED",
+];
+
+/** The keys whose values a person reads: answers, reasons, drafts. */
+const PROSE_KEYS = ["answer", "reason", "subject", "body", "note", "narration"];
+
+/** Every string held under a prose key, however deeply the file nests it. */
+function prose(value: unknown, key: string | null = null): string[] {
+  if (typeof value === "string") return key !== null && PROSE_KEYS.includes(key) ? [value] : [];
+  if (Array.isArray(value)) return value.flatMap((entry) => prose(entry, key));
+  if (value !== null && typeof value === "object") {
+    return Object.entries(value).flatMap(([name, entry]) => prose(entry, name));
+  }
+  return [];
+}
+
 const PROMPT_FILES = [
   "src/lib/act/prompt.ts",
   "src/lib/agent/prompt.ts",
@@ -174,6 +211,27 @@ describe("on-screen copy", () => {
     for (const file of [...RECORDED_COPY, ...PROMPT_FILES]) {
       expect(readFileSync(file, "utf8").length).toBeGreaterThan(200);
     }
+  });
+
+  for (const file of RECORDED_COPY) {
+    it(`never prints a category constant in the prose of ${file}`, () => {
+      const written = prose(JSON.parse(readFileSync(file, "utf8")));
+      const offenders = written
+        .filter((text) => BANNED_CONSTANTS.some((name) => text.includes(name)))
+        .map((text) => text.slice(0, 120));
+
+      expect(offenders).toEqual([]);
+    });
+  }
+
+  it("reads prose rather than the whole file", () => {
+    // The check above passes vacuously if `prose` returns nothing, and it
+    // passes wrongly if it returns the structural `category` field too. Both
+    // are asserted here, against a shape that carries one of each.
+    const sample = { category: "FEE_DEDUCTION", reason: "a fee with no invoice line" };
+
+    expect(prose(sample)).toEqual(["a fee with no invoice line"]);
+    expect(prose(JSON.parse(readFileSync(RECORDED_COPY[0], "utf8"))).length).toBeGreaterThan(5);
   });
 
   for (const word of BANNED_WORDS) {

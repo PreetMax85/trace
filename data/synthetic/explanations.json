@@ -2,7 +2,7 @@
   {
     "id": "settlement-short",
     "question": "Why is my settlement short this month?",
-    "answer": "Three things reduced your net receipts in July 2026, and only one is a real problem.\n\n1) Extra fee deductions with nothing on Razorpay's invoice to support them: 4 records carrying ₹1,407.39 of fees, containing ₹214.69 of GST. These are the at-risk amount: [pay_qcqeWqwISCOg2K], [pay_GAAC2oIGuQAIk4], [pay_ewuukseCy0uaU2], [pay_I0c2AKEeoIgqiu].\n\n2) Refunds netted off settlements: 4 records, ₹828.36 of fees / ₹126.36 GST: [pay_OmWyu0UGKY8O4o], [pay_cOy8OKC0WYS2gq], [pay_OquIYaYcCYEoSQ], [pay_2K4wAoIMaAkmAU].\n\n3) Timing: 5 records (₹1,280.30 fees, ₹195.30 GST) fall either side of the period cut-off, plus 3 partial payments with no fee yet: [pay_WIek2uqiSm6OSe], [pay_C8QeCCOouxW4yc], [pay_aCKSAMew6U0eQ6].\n\nOf ₹1,196.92 tax on the invoice, ₹982.23 is claimable; 38 of 54 records matched cleanly.",
+    "answer": "Short answer: 16 of 54 records were flagged, and the shortfall is mostly fees deducted that Razorpay's invoice does not account for, plus refunds netted off and fees that belong to next month.\n\n1) Fees with nothing on the invoice behind them: 4 records, fees ₹1,407.39 carrying ₹214.69 of GST, which is the amount at risk [pay_qcqeWqwISCOg2K], [pay_GAAC2oIGuQAIk4], [pay_ewuukseCy0uaU2], [pay_I0c2AKEeoIgqiu].\n\n2) Refunds netted off the settlement: 4 records, fees ₹828.36 [pay_OmWyu0UGKY8O4o], [pay_cOy8OKC0WYS2gq], [pay_OquIYaYcCYEoSQ], [pay_2K4wAoIMaAkmAU].\n\n3) Correct fees falling on August's statement: 5 records, fees ₹1,280.30 [pay_gQ4OQyw2EK4io0], [pay_S2s6M2O4AEQkOA], [pay_0g2MGvCSGoyeQW], [pay_SMaCEuc4uEorwE], [pay_IEEYkwi6yKs0s2].\n\n4) Three where only the successful capture was billable, no fee [pay_WIek2uqiSm6OSe].\n\nCredit claimable ₹982.23; at risk ₹214.69.",
     "verdict": "ACCEPTED",
     "cited": [
       "pay_qcqeWqwISCOg2K",
@@ -13,65 +13,66 @@
       "pay_cOy8OKC0WYS2gq",
       "pay_OquIYaYcCYEoSQ",
       "pay_2K4wAoIMaAkmAU",
-      "pay_WIek2uqiSm6OSe",
-      "pay_C8QeCCOouxW4yc",
-      "pay_aCKSAMew6U0eQ6"
+      "pay_gQ4OQyw2EK4io0",
+      "pay_S2s6M2O4AEQkOA",
+      "pay_0g2MGvCSGoyeQW",
+      "pay_SMaCEuc4uEorwE",
+      "pay_IEEYkwi6yKs0s2",
+      "pay_WIek2uqiSm6OSe"
     ],
     "unknown": [],
     "model": "claude-opus-5",
     "promptVersion": "explain-v1",
-    "recordedAt": "2026-09-04T05:50:43.908Z",
-    "latencyMs": 15955,
-    "inputTokens": 14136,
-    "outputTokens": 819,
-    "costMicroUsd": 52545
+    "recordedAt": "2026-09-05T17:53:50.559Z",
+    "latencyMs": 12748,
+    "inputTokens": 8321,
+    "outputTokens": 617,
+    "costMicroUsd": 48145
   },
   {
     "id": "safe-to-claim",
     "question": "How much input tax credit can I safely claim for this period?",
-    "answer": "For 072026 you can safely claim ₹982.23 of input tax credit. Razorpay's GSTR-2B invoice tax for the period is ₹1,196.92; of that, ₹855.87 sits on the 38 cleanly matched records, and the rest is supported by exceptions that the invoice still accounts for.\n\n₹214.69 is at risk: the four FEE_DEDUCTION records, where tax was deducted from settlements but nothing on Razorpay's invoice explains it: [pay_qcqeWqwISCOg2K] ₹56.25, [pay_GAAC2oIGuQAIk4] ₹36.72, [pay_ewuukseCy0uaU2] ₹75.60, [pay_I0c2AKEeoIgqiu] ₹46.12. Don't claim those without documentation.\n\nSeparately, five TIMING records (₹195.30 tax) are billed in 082026, e.g. [pay_gQ4OQyw2EK4io0] and [pay_0g2MGvCSGoyeQW]: they belong to next period, not this one. The three PARTIAL_PAYMENT records carry no tax.",
+    "answer": "You can safely claim ₹982.23 for 07/2026.\n\nRazorpay's GSTR-2B invoice carries ₹1,196.92 of GST in total. Of that, ₹855.87 sits on the 38 matched records, and the rest is supported by flagged rows whose fees are genuine: timing differences (₹195.30, falling on another month's statement) and refunds netted off settlements (₹126.36).\n\n₹214.69 is at risk. That is four records where a fee was deducted but nothing on Razorpay's invoice accounts for it: [pay_qcqeWqwISCOg2K] ₹56.25, [pay_ewuukseCy0uaU2] ₹75.60, [pay_I0c2AKEeoIgqiu] ₹46.12 and [pay_GAAC2oIGuQAIk4] ₹36.72. Do not claim these until Razorpay reports them.\n\nThree partial-payment rows carry no tax, so they do not affect the figure.\n\nTotal claimable ₹982.23, at risk ₹214.69.",
     "verdict": "ACCEPTED",
     "cited": [
       "pay_qcqeWqwISCOg2K",
-      "pay_GAAC2oIGuQAIk4",
       "pay_ewuukseCy0uaU2",
       "pay_I0c2AKEeoIgqiu",
-      "pay_gQ4OQyw2EK4io0",
-      "pay_0g2MGvCSGoyeQW"
+      "pay_GAAC2oIGuQAIk4"
     ],
     "unknown": [],
     "model": "claude-opus-5",
     "promptVersion": "explain-v1",
-    "recordedAt": "2026-09-04T05:50:57.869Z",
-    "latencyMs": 13960,
-    "inputTokens": 13431,
-    "outputTokens": 682,
-    "costMicroUsd": 45595
+    "recordedAt": "2026-09-05T17:54:02.280Z",
+    "latencyMs": 11720,
+    "inputTokens": 10198,
+    "outputTokens": 480,
+    "costMicroUsd": 26081
   },
   {
     "id": "unexplained-fees",
     "question": "Which fees don't match Razorpay's published rates?",
-    "answer": "Four records carry the FEE_DEDUCTION category, fees deducted from settlements that no rate cell on Razorpay's invoice accounts for (matchMethod NONE, no expected fee held):\n\n[pay_qcqeWqwISCOg2K] ₹368.75 fee / ₹56.25 GST on a ₹12,500 payment;\n\n[pay_GAAC2oIGuQAIk4] ₹240.72 fee / ₹36.72 GST on ₹6,800;\n\n[pay_ewuukseCy0uaU2] ₹495.60 fee / ₹75.60 GST on ₹24,000;\n\n[pay_I0c2AKEeoIgqiu] ₹302.32 fee / ₹46.12 GST on ₹9,150.\n\nTogether that is ₹1,407.39 in fees containing ₹214.69 of GST, the whole of this period's at-risk ITC. Claimable ITC is ₹982.23 of the ₹1,196.92 on the GSTR-2B invoice.\n\nNote the batch holds no published-rate benchmark for these rows, so it shows only that the fee is unexplained, not by how much it deviates.",
+    "answer": "This batch does not hold Razorpay's published rate card, so I cannot tell you which fees deviate from a rate. No expected fee or rate cell is recorded on the flagged rows (both are null on, for example, [pay_qcqeWqwISCOg2K] and [pay_I0c2AKEeoIgqiu]).\n\nThe nearest thing available is the group of four fees that were deducted from settlements but that nothing on Razorpay's invoice accounts for:\n\n1) [pay_qcqeWqwISCOg2K], fee 368.75, tax 56.25\n\n2) [pay_GAAC2oIGuQAIk4], fee 240.72, tax 36.72\n\n3) [pay_ewuukseCy0uaU2], fee 495.60, tax 75.60\n\n4) [pay_I0c2AKEeoIgqiu], fee 302.32, tax 46.12\n\nThose four carry 1,407.39 of fees and 214.69 of GST, which is the whole of the at-risk credit for the period. Claimable credit is 982.23 against invoice tax of 1,196.92.\n\nA rate comparison would need the rate card loaded.",
     "verdict": "ACCEPTED",
     "cited": [
       "pay_qcqeWqwISCOg2K",
+      "pay_I0c2AKEeoIgqiu",
       "pay_GAAC2oIGuQAIk4",
-      "pay_ewuukseCy0uaU2",
-      "pay_I0c2AKEeoIgqiu"
+      "pay_ewuukseCy0uaU2"
     ],
     "unknown": [],
     "model": "claude-opus-5",
     "promptVersion": "explain-v1",
-    "recordedAt": "2026-09-04T05:51:10.751Z",
-    "latencyMs": 12881,
-    "inputTokens": 9417,
-    "outputTokens": 622,
-    "costMicroUsd": 33678
+    "recordedAt": "2026-09-05T17:54:17.032Z",
+    "latencyMs": 14751,
+    "inputTokens": 14488,
+    "outputTokens": 679,
+    "costMicroUsd": 52506
   },
   {
     "id": "missing-tax",
     "question": "Why isn't all of this period's GST on this period's GSTR-2B?",
-    "answer": "Razorpay's July 2026 GSTR-2B carries ₹1,196.92 of GST, but only ₹855.87 rolled up from matched settlements (38 of 54 records), a gap of ₹341.05. Three things explain it.\n\n1) Timing: 5 settlements were billed in Aug 2026, not July, so their ₹195.30 of GST sits on next month's 2B, [pay_gQ4OQyw2EK4io0], [pay_S2s6M2O4AEQkOA], [pay_0g2MGvCSGoyeQW], [pay_SMaCEuc4uEorwE], [pay_IEEYkwi6yKs0s2].\n\n2) Refund-netted: 4 records worth ₹126.36 of GST where refunds were netted into the settlement, [pay_OmWyu0UGKY8O4o], [pay_cOy8OKC0WYS2gq], [pay_OquIYaYcCYEoSQ], [pay_2K4wAoIMaAkmAU].\n\n3) Fee deduction: 4 records, ₹214.69, with no expected fee on the invoice, [pay_qcqeWqwISCOg2K], [pay_GAAC2oIGuQAIk4], [pay_ewuukseCy0uaU2], [pay_I0c2AKEeoIgqiu].\n\nNet: ₹982.23 claimable, ₹214.69 at risk. Three PARTIAL_PAYMENT rows carry no tax.",
+    "answer": "Because 16 of the 54 records were flagged, and their tax sits outside the matched set that ties to the July statement.\n\nThe invoice tax for 072026 is Rs 1,196.92. Matched rows carry Rs 855.87 across 38 records, leaving a gap of Rs 341.05.\n\n1) Timing: Rs 195.30 over 5 records. The fees are correct but fall on the August statement: [pay_gQ4OQyw2EK4io0], [pay_S2s6M2O4AEQkOA], [pay_0g2MGvCSGoyeQW], [pay_SMaCEuc4uEorwE], [pay_IEEYkwi6yKs0s2].\n\n2) Refunds netted off settlements: Rs 126.36 over 4 records: [pay_OmWyu0UGKY8O4o], [pay_cOy8OKC0WYS2gq], [pay_OquIYaYcCYEoSQ], [pay_2K4wAoIMaAkmAU].\n\n3) Fees deducted that nothing on Razorpay's invoice accounts for: Rs 214.69, the at-risk amount: [pay_qcqeWqwISCOg2K], [pay_GAAC2oIGuQAIk4], [pay_ewuukseCy0uaU2], [pay_I0c2AKEeoIgqiu].\n\nClaimable this period: Rs 982.23. At risk: Rs 214.69. The 3 partial-payment rows carry no tax.",
     "verdict": "ACCEPTED",
     "cited": [
       "pay_gQ4OQyw2EK4io0",
@@ -91,16 +92,16 @@
     "unknown": [],
     "model": "claude-opus-5",
     "promptVersion": "explain-v1",
-    "recordedAt": "2026-09-04T05:51:26.251Z",
-    "latencyMs": 15499,
-    "inputTokens": 14016,
-    "outputTokens": 846,
-    "costMicroUsd": 52620
+    "recordedAt": "2026-09-05T17:54:32.413Z",
+    "latencyMs": 15381,
+    "inputTokens": 11559,
+    "outputTokens": 730,
+    "costMicroUsd": 39136
   },
   {
     "id": "refund-effect",
     "question": "Do the refunds change what I can claim?",
-    "answer": "Not in the sense of reducing your claim. Four records are classified REFUND_NETTED, carrying ₹126.36 of GST in total on ₹828.36 of fees: [pay_OmWyu0UGKY8O4o] (₹32.04 tax), [pay_cOy8OKC0WYS2gq] (₹56.16), [pay_OquIYaYcCYEoSQ] (₹12.24) and [pay_2K4wAoIMaAkmAU] (₹25.92). In each the fee charged equals the fee expected, and each is flagged for credit-note review: the refund was netted off in the settlement, so the fee GST needs to be reconciled against a Razorpay credit note rather than treated as missing tax.\n\nThey are not part of the at-risk figure: the ₹214.69 at risk for 072026 comes entirely from the four FEE_DEDUCTION rows. Claimable for the period is ₹982.23 against invoice tax of ₹1,196.92, over 54 records (38 matched, 16 flagged).",
+    "answer": "Short answer: no. The refund-netted rows do not reduce what you can claim this period.\n\nFour records were flagged because a refund was netted off the settlement, carrying GST of ₹126.36 in total: [pay_OmWyu0UGKY8O4o] ₹32.04, [pay_cOy8OKC0WYS2gq] ₹56.16, [pay_OquIYaYcCYEoSQ] ₹12.24, [pay_2K4wAoIMaAkmAU] ₹25.92. The fee on these is as expected (for example [pay_cOy8OKC0WYS2gq] fee ₹368.16 against an expected ₹368.16), and each is flagged for credit note review rather than as missing tax.\n\nThe ₹214.69 at risk this period comes entirely from fees deducted that nothing on Razorpay's invoice accounts for, not from the refunds.\n\nBatch totals: invoice tax ₹1,196.92, claimable ₹982.23, at risk ₹214.69, across 54 records (38 matched, 16 flagged).",
     "verdict": "ACCEPTED",
     "cited": [
       "pay_OmWyu0UGKY8O4o",
@@ -111,30 +112,25 @@
     "unknown": [],
     "model": "claude-opus-5",
     "promptVersion": "explain-v1",
-    "recordedAt": "2026-09-04T05:51:37.939Z",
-    "latencyMs": 11688,
-    "inputTokens": 9392,
-    "outputTokens": 592,
-    "costMicroUsd": 32803
+    "recordedAt": "2026-09-05T17:54:47.367Z",
+    "latencyMs": 14953,
+    "inputTokens": 11155,
+    "outputTokens": 599,
+    "costMicroUsd": 33841
   },
   {
     "id": "out-of-scope",
     "question": "Can you file the correction for me?",
-    "answer": "No: filing or amending a return is outside what I do. I only explain the reconciliation; a separate layer drafts any action and a human has to confirm it before anything is filed or sent.\n\nFor context on 07/2026: Razorpay's GSTR-2B invoice tax is ₹1,196.92, of which ₹982.23 is claimable and ₹214.69 is at risk. 38 of 54 records matched (₹855.87 tax); 16 are flagged. The at-risk amount is entirely the four FEE_DEDUCTION rows, [pay_qcqeWqwISCOg2K] ₹56.25, [pay_GAAC2oIGuQAIk4] ₹36.72, [pay_ewuukseCy0uaU2] ₹75.60 and [pay_I0c2AKEeoIgqiu] ₹46.12, fees deducted from settlements with nothing on the invoice accounting for them. Please review those before anyone acts on a correction.",
+    "answer": "No, I can't file or amend anything. I'm the explain layer: I read the reconciled batch and describe it. Any correction is drafted by another layer and needs a human to confirm before it leaves the system.\n\nWhat the batch for 07/2026 shows:\n\n1) 54 records, 38 matched and 16 flagged.\n\n2) Input tax credit claimable: ₹982.23. Tax at risk: ₹214.69, all of it from 4 fee deductions that nothing on Razorpay's invoice accounts for.\n\n3) Other flags: 5 timing items (₹195.30 in tax, correct fees falling on another month's statement), 4 refunds netted off settlements (₹126.36), and 3 partial payments carrying no tax.\n\nTax on the GSTR-2B invoice is ₹1,196.92 against ₹855.87 rolled up from matched rows.\n\nHappy to pull the individual flagged records if you want the detail behind the at-risk figure.",
     "verdict": "ACCEPTED",
-    "cited": [
-      "pay_qcqeWqwISCOg2K",
-      "pay_GAAC2oIGuQAIk4",
-      "pay_ewuukseCy0uaU2",
-      "pay_I0c2AKEeoIgqiu"
-    ],
+    "cited": [],
     "unknown": [],
     "model": "claude-opus-5",
     "promptVersion": "explain-v1",
-    "recordedAt": "2026-09-04T05:51:53.180Z",
-    "latencyMs": 15240,
-    "inputTokens": 11750,
-    "outputTokens": 507,
-    "costMicroUsd": 32815
+    "recordedAt": "2026-09-05T17:55:08.726Z",
+    "latencyMs": 21359,
+    "inputTokens": 6206,
+    "outputTokens": 412,
+    "costMicroUsd": 16724
   }
 ]

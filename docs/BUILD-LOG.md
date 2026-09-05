@@ -1,6 +1,6 @@
 # Build log
 
-Seventeen things that turned out to be wrong while I was building Trace. Most of them were not
+Nineteen things that turned out to be wrong while I was building Trace. Most of them were not
 crashes. They were code that ran, produced a plausible number, and passed its tests.
 
 That is the whole reason this file exists. In tax software, being confidently wrong is worse than
@@ -275,3 +275,45 @@ had always been recognised as a length, which is why nothing had gone wrong befo
 
 **Now.** The merger is configured with the project's own size names, and a test asserts a size and
 a colour survive being combined.
+
+---
+
+## 18. The screen taught the reader the database's vocabulary
+
+**Thought.** The category names in the answers and the drafts were plain enough. The table already
+showed "Fee deduction" rather than the constant behind it, and the panel copy read as English.
+
+**Actually.** The table was the only place that translated. Five of the six recorded answers and
+most of the drafted actions printed the constants straight out: "Four records carry the
+FEE_DEDUCTION category", "Classified as PARTIAL_PAYMENT, so no Table 4 entry is due". Neither
+prompt told the model that those names were internal, and the tools it reads handed it nothing but
+the constant, so it used the only word it had been given. The one answer that read cleanly was the
+one selected by default, which is why it survived every look at the page.
+
+**Now.** The five plain names live in one file that both the screen and the Explain tools import,
+every tool returns the label beside the constant, both prompts forbid the constant outright, and a
+test reads the prose fields of all three recorded files and fails on any of the five. The test
+reads prose fields specifically, never the whole file, because the same files carry `"category":
+"FEE_DEDUCTION"` as data and that field is correct.
+
+---
+
+## 19. A gate that passed because it could not see anything
+
+**Thought.** Re-recording the answers and drafts with the corrected prompts was a content change.
+The figure gate would keep checking every rupee amount in a draft against the record it belongs to,
+as it had on every previous recording.
+
+**Actually.** The model wrote its rupee amounts as the six characters of an escape sequence instead
+of the character itself, 44 times across the two files. The gate finds figures by matching on the
+rupee sign. An amount written as an escape sequence carries no rupee sign, so the gate found no
+figures in those drafts, checked nothing, and returned the same clean verdict it returns for a
+draft whose figures are all correct. A wrong number would have passed the same way. The punctuation
+lint caught the visible half of this, which is the only reason it was found at all: had the model
+mangled the amounts without leaving anything unrenderable on screen, every check would still have
+been green.
+
+**Now.** Stray escape sequences are decoded on the way out of the model and before the schema parse,
+so every gate downstream sees the text a reader will see. Repairing at the point the recording is
+written would have fixed the display and left the hole. Only printable characters are decoded: an
+escaped control character is left visible, where the punctuation lint can still find it.
