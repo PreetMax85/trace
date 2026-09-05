@@ -13,7 +13,7 @@ dist/
 coverage/
 *.lcov
 
-# env — never commit rzp_test_ keys or the Anthropic key
+# env. never commit the Razorpay test keys or the Anthropic key
 .env
 .env.local
 .env.development.local
@@ -38,7 +38,7 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# playwright mcp — per-run page snapshots and console logs, regenerated every session
+# per-run browser snapshots and console logs, regenerated every run
 .playwright-mcp/
 
 # editor / os
@@ -47,23 +47,22 @@ Thumbs.db
 .idea/
 *.swp
 
-# claude code local overrides
-.claude/settings.local.json
+# local tooling config and working notes. kept on disk, not published.
+.claude/
+.mcp.json
+AGENTS.md
+CLAUDE.md
+docs/HANDOFF.md
+docs/NEXT-TASK.md
+docs/STACK-CHECK.md
 
-# internal working docs — strategy, scheduling, and pitch drafts.
-# kept local and referenced during development, not part of the shipped repo.
-# NOTE: docs/HANDOFF.md was deliberately un-ignored on 1 Sep. It is the state
-# document scheduled cloud runs read and write, and an untracked file cannot
-# coordinate anything across machines.
+# working docs: strategy, scheduling and video notes.
 docs/PLAN.md
-docs/PITCH.md
 docs/VIDEO.md
+docs/BRIEF.md
 
 # certificates
 *.pem
-docs/BRIEF.md
 
 # screenshots written at the repo root when verifying a page in a browser.
-# the playwright mcp server puts a bare filename here rather than under
-# .playwright-mcp/, and none of them are worth keeping.
 /*.png
