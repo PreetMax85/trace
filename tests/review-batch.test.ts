@@ -3,9 +3,8 @@ import { formatRupees } from "@/lib/format/money";
 import { loadReviewBatch, type ReviewRow } from "@/lib/review/batch";
 
 /**
- * What the exception review screen is given. These are the same locked figures
- * `docs/HANDOFF.md` carries: if one of them moves, the screen is wrong, not the
- * number.
+ * What the exception review screen is given. These are the period's locked
+ * figures: if one of them moves, the screen is wrong, not the number.
  */
 const batch = loadReviewBatch();
 

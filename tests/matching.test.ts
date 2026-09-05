@@ -296,7 +296,7 @@ describe("PARTIAL_PAYMENT — a failed-then-retried payment", () => {
     // does NOT cover, and the one that keeps the zero guard honest: in
     // exact-only mode, without the guard, this row reads MATCHED / EXACT /
     // STANDARD with an expected fee of zero — a fee that was never charged,
-    // reported as cleanly reconciled. BUILD-LOG entry 9.
+    // reported as cleanly reconciled.
     for (const mode of ["exact+fuzzy", "exact-only"] as const) {
       const batch = matchBatch({
         settlements: [payment({ amount: 0, fee: 0, tax: 0, order_id: "order_orphan0001" })],
@@ -793,7 +793,6 @@ describe("tier 2 — statements the fixture cannot produce", () => {
   it("converts rupees to paise by rounding, not truncating", () => {
     // ₹8.29 × 100 evaluates to 828.9999999999999 in IEEE-754. Truncating loses a
     // paise per line, silently and only on some values — the same fault as
-    // BUILD-LOG entry 12, on the statement side of the reconciliation.
     const batch = matchBatch({
       settlements: [],
       statement: statementWith({ txval: 46.06, cgst: 8.29, sgst: 8.29 }),

@@ -54,7 +54,7 @@ export const LEDGER_MAX_CHARS = 60;
  * question — the hard lock on Table 4 has no traceable instrument, unlike the
  * Table 3.2 liability lock (GSTN Advisory No. 606, 7 June 2025). The vocabulary
  * does not depend on the answer: the circular settles what may be done, and
- * that is enough. BUILD-LOG 33 and 35 carry the full reasoning.
+ * that is enough.
  *
  * These are ROW REFERENCES, not GSTN's own label text. The exact wording of
  * each row heading is not published in a form this project could check, so it
@@ -103,7 +103,7 @@ export type Gstr3bAction = (typeof GSTR3B_ACTIONS)[number];
  * draft can be perfectly self-consistent and still point at the wrong row for
  * the kind of exception it is about, and nothing checked that — which is how
  * the first real run came back with `NO_ENTRY` on all sixteen records, every
- * one of them marked ACCEPTED. See BUILD-LOG 35.
+ * one of them marked ACCEPTED.
  *
  * The source is CBIC Circular No. 170/02/2022-GST of 6 July 2022:
  *

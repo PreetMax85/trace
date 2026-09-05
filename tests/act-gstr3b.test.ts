@@ -177,7 +177,7 @@ describe("a misfiled flag cannot be confirmed", () => {
     // `misfiled` is held FALSE deliberately. Both refusals mention a row, so a
     // fixture with both flags set would pass whichever branch fired, and the
     // test would not be aimed at the one it names. The assertion is on the
-    // clause only the routing refusal carries. BUILD-LOG 27 is why.
+    // clause only the routing refusal carries.
     const verdict = confirmable(
       recorded({ verdict: "INVALID_FIGURE", misfiled: false, misrouted: true }),
     );

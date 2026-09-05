@@ -61,8 +61,8 @@ describe("acceptance — raw JSON text through ingestion into the matcher", () =
 
 /**
  * Everything below is hand-built. The fixture is well-formed by construction and
- * can only ever prove that good input works — BUILD-LOG entries 14 and 15 are
- * that lesson, learned twice. These are the shapes the fixture cannot contain.
+ * can only ever prove that good input works, a lesson this project
+ * learned twice. These are the shapes the fixture cannot contain.
  */
 
 /** One raw recon row as Razorpay's API actually returns it, extra fields and all. */
@@ -127,7 +127,7 @@ const rawStatement = () => ({
 });
 
 describe("the statement is GSTR-2B, not GSTR-2A", () => {
-  // Substituting one form for the other cost two days once — BUILD-LOG entry 1.
+  // Substituting one form for the other cost two days once.
   // The two documents are not variants of each other: 2A is the older dynamic
   // ledger, 2B the static monthly ITC statement a merchant actually files
   // against. A 2A field appearing ANYWHERE means the wrong document arrived,
@@ -310,7 +310,7 @@ describe("statement field validation", () => {
     // Statement money is RUPEES and may be fractional — the asymmetry with the
     // recon side is real. `igst: 0` must still be present: reading only the two
     // intra-state heads reports every non-Maharashtra merchant's invoice as
-    // carrying no tax at all (BUILD-LOG entry 15), so an absent head is a
+    // carrying no tax at all, so an absent head is a
     // missing fact, not a zero.
     const withLine = (line: Record<string, unknown>) => {
       const s = rawStatement();
@@ -478,7 +478,7 @@ describe("recon row shape", () => {
   it("requires a refund to carry the payment it reverses", () => {
     // `payment_id` is the ONLY join key for REFUND_NETTED — a refund is netted
     // into a later settlement cycle, so joining on `settlement_id` finds
-    // nothing and looks correct doing it (BUILD-LOG entry 3). A refund with a
+    // nothing and looks correct doing it. A refund with a
     // null join key silently removes a record from the category.
     const orphan = rawPayment({
       entity_id: "rfnd_test00000001",

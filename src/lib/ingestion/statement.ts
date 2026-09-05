@@ -14,7 +14,7 @@ import {
  * Structural field names that exist in GSTR-2A and NOT anywhere in GSTR-2B. 2A
  * is the older dynamic ledger; 2B is the static monthly ITC statement a merchant
  * actually files against. Building against the wrong one cost two days on this
- * project (BUILD-LOG entry 1), and the two are similar enough that a 2A document
+ * project, and the two are similar enough that a 2A document
  * validates as "some GST statement" if nobody looks for these.
  *
  * Safe to scan the WHOLE document for, because no section of a 2B uses them.
@@ -145,7 +145,7 @@ function toInvoice(invoice: unknown, path: string): Invoice {
     // tax is entirely CGST+SGST and every merchant elsewhere is the mirror
     // image, so an absent head is a missing fact rather than a zero —
     // treating it as zero reports a whole invoice as carrying no tax
-    // (BUILD-LOG entry 15).
+    //.
     return {
       txval: requireFiniteNumber(item.txval, `${at}.txval`),
       igst: requireFiniteNumber(item.igst, `${at}.igst`),

@@ -45,7 +45,7 @@ export function scoreEval(
   // duplicate: `new Map` keeps the last write. So refuse before collapsing.
   // Two answers for one record mean the runner classified it twice, and taking
   // either would make the score depend on argument order rather than on the
-  // model — the same class of order-dependence BUILD-LOG 10 records.
+  // model: the same class of order-dependence the matcher hit once.
   const seen = new Set<string>();
   const duplicates = answers
     .map((a) => a.entityId)

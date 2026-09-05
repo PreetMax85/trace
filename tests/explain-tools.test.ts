@@ -22,7 +22,7 @@ describe("the tool surface", () => {
 
 describe("batchTotals", () => {
   it("reports the period's figures as the audit trail holds them", async () => {
-    // Asserted against the locked figures in docs/HANDOFF.md, not against the
+    // Asserted against the locked figures for this period, not against the
     // header this tool reads from — otherwise the test recomputes the code.
     const out = await call(tools.batchTotals, {});
 
@@ -91,7 +91,7 @@ describe("taxByCategory", () => {
     const out = await call(tools.taxByCategory, {});
     const byCategory = new Map(out.groups.map((group) => [group.category, group]));
 
-    // Each figure below is from docs/HANDOFF.md's locked table, and they
+    // Each figure below is one of the period's locked totals, and they
     // cross-check each other: the four unexplained fee deductions ARE the ITC
     // at risk, and the timing rows' tax IS August's invoice tax.
     expect(byCategory.get("FEE_DEDUCTION")).toMatchObject({ records: 4, taxPaise: 21469 });

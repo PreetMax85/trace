@@ -90,7 +90,7 @@ const FAR_FUTURE_SECONDS = 4_102_444_800; // 00:00 UTC, 1 Jan 2100
  * `periodOf` reads it as a date tens of thousands of years out, which is simply
  * a different filing period, and the row is billed against a GSTR-2B that does
  * not exist. One such row takes the July batch from 38 matched to 37 and the
- * rollup delta from 34105 to 34645, silently. BUILD-LOG entry 25.
+ * rollup delta from 34105 to 34645, silently.
  *
  * Milliseconds (~1.8e12), microseconds and nanoseconds all sit far above the
  * ceiling, and seconds-since-1970 values from before GST sit below the floor.

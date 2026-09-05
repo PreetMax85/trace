@@ -48,7 +48,7 @@ export function createInvestigateTools(items: readonly ReconItem[]) {
         // Nothing captured means nothing billed, and without this guard every
         // cell "explains" the fee — 2% and 2.15% of zero are both zero. That
         // reads as a clean match on a failed retry, which is wrong in the
-        // flattering direction. BUILD-LOG entry 9.
+        // flattering direction.
         if (amountPaise === 0) {
           return {
             cells: [],
@@ -74,7 +74,7 @@ export function createInvestigateTools(items: readonly ReconItem[]) {
           // EVERY cell that ties, never just the first. Two cells 0.15pp apart
           // price within 1 rupee of each other on small payments, so a fee can
           // genuinely satisfy both; returning one would make the answer depend
-          // on key order. Ambiguity is a property of the fee. BUILD-LOG 10.
+          // on key order. Ambiguity is a property of the fee.
           tiedCells: cells.filter((c) => c.tiesWithinTolerance).map((c) => c.cell),
           note: null,
         };
@@ -144,7 +144,6 @@ export function createInvestigateTools(items: readonly ReconItem[]) {
         // settlement in different months. It reads the instant in IST; UTC
         // would push anything settled in the last 5 and a half hours of a month
         // into the wrong period, which is the exact window T+2 crowds into.
-        // BUILD-LOG entry 13.
         period: periodOf(settledAtUnixSeconds),
       }),
     }),

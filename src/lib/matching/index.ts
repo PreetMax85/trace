@@ -22,7 +22,7 @@ export * from "./rate-card";
  * landlord, the SaaS vendor, the courier — so "the Razorpay invoice" has to be
  * picked out by supplier, not taken as the whole table. Summing the table put
  * an unrelated vendor's tax into the ITC this product tells a merchant to
- * claim. BUILD-LOG entry 26.
+ * claim.
  *
  * A constant because the scope is one merchant and one gateway (PRD §2);
  * `MatchInput.supplierGstin` overrides it for anyone reconciling a statement
@@ -271,7 +271,7 @@ export const IST_OFFSET_SECONDS = 5 * 3600 + 30 * 60;
  * settled in the last 5½ hours of a month into the wrong period — the exact
  * window T+2 settlements crowd into, and the exact thing TIMING exists to
  * detect. Reading them in local time would make the verdict depend on where the
- * server happens to run. BUILD-LOG entry 13.
+ * server happens to run.
  */
 export function periodOf(settledAt: number): string {
   const ist = new Date((settledAt + IST_OFFSET_SECONDS) * 1000);
@@ -296,7 +296,7 @@ function resolveCells(item: ReconItem, mode: MatchMode) {
   // Nothing was captured, so nothing was billed. Without this guard every cell
   // "explains" the fee — 2% and 2.15% of nothing are both nothing — which reads
   // as a clean EXACT match in exact-only mode and as ambiguity in exact+fuzzy.
-  // Both are wrong, and wrong in the flattering direction. BUILD-LOG entry 9.
+  // Both are wrong, and wrong in the flattering direction.
   if (item.amount === 0) return [];
 
   const cells: RateCell[] =

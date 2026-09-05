@@ -4,7 +4,7 @@
  * Unit tests cannot see this screen's one interaction. A click handler passed
  * to a component is not the same thing as a click handler that runs: a row
  * click can be wired correctly, typecheck, and still do nothing, which is an
- * afternoon this project has already lost once. BUILD-LOG entry 28.
+ * afternoon this project has already lost once.
  *
  * So this drives a real browser over the Chrome DevTools Protocol, dispatches
  * real mouse events, and reads the rendered result back out of the DOM. No test
@@ -25,8 +25,7 @@ const TARGET_URL = process.env.TARGET_URL ?? "http://localhost:3000/";
 const PORT = Number(process.env.CDP_PORT ?? 9333);
 const EXPECTED_ROWS = 54;
 /**
- * The split the tabs have to show, and the same locked figures `docs/HANDOFF.md`
- * carries. Written here rather than read from the page: a count taken from the
+ * The split the tabs have to show, and the locked figures behind it. Written here rather than read from the page: a count taken from the
  * thing under test grades it against itself.
  */
 const EXPECTED_EXCEPTIONS = 16;
@@ -293,7 +292,7 @@ try {
       // Searched INSIDE the table rows. A document-wide search finds the
       // Explain panel's citation link for the same record first, which has no
       // row to click and reports as "no clickable text", a failure that looks
-      // like the row bug this script exists to catch. BUILD-LOG entry 30.
+      // like the row bug this script exists to catch.
       const anchor = [...document.querySelectorAll("tbody tr *")].find(
         (el) => el.children.length === 0 && el.textContent.trim() === ${JSON.stringify(id)}
       );
@@ -356,8 +355,8 @@ try {
     // PRD §15.1. Only a flagged row is investigated, so only a flagged row gets
     // this section, an empty one on a matched row would imply a run that is
     // missing rather than a row no model was ever asked about. Asserted in a
-    // real browser because this whole file exists for the reason BUILD-LOG 28
-    // records: this screen has already shipped a section that typechecked,
+    // real browser because this whole file exists for one reason: this screen
+    // has already shipped a section that typechecked,
     // rendered in tests, and did nothing on the page.
     const hasAgentSection = panel.includes("What the agent did");
     if (hasAgentSection !== expectFlagged) {
@@ -373,7 +372,7 @@ try {
     // clean row would invite a person to act where nothing is wrong. Scoped
     // INSIDE the action band, never to the document: the cards are the third
     // place on this page that renders a record id, and a page-wide search is
-    // exactly the mistake BUILD-LOG entry 30 records twice.
+    // the mistake this script has already made twice.
     //
     // The band, not the detail panel. The drafts used to hang off the bottom of
     // the panel beside the table and stood a thousand pixels taller than it,
@@ -407,7 +406,7 @@ try {
   // Scoped to the question chips, NOT to the panel: the panel also holds the
   // Ask button, so a panel-wide count stops being a count of questions the
   // moment anything else in it gains a button. Same mistake as the row search
-  // below, found the same way. BUILD-LOG entry 30.
+  // below, found the same way.
   const questionCount = await evaluate(
     `document.querySelectorAll('[data-testid="explain-questions"] button').length`,
   );
@@ -418,7 +417,7 @@ try {
   // Every row carries the anchor a citation scrolls to. Asserted whether or not
   // any answer has been recorded, because this is the half that silently
   // breaks: a citation whose target id does not exist scrolls nowhere and looks
-  // exactly like one that worked. BUILD-LOG entry 28 is the same class of bug.
+  // exactly like one that worked.
   const anchors = await evaluate(
     `document.querySelectorAll('[id^="row-pay_"], [id^="row-rfnd_"]').length`,
   );
@@ -506,7 +505,7 @@ try {
     if (!host) return null;
     // Scoped to the cards, never to the section: the section header carries its
     // own copy, so a section-wide button count stops being a count of Confirm
-    // buttons the moment anything else in it gains one. BUILD-LOG 30.
+    // buttons the moment anything else in it gains one.
     const buttons = [...host.querySelectorAll('[data-testid^="confirm-"]')];
     return {
       text: host.innerText,
@@ -645,7 +644,7 @@ try {
   // cell, which advertised 324 interactive stops on which Enter did nothing:
   // worse than not offering, because a keyboard reader is told the row is
   // operable and finds out otherwise. Asserted in a real browser because a
-  // handler that typechecks and never fires is exactly what BUILD-LOG 28 is.
+  // handler that typechecks and never fires has shipped here before.
   const KEYBOARD_TARGET = "pay_qcqeWqwISCOg2K";
   const focused = await evaluate(`(() => {
     const anchor = [...document.querySelectorAll("tbody tr *")].find(

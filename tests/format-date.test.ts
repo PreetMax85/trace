@@ -33,7 +33,7 @@ describe("formatIstDateTime", () => {
 
   it("refuses a timestamp that is not an exact epoch-second value", () => {
     // A millisecond value would silently render a date in 1970 — the same
-    // wrong-unit fault BUILD-LOG entry 25 records on the ingestion side.
+    // wrong-unit fault that hit the ingestion side once.
     expect(() => formatIstDateTime(1.5)).toThrow(/exact epoch-second value/);
     expect(() => formatIstDateTime(Number.NaN)).toThrow(/exact epoch-second value/);
   });

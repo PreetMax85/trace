@@ -8,7 +8,7 @@ import { formatPaise, formatRupees } from "@/lib/format/money";
  */
 
 describe("formatPaise", () => {
-  it("renders the locked figures exactly as docs/HANDOFF.md states them", () => {
+  it("renders the period's locked figures exactly", () => {
     // If any of these move, the formatter is wrong — not the number.
     expect(formatPaise(119692)).toBe("1,196.92"); // July invoice tax
     expect(formatPaise(664945)).toBe("6,649.45"); // July invoice taxable value

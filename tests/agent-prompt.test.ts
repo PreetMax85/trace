@@ -170,7 +170,7 @@ describe("record prompt", () => {
   it("reads the settlement date in IST, not UTC", () => {
     // A settlement at 19:00 UTC on 31 July is 00:30 IST on 1 August, and lands
     // on the following month's GSTR-2B. Reading it as UTC hides exactly the
-    // month-boundary crossing that TIMING exists to detect. BUILD-LOG entry 13.
+    // month-boundary crossing that TIMING exists to detect.
     expect(istDate(Math.floor(Date.UTC(2026, 6, 31, 19, 0, 0) / 1000))).toBe("2026-08-01");
     expect(istDate(Math.floor(Date.UTC(2026, 6, 31, 18, 0, 0) / 1000))).toBe("2026-07-31");
   });

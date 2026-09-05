@@ -36,8 +36,8 @@ const DRAFTS_PATH = "data/synthetic/drafts.json";
 /**
  * A FAILED verdict is a call that produced nothing, not a draft the gate
  * refused. Every real run lost one or two records to one — a different record
- * each time, and pacing did not help. `runEval` has retried for this since
- * slice 4. BUILD-LOG 36.
+ * each time, and pacing did not help. `runEval` has retried for this
+ * from the start.
  */
 const DEFAULT_RETRIES = 2;
 

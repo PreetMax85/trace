@@ -43,7 +43,7 @@ describe("priceAtPublishedRates", () => {
   it("reports every cell that ties, not the first one found", async () => {
     // Below about 1138 rupees the two published cells price within 1 rupee of
     // each other, so a fee can genuinely satisfy both. Returning one would make
-    // the verdict depend on object key order. BUILD-LOG entry 10.
+    // the verdict depend on object key order.
     const amountPaise = 50000;
     const { fee } = priceAt(amountPaise, "STANDARD");
     const out = await call(tools.priceAtPublishedRates, { amountPaise, feePaise: fee });
@@ -88,7 +88,7 @@ describe("priceAtPublishedRates", () => {
 
   it("refuses to explain a fee on a zero capture", async () => {
     // 2% and 2.15% of nothing are both nothing, so without a guard every cell
-    // "explains" a failed retry and it reads as a clean match. BUILD-LOG 9.
+    // "explains" a failed retry and it reads as a clean match.
     const out = await call(tools.priceAtPublishedRates, { amountPaise: 0, feePaise: 0 });
     expect(out.tiedCells).toEqual([]);
     expect(out.cells).toEqual([]);
@@ -160,7 +160,7 @@ describe("resolveFilingPeriod", () => {
 
   it("reads a month boundary in IST, so T+2 lands in the next period", async () => {
     // 19:00 UTC on 31 July is 00:30 IST on 1 August. Reading it as UTC hides
-    // the crossing that TIMING exists to detect. BUILD-LOG entry 13.
+    // the crossing that TIMING exists to detect.
     const out = await call(tools.resolveFilingPeriod, {
       settledAtUnixSeconds: Math.floor(Date.UTC(2026, 6, 31, 19, 0, 0) / 1000),
     });

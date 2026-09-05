@@ -27,7 +27,7 @@ describe("narrateToolCall", () => {
   it("names both rates when a fee is genuinely ambiguous", () => {
     // Two cells 0.15 percentage points apart price within one rupee of each
     // other on small payments, so a fee really can satisfy both. Reporting one
-    // would make the sentence depend on key order. BUILD-LOG entry 10.
+    // would make the sentence depend on key order.
     const { found } = narrateToolCall(priced({ tiedCells: ["STANDARD", "CORPORATE"] }));
     expect(found).toContain("2.00% standard");
     expect(found).toContain("2.15% corporate");
@@ -42,7 +42,7 @@ describe("narrateToolCall", () => {
   it("passes the tool's own note through when nothing was captured", () => {
     // 2% and 2.15% of zero are both zero, so without the tool's guard every
     // cell "explains" a fee on a failed retry. The narration must not paper
-    // over that with "two rates explain it". BUILD-LOG entry 9.
+    // over that with "two rates explain it".
     const note = "Nothing was captured, so no fee is expected and no rate cell can explain one.";
     const { found } = narrateToolCall(
       priced({ tiedCells: ["STANDARD", "CORPORATE"], note }),

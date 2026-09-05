@@ -177,7 +177,7 @@ describe("bakeDrafts — a call that failed outright", () => {
   it("is tried again, because a provider error is not a bad draft", async () => {
     // Every run of `npm run act` lost one or two records, a DIFFERENT one each
     // time, and a delay between calls did not help. `runEval` met the same
-    // thing in slice 4 and retries for it; the bakes never picked that up.
+    // thing first and retries for it; the bakes never picked that up.
     const out = await bakeWith(flakyModel(1), 2);
 
     expect(out.drafts[0].verdict).toBe("ACCEPTED");

@@ -74,7 +74,7 @@ function groupIndian(rupees: number): string {
  * Refuses anything that is not an exact integer count of paise.
  *
  * This is the guard that matters. `8.29 * 100` is 828.9999999999999 in
- * IEEE-754 (BUILD-LOG entry 12 is the same fault on the fee side), and a
+ * IEEE-754 (the same fault bit the fee side once), and a
  * formatter that accepted it would print a confident, wrong figure rather than
  * fail — `828.9999999999999 % 100` is 28.999999999999943. Anything past
  * `Number.MAX_SAFE_INTEGER` is refused for the same reason: past that point the

@@ -121,7 +121,7 @@ function optionalString(value: unknown): string | null {
 /**
  * `payment_id` is the ONLY join key for `REFUND_NETTED` — a refund is netted
  * into a later settlement cycle, so joining on `settlement_id` finds nothing
- * and looks correct doing it (BUILD-LOG entry 3). A refund arriving without it
+ * and looks correct doing it. A refund arriving without it
  * silently removes a record from the category, so it is refused.
  *
  * On a payment row the payment's own id lives in `entity_id`, and `payment_id`

@@ -8,7 +8,7 @@
  * value 6127.5 rounds up to 6128 under every convention. `285000 * 215` is
  * 61,275,000 — an integer well inside a double's exact range — so dividing by
  * 10000 afterwards carries no error at all. Three of the 54 fixture records sit
- * on that fault line. See BUILD-LOG entry 12.
+ * on that fault line.
  */
 export const RATE_CELLS = {
   STANDARD: 200, // 2.00%
@@ -29,7 +29,7 @@ export const TOLERANCE_PAISE = 100;
  * Statement money is in RUPEES and recon money in integer paise, so somebody
  * has to convert — once, in one place. Rounded and never truncated: ₹8.29 × 100
  * evaluates to 828.9999999999999 in IEEE-754, and truncating loses a paise per
- * line, silently and only on some values. BUILD-LOG entry 12 is the same fault
+ * line, silently and only on some values. The rounding helper carries the same fault
  * on the fee side.
  *
  * It lives here rather than in the matcher because the ingestion layer needs

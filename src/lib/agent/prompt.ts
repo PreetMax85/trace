@@ -68,7 +68,7 @@ Use ordinary punctuation: full stops, commas, colons, brackets. Never an em dash
  * settlement landing in the last 5½ hours of a month reads as the wrong month
  * in UTC: the exact window T+2 crowds into, and the exact thing TIMING exists
  * to detect. The offset is imported rather than retyped so the model and the
- * matcher can never be looking at different days. BUILD-LOG entry 13.
+ * matcher can never be looking at different days.
  */
 export function istDate(settledAt: number): string {
   return new Date((settledAt + IST_OFFSET_SECONDS) * 1000).toISOString().slice(0, 10);

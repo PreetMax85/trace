@@ -53,7 +53,7 @@ export function SectionTitle({
  * The component is `CardTitle` and the size role it applies is `title`, and the
  * mismatch is deliberate. The role could not stay `card`: `text-*` resolves
  * against colours as well as sizes, `--color-card` exists, and the colour won,
- * so `text-card` painted white text and set no size (BUILD-LOG 38). Renaming
+ * so `text-card` painted white text and set no size. Renaming
  * the component to match would have touched five more files for no behaviour,
  * and a rename that spreads across a diff is a rename that makes the next
  * breakage expensive to find.

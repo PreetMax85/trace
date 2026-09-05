@@ -227,7 +227,7 @@ function filedCorrectly(flag: ActDraft["gstr3bFlag"]): boolean {
  * and is still wrong on a fee the merchant has already claimed and cannot
  * substantiate. Nothing checked this until the first run against a real model
  * returned `NO_ENTRY` on all sixteen flagged records and the gate marked every
- * one ACCEPTED — BUILD-LOG 35.
+ * one ACCEPTED.
  *
  * A record with no category is one the matcher resolved cleanly, and Act does
  * not draft for those; if one ever arrives, there is no row to check against
