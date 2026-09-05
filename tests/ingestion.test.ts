@@ -83,6 +83,7 @@ const rawPayment = (over: Record<string, unknown> = {}) => ({
   payment_id: null,
   order_id: "order_test00000001",
   method: "card",
+  settlement_utr: "1783159200004rzp",
   ...over,
 });
 
@@ -519,10 +520,15 @@ describe("recon row shape", () => {
     }
   });
 
-  it("returns exactly the matcher's fields, dropping everything else", () => {
-    // The recon row carries 25 fields; the matcher's type names 11. Passing the
-    // rest through would let a later `card_type` or `notes` read reach data the
+  it("returns exactly the fields the type names, dropping everything else", () => {
+    // The recon row carries 25 fields; `ReconItem` names 13. Passing the rest
+    // through would let a later `card_type` or `notes` read reach data the
     // Detect layer never validated.
+    //
+    // Two of the 13 are for the screen alone: `payment_method` and
+    // `settlement_utr` are rendered and never computed with. They are listed
+    // here so that adding a field to the type is a deliberate act rather than
+    // something that happens by accident.
     const [row] = parseSettlements(collection(rawPayment()));
     expect(Object.keys(row).sort()).toEqual(
       [
@@ -533,12 +539,37 @@ describe("recon row shape", () => {
         "fee",
         "order_id",
         "payment_id",
+        "payment_method",
         "settled_at",
         "settlement_id",
+        "settlement_utr",
         "tax",
         "type",
       ].sort(),
     );
+  });
+
+  it("reads the display-only fields leniently, because neither moves a figure", () => {
+    // Everything the matcher computes with is refused when it is missing or
+    // malformed. These two are not: a batch must not stop reconciling because
+    // a row failed to say how the customer paid. The distinction is the point
+    // of the test — if either ever starts feeding arithmetic, this leniency
+    // becomes a silent wrong answer and this test should start failing.
+    const [row] = parseSettlements(collection(rawPayment()));
+    expect(row.payment_method).toBe("card");
+    expect(row.settlement_utr).toBe("1783159200004rzp");
+
+    const bare = rawPayment();
+    delete (bare as Partial<Record<"method" | "settlement_utr", unknown>>).method;
+    delete (bare as Partial<Record<"method" | "settlement_utr", unknown>>).settlement_utr;
+    const [without] = parseSettlements(collection(bare));
+    expect(without.payment_method).toBeNull();
+    expect(without.settlement_utr).toBeNull();
+
+    // A non-string is dropped rather than coerced: "42" in a method column
+    // would read as a payment method that does not exist.
+    const wrong = parseSettlements(collection(rawPayment({ method: 42 })));
+    expect(wrong[0].payment_method).toBeNull();
   });
 });
 

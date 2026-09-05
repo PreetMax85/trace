@@ -27,6 +27,8 @@ function payment(over: Partial<ReconItem> = {}): ReconItem {
     payment_id: null,
     settlement_id: "setl_test00000001",
     settled_at: IN_JULY,
+    payment_method: "card",
+    settlement_utr: "1784000000rzp",
     ...over,
   };
 }

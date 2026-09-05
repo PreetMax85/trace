@@ -14,6 +14,22 @@ export type ReconItem = {
   payment_id: string | null;
   settlement_id: string;
   settled_at: number;
+  /**
+   * How the customer paid: `card`, `upi`, `netbanking`, `wallet`. Carried for
+   * the screen only. The matcher never reads it, and it must never start to:
+   * the rate a fee is checked against comes from Razorpay's published card, not
+   * from what the row says about itself.
+   *
+   * Null when the payload omits it, which the recon report does on some row
+   * types. Presentation degrades to "payment"; nothing else changes.
+   */
+  payment_method: string | null;
+  /**
+   * The bank reference for the payout this row settled in. Also presentation
+   * only, and the one identifier on the row a merchant can find on their own
+   * bank statement, which is why it is worth carrying at all.
+   */
+  settlement_utr: string | null;
 };
 
 export type MatchStatus = "MATCHED" | "EXCEPTION";

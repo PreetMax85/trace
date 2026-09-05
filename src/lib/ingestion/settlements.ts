@@ -105,7 +105,17 @@ function toReconItem(item: unknown, index: number): ReconItem {
     // fractional or wrongly-scaled timestamp silently picks a filing period —
     // hence seconds specifically, not merely an integer.
     settled_at: requireEpochSeconds(row.settled_at, `${at}.settled_at`),
+    // Read leniently, and deliberately so. Both are for the screen, neither is
+    // arithmetic, and refusing a batch because a display string is missing
+    // would stop a reconciliation over something that changes no figure.
+    payment_method: optionalString(row.method),
+    settlement_utr: optionalString(row.settlement_utr),
   };
+}
+
+/** A string when there is one to read, null otherwise. Never throws. */
+function optionalString(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
 }
 
 /**

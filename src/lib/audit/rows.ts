@@ -129,8 +129,12 @@ function itcSplit(result: BatchResult, period: string) {
  * same reason the rollup is: a refund netted into a settlement that landed in
  * the next month is on the NEXT invoice, and crediting it here would claim it
  * twice.
+ *
+ * Exported because the screen shows the same term when it explains where the
+ * claimable figure came from. Two spellings of "tax on this period's netted
+ * refunds" is how a derivation stops adding up to the figure above it.
  */
-const refundNettedTaxPaise = (result: BatchResult, period: string) =>
+export const refundNettedTaxPaise = (result: BatchResult, period: string) =>
   result.records
     .filter((r) => r.category === "REFUND_NETTED" && r.billedIn === period)
     .reduce((total, r) => total + r.razorpayTaxPaise, 0);

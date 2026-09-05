@@ -33,6 +33,8 @@ const item: ReconItem = {
   credit: 113870,
   order_id: "order_Nx4kR2000001",
   payment_id: null,
+  payment_method: "card",
+  settlement_utr: "1784000000rzp",
   settlement_id: "setl_Nx4kR2000001",
   settled_at: Math.floor(Date.UTC(2026, 6, 15, 6, 0, 0) / 1000),
 };

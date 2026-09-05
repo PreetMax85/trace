@@ -1,4 +1,4 @@
-import { toBatchRow, toRecordRows } from "@/lib/audit/rows";
+import { refundNettedTaxPaise, toBatchRow, toRecordRows } from "@/lib/audit/rows";
 import { parseSettlements, parseStatement } from "@/lib/ingestion";
 import { RAZORPAY_SUPPLIER_GSTIN, matchBatch } from "@/lib/matching";
 import type {
@@ -67,6 +67,21 @@ export type ReviewRow = {
   /** The filing period whose GSTR-2B carries this row's fee. */
   billedIn: string;
   settledAt: number;
+  /**
+   * How the customer paid, and the bank reference for the payout. Neither
+   * touches a figure. They are here because `pay_OmWyu0UGKY8O4o` means nothing
+   * to a person reading the table, and "₹1,499.00 card payment" does. The UTR
+   * is the one string on the row a merchant can match against their own bank
+   * statement.
+   */
+  paymentMethod: string | null;
+  settlementUtr: string | null;
+  /**
+   * Whether the row is the payment or the refund that reversed one. Taken from
+   * the recon row rather than inferred from the id prefix, because an id prefix
+   * is a naming convention and this is a field.
+   */
+  recordType: "payment" | "refund";
   explanation: RecordExplanation;
   /**
    * What the agent did to reach this verdict (PRD §15.1), or null when no run
@@ -92,6 +107,13 @@ export type ReviewHeader = {
   invoiceTaxPaise: number;
   itcClaimablePaise: number;
   itcAtRiskPaise: number;
+  /**
+   * Tax on the refunds this period's invoice bills. One of the two terms that
+   * add up to `itcClaimablePaise`, carried so the screen can show the
+   * subtraction rather than assert its result. Read from the same function the
+   * audit row uses, never recomputed here.
+   */
+  refundNettedTaxPaise: number;
   matchedCount: number;
   exceptionCount: number;
   totalRecords: number;
@@ -268,6 +290,9 @@ export function loadReviewBatch(): ReviewBatch {
       creditNoteReview: record.creditNoteReview,
       billedIn: record.billedIn,
       settledAt: item.settled_at,
+      paymentMethod: item.payment_method,
+      settlementUtr: item.settlement_utr,
+      recordType: item.type,
     };
 
     return {
@@ -317,6 +342,7 @@ export function loadReviewBatch(): ReviewBatch {
       invoiceTaxPaise: result.rollup.gstr2bInvoiceTaxPaise,
       itcClaimablePaise: required(batch.itcClaimablePaise, "itcClaimablePaise"),
       itcAtRiskPaise: required(batch.itcAtRiskPaise, "itcAtRiskPaise"),
+      refundNettedTaxPaise: refundNettedTaxPaise(result, REVIEW_PERIOD),
       matchedCount: required(batch.matchedExact, "matchedExact") + required(batch.matchedFuzzy, "matchedFuzzy"),
       exceptionCount: required(batch.exceptions, "exceptions"),
       totalRecords: required(batch.totalRecords, "totalRecords"),
