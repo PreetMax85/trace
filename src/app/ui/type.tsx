@@ -49,6 +49,14 @@ export function SectionTitle({
  * document outline is a structural one, and they used to be made with the same
  * prop: four rupee amounts once sat in the outline as untitled sibling sections
  * purely because they needed to be big.
+ *
+ * The component is `CardTitle` and the size role it applies is `title`, and the
+ * mismatch is deliberate. The role could not stay `card`: `text-*` resolves
+ * against colours as well as sizes, `--color-card` exists, and the colour won,
+ * so `text-card` painted white text and set no size (BUILD-LOG 38). Renaming
+ * the component to match would have touched five more files for no behaviour,
+ * and a rename that spreads across a diff is a rename that makes the next
+ * breakage expensive to find.
  */
 export function CardTitle({
   children,
@@ -56,11 +64,11 @@ export function CardTitle({
   className,
 }: {
   children: React.ReactNode;
-  as?: "h3" | "h4" | "span";
+  as?: "h2" | "h3" | "h4" | "span";
   className?: string;
 }) {
   return (
-    <Tag className={cn("block font-serif text-card font-medium text-foreground", className)}>
+    <Tag className={cn("block font-serif text-title font-medium text-foreground", className)}>
       {children}
     </Tag>
   );

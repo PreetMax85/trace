@@ -11,7 +11,7 @@
  * red is "credit at risk" and green is "claimable". A brand colour near either
  * would make a button look like a verdict.
  */
-export const BRAND_COLOR = "#4338CA";
+export const BRAND_COLOR = "#4F46E5";
 
 /** The glyph inside the mark, and the text on the link preview. */
 export const BRAND_ON_COLOR = "#FFFFFF";
